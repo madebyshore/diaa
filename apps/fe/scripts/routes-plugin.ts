@@ -14,6 +14,12 @@
  * CMS-driven routes (Sanity content) are handled in the Sanity page loop —
  * they use a template HTML file identified by a star-prefix filename convention
  * (e.g., *case-study.html inside the case-study/ folder).
+ *
+ * The actual rendering work (Sanity fetch → Mustache render → in-memory HTML
+ * per route) lives in the exported, disk-free `renderSite()`. `emitRoutesAndBoot()`
+ * is a thin wrapper that calls it and writes the result to `outDir` — this split
+ * lets a standalone script (e.g. a future CMS preview server) import `renderSite()`
+ * and render pages without a Vite plugin instance or a filesystem output directory.
  */
 
 import fs from "node:fs";
@@ -22,6 +28,9 @@ import Mustache from "mustache";
 import { loadSanityContent } from "./sanity-content.js";
 import log from "./utils/logger.js";
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
+// Type-only import — routes-plugin never constructs a Sanity client itself,
+// but needs the stega config shape to pass through renderSite → loadSanityContent.
+import type { StegaConfig } from "@sanity/client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,8 +48,11 @@ interface RoutesPluginOptions {
 /**
  * A single entry in the tmhgne.json cache map.
  * Contains the page title and the pre-rendered inner HTML of the #app container.
+ * Exported because `RenderedSite.cache` (the in-memory render result) reuses
+ * this exact shape — both the disk-writing plugin and a future preview server
+ * share one cache-entry contract.
  */
-interface RouteCacheEntry {
+export interface RouteCacheEntry {
   title: string;
   html: string;
 }
@@ -57,7 +69,7 @@ interface PkgPayload {
 
 /**
  * A single entry in the Vite build manifest (`.vite/manifest.json`).
- * Used by closeBundle to locate hashed JS and CSS asset filenames.
+ * Used by findHashedAssets() to locate hashed JS and CSS asset filenames.
  */
 interface ManifestEntry {
   file: string;
@@ -79,6 +91,66 @@ export interface RouteFolderEntry {
    * indicating it is a CMS-driven template rendered once per Sanity page.
    */
   isCmsTemplate: boolean;
+}
+
+/**
+ * The pure, in-memory result of rendering every route once. Contains
+ * everything `emitRoutesAndBoot()` used to write straight to disk — the only
+ * disk-only step left out is scanning `outDir` for leftover pre-existing HTML
+ * files, since that has no meaning for a caller with no output directory.
+ */
+export interface RenderedSite {
+  /** Route path ("/", "/about", …) → route key (e.g. "home", "about", "detail"). */
+  routes: Record<string, string>;
+  /** Route path → { title, html } used to pre-populate the SPA's navigation cache. */
+  cache: Record<string, RouteCacheEntry>;
+  /** Route path → the full wrapped HTML document (shell + rendered content). */
+  pagesHtml: Map<string, string>;
+  /** Site title resolved for this render (Sanity Global doc, or the fallback passed in). */
+  siteTitle: string;
+  /** Intro overlay phrases resolved for this render. */
+  introPhrases: string[];
+}
+
+/**
+ * Options accepted by `renderSite()`. Mirrors the subset of
+ * `RoutesAndBootPlugin`'s closure that the render pipeline actually needs —
+ * everything else (outDir, disk writes, dev-server watching) is the plugin's
+ * own concern and stays out of this pure function.
+ */
+export interface RenderSiteOptions {
+  /** Path to the routes directory (each subfolder = one route). Resolved against `process.cwd()` if relative. */
+  routesDir: string;
+  /** Path to the shell HTML template (index.html) that wraps every route's rendered content. */
+  template: string;
+  /** True for production builds — toggles the `dev` flag read by the shell template. */
+  isBuild: boolean;
+  /** Sanity API perspective forwarded to `loadSanityContent()`. Defaults to "published" there. */
+  perspective?: "published" | "drafts";
+  /** Sanity stega config forwarded to `loadSanityContent()`. Omitted entirely unless the caller opts in. */
+  stega?: StegaConfig;
+  /**
+   * Site title to use if this render's Sanity fetch fails or returns none.
+   * Lets a caller that persists state across repeated renders (the dev-server
+   * plugin instance) avoid flashing back to a blank title on a transient
+   * fetch failure. Defaults to "" (matches a cold first render).
+   */
+  fallbackSiteTitle?: string;
+  /** Same fallback contract as `fallbackSiteTitle`, for the intro overlay phrases. */
+  fallbackIntroPhrases?: string[];
+}
+
+/**
+ * The hashed JS entry tag and CSS link tags for one build, as located by
+ * `findHashedAssets()`. Pre-formatted as ready-to-insert HTML strings so
+ * `injectAssetTags()` (and any future caller) never has to know about Vite's
+ * manifest shape.
+ */
+export interface HashedAssets {
+  /** `<script type="module" src="/...">` tag for the hashed JS entry. */
+  jsTag: string;
+  /** `<link rel="stylesheet" href="/...">` tags for the entry's CSS dependents. */
+  cssTags: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +240,331 @@ export function getRouteFolders(absRoutesDir: string): RouteFolderEntry[] {
 }
 
 // ---------------------------------------------------------------------------
+// Core: template loading (parameterized — used by renderSite and, for
+// partials, by the dev-server's transformIndexHtml)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads all Mustache partial files from `{absRoutesDir}/partials/` and
+ * returns them as a name→content map for use in Mustache.render() calls.
+ * Parameterized (rather than closing over a plugin instance) so both
+ * `renderSite()` and the Vite plugin's dev-server HTML transform can share it.
+ */
+function loadPartials(absRoutesDir: string): Record<string, string> {
+  const partialsDir = path.join(absRoutesDir, "partials");
+  const map: Record<string, string> = {};
+  if (!fs.existsSync(partialsDir)) return map;
+  const files = fs
+    .readdirSync(partialsDir)
+    .filter((f) => /\.(html|mustache)$/i.test(f));
+  for (const f of files) {
+    const name = f.replace(/\.(html|mustache)$/i, "");
+    const abs = path.join(partialsDir, f);
+    map[name] = fs.readFileSync(abs, "utf8");
+  }
+  return map;
+}
+
+/**
+ * Reads the shell HTML template (index.html) that wraps every route's
+ * rendered content. Throws if the template file does not exist.
+ */
+function readTemplate(absTemplate: string): string {
+  if (!fs.existsSync(absTemplate))
+    throw new Error(`[routes] Missing template: ${absTemplate}`);
+  return fs.readFileSync(absTemplate, "utf8");
+}
+
+// ---------------------------------------------------------------------------
+// Core: pure in-memory site render
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders every route once, entirely in memory: fetches Sanity content,
+ * renders each static and CMS-driven template through Mustache, and wraps
+ * the result in the shell template. No filesystem writes happen here — the
+ * caller decides what to do with `pagesHtml` (write to `outDir`, as
+ * `emitRoutesAndBoot()` does, or serve directly, as a future preview server
+ * would).
+ *
+ * Mirrors `emitRoutesAndBoot()`'s pre-refactor behavior exactly (same
+ * fallback-title handling, same title-composition rules, same cache/inner-HTML
+ * extraction) so switching production builds over to this function changes
+ * nothing about the emitted bytes.
+ *
+ * @param opts - Routes/template locations, build mode, and Sanity fetch options.
+ */
+export async function renderSite(opts: RenderSiteOptions): Promise<RenderedSite> {
+  const {
+    routesDir,
+    template,
+    isBuild,
+    perspective,
+    stega,
+    fallbackSiteTitle = "",
+    fallbackIntroPhrases = [],
+  } = opts;
+
+  const absRoutesDir = path.resolve(routesDir);
+  const absTemplate = path.resolve(template);
+
+  const t = readTemplate(absTemplate);
+  const routeFolders = getRouteFolders(absRoutesDir);
+  const partials = loadPartials(absRoutesDir);
+
+  const routes: Record<string, string> = {};
+  const cache: Record<string, RouteCacheEntry> = {};
+  const pagesHtml = new Map<string, string>();
+
+  // Load Sanity content first so page data (images, site title, etc.) is
+  // available for both static and CMS-driven route templates.
+  let sanityPages: Awaited<ReturnType<typeof loadSanityContent>>["pages"] = [];
+  let siteTitle = fallbackSiteTitle;
+  let introPhrases = fallbackIntroPhrases;
+  try {
+    // exactOptionalPropertyTypes forbids passing `perspective`/`stega` as
+    // explicit `undefined` — omit the keys entirely when unset instead of
+    // passing the (possibly-undefined) locals directly.
+    const content = await loadSanityContent({
+      ...(perspective ? { perspective } : {}),
+      ...(stega ? { stega } : {}),
+    });
+    sanityPages = content.pages;
+    siteTitle = content.siteTitle || fallbackSiteTitle;
+    introPhrases = content.introPhrases?.length
+      ? content.introPhrases
+      : fallbackIntroPhrases;
+  } catch (e) {
+    const err = e as Error;
+    log.line("cms", `skipped: ${err?.message || e}`);
+  }
+
+  /**
+   * Wraps rendered inner HTML in the shell template. `siteTitle` is
+   * threaded in so the shell <title> and meta.html share the value.
+   * The `dev` flag toggles dev-only template branches.
+   */
+  // Intro phrases serialized for the shell. Every "<" is replaced with its
+  // unicode JSON escape so the payload — rendered unescaped inside the intro's
+  // <script type="application/json"> — can never emit a literal closing script
+  // tag and end the block early. `hasIntroPhrases` gates the intro markup so
+  // the text/JSON only render when the CMS provided phrases.
+  const introPhrasesJson = JSON.stringify(introPhrases).replace(
+    /</g,
+    "\\u003c",
+  );
+  const hasIntroPhrases = introPhrases.length > 0;
+
+  const wrap = (inner: string): string =>
+    Mustache.render(
+      t,
+      {
+        content: inner,
+        dev: !isBuild,
+        siteTitle,
+        introPhrasesJson,
+        hasIntroPhrases,
+      },
+      partials,
+    );
+
+  // Build a lookup from route key → page data so static templates can
+  // access data defined in sanity-content (e.g. responsive image arrays).
+  const pageDataByKey: Record<string, Record<string, unknown>> = {};
+  for (const page of sanityPages) {
+    pageDataByKey[page.key] = (page.data ?? {}) as Record<string, unknown>;
+  }
+
+  // Process static (non-CMS) route folders
+  for (const folder of routeFolders) {
+    // CMS template folders are handled in the Sanity loop below
+    if (folder.isCmsTemplate) continue;
+
+    const name = folder.name;
+    const raw = fs.readFileSync(folder.htmlFile, "utf8");
+    // Pass page data from sanity-content to the template so Mustache
+    // can render dynamic content (e.g. responsive image arrays).
+    const data = pageDataByKey[name] ?? {};
+    const rendered = Mustache.render(raw, data, partials);
+    let html = wrap(rendered);
+
+    let routePath: string;
+    let title: string;
+
+    // The shell <title> is a bare `{{siteTitle}}` ("Diaa") for every static
+    // page, so the regex below yields "Diaa" for all of them. When
+    // sanity-content has composed a richer title for this route (e.g.
+    // "Diaa - Contact" / "Diaa - Imprint" — see sanity-content.ts), prefer it
+    // so both the runtime tab title (cache) and the baked <title> (hard load /
+    // crawlers) match the detail pages. Routes whose Sanity title is still the
+    // plain capitalised folder name (e.g. About) fall through to the shell
+    // title unchanged — no behaviour change for those.
+    const bareName = name.charAt(0).toUpperCase() + name.slice(1);
+    const sanityTitle = sanityPages.find((p) => p.key === name)?.title;
+    const customTitle =
+      sanityTitle && sanityTitle !== bareName ? sanityTitle : undefined;
+
+    if (name === "home") {
+      routePath = "/";
+      title = customTitle || /<title>([\s\S]*?)<\/title>/.exec(html)?.[1] || "Home";
+    } else {
+      routePath = `/${name}`;
+      title =
+        customTitle ||
+        /<title>([\s\S]*?)<\/title>/.exec(html)?.[1] ||
+        bareName;
+    }
+
+    // Rewrite the baked shell <title> so a hard load / no-JS crawler sees the
+    // composed title too (the runtime overwrites document.title from the cache
+    // on hydrate, but this avoids a "Diaa" → "Diaa - Contact" flash on load).
+    if (customTitle) {
+      html = html.replace(
+        /<title>[\s\S]*?<\/title>/,
+        `<title>${customTitle}</title>`,
+      );
+    }
+
+    pagesHtml.set(routePath, html);
+    routes[routePath] = name;
+
+    // Extract the inner content of <main id="app"> for SPA cache pre-population.
+    // If no #app container found, fall back to the raw rendered fragment.
+    const appMatch = /<main id=["']app["'][^>]*>([\s\S]*?)<\/main>/i.exec(
+      html
+    );
+    const inner = appMatch?.[1]?.trim() ?? rendered.trim();
+    cache[routePath] = { title, html: inner };
+  }
+
+  // Process CMS-driven routes (pages from sanity-content that use a
+  // star-prefixed template file, e.g. case studies from Sanity CMS).
+  // Content was already loaded above; only CMS-template pages are
+  // rendered here — static pages (home, about) were handled above.
+  try {
+    // Filter to only CMS-template pages (those whose template matches
+    // a star-prefixed folder). Static pages already rendered above.
+    const cmsPages = sanityPages.filter((p) =>
+      routeFolders.some((f) => f.isCmsTemplate && f.name === p.template)
+    );
+
+    for (const page of cmsPages) {
+      // After migration: CMS templates live in a subdirectory named after the
+      // template. Search inside that subdirectory for the template HTML file.
+      // Fallback candidates include both {name}.html and *{name}.html variants
+      // (and .mustache equivalents) inside the template's own folder.
+      const templateFolder = path.join(absRoutesDir, page.template);
+      const candidates = [
+        path.join(templateFolder, `${page.template}.html`),
+        path.join(templateFolder, `${page.template}.mustache`),
+        path.join(templateFolder, `*${page.template}.html`),
+        path.join(templateFolder, `*${page.template}.mustache`),
+      ];
+      let tplPath: string | null = null;
+      for (const cand of candidates) {
+        if (fs.existsSync(cand)) {
+          tplPath = cand;
+          break;
+        }
+      }
+      if (!tplPath) {
+        log.warn("template", `missing ${page.template}`);
+        continue;
+      }
+      const raw = fs.readFileSync(tplPath, "utf8");
+      const rendered = Mustache.render(
+        raw,
+        (page.data ?? {}) as Record<string, unknown>,
+        partials
+      );
+      const html = wrap(rendered);
+
+      pagesHtml.set(page.path, html);
+      routes[page.path] = page.key || buildKeyFor(page.path);
+      const appMatch = /<main id=["']app["'][^>]*>([\s\S]*?)<\/main>/i.exec(
+        html
+      );
+      const inner = appMatch?.[1]?.trim() ?? rendered.trim();
+      cache[page.path] = { title: page.title || "", html: inner };
+    }
+  } catch (e) {
+    const err = e as Error;
+    log.line("cms", `skipped: ${err?.message || e}`);
+  }
+
+  return { routes, cache, pagesHtml, siteTitle, introPhrases };
+}
+
+// ---------------------------------------------------------------------------
+// Core: hashed asset lookup + injection (shared by closeBundle and any
+// future in-memory HTML server)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads Vite's build manifest from `distDir` (`.vite/manifest.json`, falling
+ * back to the legacy `manifest.json` path) and locates the hashed JS entry
+ * and its CSS dependents. Returns `null` when the manifest or a usable entry
+ * can't be found (e.g. `distDir` isn't a real Vite build output yet), so
+ * callers can skip injection gracefully instead of throwing.
+ *
+ * @param distDir - The build output directory containing the Vite manifest.
+ */
+export function findHashedAssets(distDir: string): HashedAssets | null {
+  let manifestPath = path.resolve(distDir, ".vite/manifest.json");
+  if (!fs.existsSync(manifestPath)) {
+    const legacy = path.resolve(distDir, "manifest.json");
+    manifestPath = fs.existsSync(legacy) ? legacy : manifestPath;
+  }
+  if (!fs.existsSync(manifestPath)) return null;
+
+  const manifest: Record<string, ManifestEntry> = JSON.parse(
+    fs.readFileSync(manifestPath, "utf8")
+  );
+
+  let entry: ManifestEntry | undefined =
+    manifest["tmhgne"] || manifest["src/main.ts"];
+  if (!entry) {
+    entry = Object.values(manifest).find((m) => m && m.isEntry);
+  }
+  if (!entry || !entry.file) return null;
+
+  const jsTag = `<script type="module" src="/${entry.file}"></script>`;
+  const cssTags = Array.isArray(entry.css)
+    ? entry.css.map((c) => `<link rel="stylesheet" href="/${c}">`)
+    : [];
+
+  return { jsTag, cssTags };
+}
+
+/**
+ * Inserts the hashed JS entry tag and CSS link tags into a rendered HTML
+ * document. Idempotent — skips any tag already present in `html`, so it's
+ * safe to call more than once against the same markup. CSS tags land before
+ * `</head>`; the JS tag lands before `</body>` (falling back to
+ * prepend/append when those closing tags are missing, matching the
+ * original inline behavior this was extracted from).
+ *
+ * @param html - The HTML document to inject tags into.
+ * @param assets - The hashed asset tags located by `findHashedAssets()`.
+ */
+export function injectAssetTags(html: string, assets: HashedAssets): string {
+  let out = html;
+  for (const tag of assets.cssTags) {
+    if (!out.includes(tag)) {
+      out = /<\/head>/i.test(out)
+        ? out.replace(/<\/head>/i, `${tag}\n</head>`)
+        : `${tag}\n${out}`;
+    }
+  }
+  if (!out.includes(assets.jsTag)) {
+    out = /<\/body>/i.test(out)
+      ? out.replace(/<\/body>/i, `${assets.jsTag}\n</body>`)
+      : `${out}${assets.jsTag}`;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Plugin factory
 // ---------------------------------------------------------------------------
 
@@ -188,6 +585,8 @@ export function RoutesAndBootPlugin(opts: RoutesPluginOptions = {}): Plugin {
   // Cached site title from the Sanity Global doc. Captured during
   // emitRoutesAndBoot and reused by transformIndexHtml so the dev-server
   // shell render gets the same title without re-fetching Sanity each tick.
+  // Also passed into renderSite() as a fallback so a transient Sanity fetch
+  // failure during dev-server hot-reload doesn't flash the title back to blank.
   let cachedSiteTitle = "";
   // Cached intro phrases from the Global doc, same dev-server reuse rationale
   // as cachedSiteTitle. Serialized into the intro overlay; the runtime intro
@@ -195,164 +594,43 @@ export function RoutesAndBootPlugin(opts: RoutesPluginOptions = {}): Plugin {
   let cachedIntroPhrases: string[] = [];
 
   /**
-   * Reads all Mustache partial files from src/routes/partials/ and returns
-   * them as a name→content map for use in Mustache.render() calls.
-   */
-  function loadPartials(): Record<string, string> {
-    const partialsDir = path.join(absRoutesDir, "partials");
-    const map: Record<string, string> = {};
-    if (!fs.existsSync(partialsDir)) return map;
-    const files = fs
-      .readdirSync(partialsDir)
-      .filter((f) => /\.(html|mustache)$/i.test(f));
-    for (const f of files) {
-      const name = f.replace(/\.(html|mustache)$/i, "");
-      const abs = path.join(partialsDir, f);
-      map[name] = fs.readFileSync(abs, "utf8");
-    }
-    return map;
-  }
-
-  /**
-   * Reads the shell HTML template (index.html) that wraps every route's
-   * rendered content. Throws if the template file does not exist.
-   */
-  function readTemplate(): string {
-    if (!fs.existsSync(absTemplate))
-      throw new Error(`[routes] Missing template: ${absTemplate}`);
-    return fs.readFileSync(absTemplate, "utf8");
-  }
-
-  /**
-   * Main emit function: discovers route folders, renders each template,
-   * writes output HTML files, and writes tmhgne.json + sitemap.xml.
+   * Main emit function: renders every route via `renderSite()`, then writes
+   * the result to `outDir` — per-route HTML files, tmhgne.json, and
+   * sitemap.xml. Also owns the disk-only concerns `renderSite()` doesn't:
+   * removing legacy directory-based route artifacts and scanning `outDir`
+   * for pre-existing HTML files left over from a previous build.
    *
    * Called at buildStart (production build) and at dev server startup / on
-   * file changes. The CMS Sanity loop is attempted after static routes; it
-   * gracefully skips if Sanity credentials are unavailable.
+   * file changes. The CMS Sanity loop (inside renderSite) gracefully skips
+   * if Sanity credentials are unavailable.
    */
   async function emitRoutesAndBoot(): Promise<void> {
-    const t = readTemplate();
-    const routeFolders = getRouteFolders(absRoutesDir);
-
     fs.mkdirSync(outDir, { recursive: true });
 
-    const routes: Record<string, string> = {};
-    const cache: Record<string, RouteCacheEntry> = {};
+    const site = await renderSite({
+      routesDir,
+      template,
+      isBuild,
+      perspective: "published",
+      fallbackSiteTitle: cachedSiteTitle,
+      fallbackIntroPhrases: cachedIntroPhrases,
+    });
 
-    const partials = loadPartials();
+    cachedSiteTitle = site.siteTitle;
+    cachedIntroPhrases = site.introPhrases;
 
-    // Load Sanity content first so page data (images, site title, etc.) is
-    // available for both static and CMS-driven route templates.
-    let sanityPages: Awaited<ReturnType<typeof loadSanityContent>>["pages"] =
-      [];
-    let siteTitle = cachedSiteTitle;
-    let introPhrases = cachedIntroPhrases;
-    try {
-      const content = await loadSanityContent();
-      sanityPages = content.pages;
-      siteTitle = content.siteTitle || cachedSiteTitle;
-      cachedSiteTitle = siteTitle;
-      introPhrases = content.introPhrases?.length
-        ? content.introPhrases
-        : cachedIntroPhrases;
-      cachedIntroPhrases = introPhrases;
-    } catch (e) {
-      const err = e as Error;
-      log.line("cms", `skipped: ${err?.message || e}`);
-    }
+    const routes = site.routes;
+    const cache = site.cache;
 
-    /**
-     * Wraps rendered inner HTML in the shell template. `siteTitle` is
-     * threaded in so the shell <title> and meta.html share the value.
-     * The `dev` flag toggles dev-only template branches.
-     */
-    // Intro phrases serialized for the shell. Every "<" is replaced with its
-    // unicode JSON escape so the payload — rendered unescaped inside the intro's
-    // <script type="application/json"> — can never emit a literal closing script
-    // tag and end the block early. `hasIntroPhrases` gates the intro markup so
-    // the text/JSON only render when the CMS provided phrases.
-    const introPhrasesJson = JSON.stringify(introPhrases).replace(
-      /</g,
-      "\\u003c",
-    );
-    const hasIntroPhrases = introPhrases.length > 0;
-
-    const wrap = (inner: string): string =>
-      Mustache.render(
-        t,
-        {
-          content: inner,
-          dev: !isBuild,
-          siteTitle,
-          introPhrasesJson,
-          hasIntroPhrases,
-        },
-        partials,
-      );
-
-    // Build a lookup from route key → page data so static templates can
-    // access data defined in sanity-content (e.g. responsive image arrays).
-    const pageDataByKey: Record<string, Record<string, unknown>> = {};
-    for (const page of sanityPages) {
-      pageDataByKey[page.key] = (page.data ?? {}) as Record<string, unknown>;
-    }
-
-    // Process static (non-CMS) route folders
+    // Remove legacy directory-based routes (e.g., /about/index.html) left
+    // over from an older build convention, so they don't shadow the current
+    // flat-file routes. Only applies to static (non-CMS) route folders, same
+    // as the pre-refactor behavior — CMS-rendered detail pages never had
+    // directory-based artifacts to clean up.
+    const routeFolders = getRouteFolders(absRoutesDir);
     for (const folder of routeFolders) {
-      // CMS template folders are handled in the Sanity loop below
       if (folder.isCmsTemplate) continue;
-
       const name = folder.name;
-      const raw = fs.readFileSync(folder.htmlFile, "utf8");
-      // Pass page data from sanity-content to the template so Mustache
-      // can render dynamic content (e.g. responsive image arrays).
-      const data = pageDataByKey[name] ?? {};
-      const rendered = Mustache.render(raw, data, partials);
-      let html = wrap(rendered);
-
-      let routePath: string;
-      let outPath: string;
-      let title: string;
-
-      // The shell <title> is a bare `{{siteTitle}}` ("Diaa") for every static
-      // page, so the regex below yields "Diaa" for all of them. When
-      // sanity-content has composed a richer title for this route (e.g.
-      // "Diaa - Contact" / "Diaa - Imprint" — see sanity-content.ts), prefer it
-      // so both the runtime tab title (cache) and the baked <title> (hard load /
-      // crawlers) match the detail pages. Routes whose Sanity title is still the
-      // plain capitalised folder name (e.g. About) fall through to the shell
-      // title unchanged — no behaviour change for those.
-      const bareName = name.charAt(0).toUpperCase() + name.slice(1);
-      const sanityTitle = sanityPages.find((p) => p.key === name)?.title;
-      const customTitle =
-        sanityTitle && sanityTitle !== bareName ? sanityTitle : undefined;
-
-      if (name === "home") {
-        routePath = "/";
-        outPath = path.join(outDir, "index.html");
-        title = customTitle || /<title>([\s\S]*?)<\/title>/.exec(html)?.[1] || "Home";
-      } else {
-        routePath = `/${name}`;
-        outPath = path.join(outDir, `${name}.html`);
-        title =
-          customTitle ||
-          /<title>([\s\S]*?)<\/title>/.exec(html)?.[1] ||
-          bareName;
-      }
-
-      // Rewrite the baked shell <title> so a hard load / no-JS crawler sees the
-      // composed title too (the runtime overwrites document.title from the cache
-      // on hydrate, but this avoids a "Diaa" → "Diaa - Contact" flash on load).
-      if (customTitle) {
-        html = html.replace(
-          /<title>[\s\S]*?<\/title>/,
-          `<title>${customTitle}</title>`,
-        );
-      }
-
-      // Remove legacy directory-based routes (e.g., /about/index.html) to prevent
-      // routing conflicts with the flat file approach
       if (name && name !== "home") {
         const legacyDir = path.join(outDir, name);
         const legacyIndex = path.join(legacyDir, "index.html");
@@ -361,86 +639,23 @@ export function RoutesAndBootPlugin(opts: RoutesPluginOptions = {}): Plugin {
           if (fs.existsSync(legacyDir)) fs.rmdirSync(legacyDir);
         } catch { }
       }
-
-      fs.mkdirSync(path.dirname(outPath), { recursive: true });
-      fs.writeFileSync(outPath, html, "utf8");
-
-      routes[routePath] = name;
-
-      // Extract the inner content of <main id="app"> for SPA cache pre-population.
-      // If no #app container found, fall back to the raw rendered fragment.
-      const appMatch = /<main id=["']app["'][^>]*>([\s\S]*?)<\/main>/i.exec(
-        html
-      );
-      const inner = appMatch?.[1]?.trim() ?? rendered.trim();
-      cache[routePath] = { title, html: inner };
     }
 
-    // Process CMS-driven routes (pages from sanity-content that use a
-    // star-prefixed template file, e.g. case studies from Sanity CMS).
-    // Content was already loaded above; only CMS-template pages are
-    // rendered here — static pages (home, about) were handled above.
-    try {
-      // Filter to only CMS-template pages (those whose template matches
-      // a star-prefixed folder). Static pages already rendered above.
-      const cmsPages = sanityPages.filter((p) =>
-        routeFolders.some((f) => f.isCmsTemplate && f.name === p.template)
-      );
-
-      for (const page of cmsPages) {
-        // After migration: CMS templates live in a subdirectory named after the
-        // template. Search inside that subdirectory for the template HTML file.
-        // Fallback candidates include both {name}.html and *{name}.html variants
-        // (and .mustache equivalents) inside the template's own folder.
-        const templateFolder = path.join(absRoutesDir, page.template);
-        const candidates = [
-          path.join(templateFolder, `${page.template}.html`),
-          path.join(templateFolder, `${page.template}.mustache`),
-          path.join(templateFolder, `*${page.template}.html`),
-          path.join(templateFolder, `*${page.template}.mustache`),
-        ];
-        let tplPath: string | null = null;
-        for (const cand of candidates) {
-          if (fs.existsSync(cand)) {
-            tplPath = cand;
-            break;
-          }
-        }
-        if (!tplPath) {
-          log.warn("template", `missing ${page.template}`);
-          continue;
-        }
-        const raw = fs.readFileSync(tplPath, "utf8");
-        const rendered = Mustache.render(
-          raw,
-          (page.data ?? {}) as Record<string, unknown>,
-          partials
-        );
-        const html = wrap(rendered);
-
-        const name = page.path === "/" ? "index" : page.path.replace(/^\//, "");
-        const outPath =
-          page.path === "/"
-            ? path.join(outDir, "index.html")
-            : path.join(outDir, `${name}.html`);
-        fs.mkdirSync(path.dirname(outPath), { recursive: true });
-        fs.writeFileSync(outPath, html, "utf8");
-
-        routes[page.path] = page.key || buildKeyFor(page.path);
-        const appMatch = /<main id=["']app["'][^>]*>([\s\S]*?)<\/main>/i.exec(
-          html
-        );
-        const inner = appMatch?.[1]?.trim() ?? rendered.trim();
-        cache[page.path] = { title: page.title || "", html: inner };
-      }
-    } catch (e) {
-      const err = e as Error;
-      log.line("cms", `skipped: ${err?.message || e}`);
+    // Write every rendered page to disk at the same paths as before: "/" →
+    // index.html, "/x" → x.html (nested slugs create their parent directory).
+    for (const [routePath, html] of site.pagesHtml) {
+      const outPath =
+        routePath === "/"
+          ? path.join(outDir, "index.html")
+          : path.join(outDir, `${routePath.replace(/^\//, "")}.html`);
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, html, "utf8");
     }
 
     // Scan any pre-existing HTML files in the output dir that weren't covered
     // above (e.g., from a previous build). This populates the cache for those
-    // routes so SPA navigation works on first load.
+    // routes so SPA navigation works on first load. Disk-only concern — has
+    // no equivalent in renderSite(), which never sees an output directory.
     try {
       const filesOut = fs
         .readdirSync(outDir)
@@ -525,7 +740,7 @@ export function RoutesAndBootPlugin(opts: RoutesPluginOptions = {}): Plugin {
      */
     transformIndexHtml(html: string): string {
       try {
-        const partials = loadPartials();
+        const partials = loadPartials(absRoutesDir);
         return Mustache.render(
           html,
           {
@@ -556,39 +771,17 @@ export function RoutesAndBootPlugin(opts: RoutesPluginOptions = {}): Plugin {
 
     /**
      * Post-bundle step: rewrites each output HTML file to inject the
-     * hashed JS entry tag and CSS link tags from the Vite build manifest.
-     * Also embeds the tmhgne.json payload inline as a script tag for zero
-     * round-trip SPA boot.
+     * hashed JS entry tag and CSS link tags from the Vite build manifest
+     * (via findHashedAssets/injectAssetTags). Also embeds the tmhgne.json
+     * payload inline as a script tag for zero round-trip SPA boot.
      */
     async closeBundle() {
       try {
-        let manifestPath = path.resolve(outDir, ".vite/manifest.json");
-        if (!fs.existsSync(manifestPath)) {
-          const legacy = path.resolve(outDir, "manifest.json");
-          manifestPath = fs.existsSync(legacy) ? legacy : manifestPath;
-        }
-        if (!fs.existsSync(manifestPath)) {
+        const assets = findHashedAssets(outDir);
+        if (!assets) {
           log.warn("manifest", "not found, skipping html rewrites");
           return;
         }
-        const manifest: Record<string, ManifestEntry> = JSON.parse(
-          fs.readFileSync(manifestPath, "utf8")
-        );
-
-        let entry: ManifestEntry | undefined =
-          manifest["tmhgne"] || manifest["src/main.ts"];
-        if (!entry) {
-          entry = Object.values(manifest).find((m) => m && m.isEntry);
-        }
-        if (!entry || !entry.file) {
-          log.warn("manifest", "no entry found, skipping html rewrites");
-          return;
-        }
-
-        const jsTag = `<script type="module" src="/${entry.file}"></script>`;
-        const cssTags = Array.isArray(entry.css)
-          ? entry.css.map((c) => `<link rel="stylesheet" href="/${c}">`)
-          : [];
 
         const files = fs.readdirSync(outDir).filter((f) => f.endsWith(".html"));
 
@@ -619,21 +812,7 @@ export function RoutesAndBootPlugin(opts: RoutesPluginOptions = {}): Plugin {
             /<link[^>]+rel=["']preload["'][^>]+href=["']\/?tmhgne\.json["'][^>]*>\s*/gi;
           html = html.replace(akPreloadRe, "");
 
-          if (cssTags.length > 0) {
-            for (const tag of cssTags) {
-              if (!html.includes(tag)) {
-                if (/<\/head>/i.test(html)) {
-                  html = html.replace(/<\/head>/i, `${tag}\n</head>`);
-                } else {
-                  html = `${tag}\n${html}`;
-                }
-              }
-            }
-          }
-
-          if (!html.includes(jsTag)) {
-            html = html.replace(/<\/body>/i, `${jsTag}\n</body>`);
-          }
+          html = injectAssetTags(html, assets);
 
           // Inline the tmhgne.json payload so the SPA can boot without a
           // network request for the manifest

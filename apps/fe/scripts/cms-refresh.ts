@@ -1,10 +1,12 @@
 /**
  * cms-refresh.ts — standalone Sanity refetch.
  *
- * Run via `pnpm run cms:refresh` from apps/fe/. Force-fetches case-study and
- * homePage content from Sanity and overwrites apps/fe/.cache/sanity-content.json.
- * Subsequent dev-server boots and `vite build` runs read from the cache file
- * and never hit the Sanity API until this script is run again.
+ * Run via `pnpm run cms:refresh` from apps/fe/. Fetches fresh content from
+ * Sanity (siteOptions, pageHome, Details, Taxonomies, Contact, Imprint) via
+ * `loadSanityContent()` and logs the resolved page count. There is no disk
+ * cache — every dev-server boot and `vite build` run fetches Sanity live via
+ * the routes plugin; this script exists as a quick standalone way to confirm
+ * credentials work and see what the current content resolves to.
  */
 
 import { refreshSanityCache } from "./sanity-content.js";

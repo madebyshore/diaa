@@ -19,6 +19,10 @@ import { renderSlices } from "./slices/render";
 import type { RawSlice, SliceContext } from "./slices/types";
 import { escapeHtml, renderPortableText } from "./utils/portable-text";
 import type { PortableTextBlock } from "./utils/portable-text";
+// Type-only import — @sanity/client is loaded dynamically at runtime (see the
+// try/import below) so it stays optional for Sanity-less builds, but its
+// published types are still available at compile time and erased on emit.
+import type { StegaConfig } from "@sanity/client";
 
 /**
  * Fallback intro phrase used when the CMS Global doc provides none (empty field,
@@ -40,6 +44,8 @@ interface SanityClientFactory {
     apiVersion: string;
     useCdn: boolean;
     token?: string;
+    perspective?: "published" | "drafts";
+    stega?: StegaConfig;
   }): SanityClient;
 }
 
@@ -97,6 +103,23 @@ interface SanityContentOptions {
   projectId?: string;
   token?: string;
   apiVersion?: string;
+  /**
+   * Sanity API perspective — which document version the client resolves.
+   * "published" (the default, existing behavior) reads only published
+   * documents; "drafts" reads draft edits and is used by the preview
+   * server so client-editor changes show up before publishing.
+   */
+  perspective?: "published" | "drafts";
+  /**
+   * Sanity stega config, forwarded verbatim to the client. When enabled,
+   * `@sanity/client` transparently encodes zero-width metadata into string
+   * query results so Presentation-tool overlays can map rendered text back
+   * to the field that produced it. `filter` lets callers exclude fields
+   * (slugs, hrefs, image URLs, …) that must not carry stega characters
+   * because they end up in an attribute rather than visible text. Left
+   * undefined in production builds, where no stega encoding happens.
+   */
+  stega?: StegaConfig;
 }
 
 // ── Sanity payload shapes (loose — we only console.log them for now) ────
@@ -271,6 +294,7 @@ export async function loadSanityContent(
   opts: SanityContentOptions = {},
 ): Promise<SanityContentResult> {
   let { dataset, projectId, token, apiVersion } = opts;
+  const { perspective, stega } = opts;
 
   dataset = dataset || userConfig.dataset || process.env.SANITY_DATASET;
   projectId = projectId || userConfig.projectId || process.env.SANITY_PROJECT_ID;
@@ -323,8 +347,12 @@ export async function loadSanityContent(
       projectId,
       dataset,
       apiVersion: apiVersion ?? "2023-10-10",
-      useCdn: !token,
+      // Draft content is never cached at Sanity's CDN edge — it must always
+      // hit the live API so editors see their own unpublished changes.
+      useCdn: perspective === "drafts" ? false : !token,
+      perspective: perspective ?? "published",
       ...(token ? { token } : {}),
+      ...(stega ? { stega } : {}),
     });
 
     try {
