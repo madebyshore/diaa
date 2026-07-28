@@ -2,7 +2,7 @@
   "name": "diaa",
   "private": true,
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "scripts": {
     "dev": "vite",
     "build": "pnpm run lint && vite build && tsx scripts/img-optimize.ts",

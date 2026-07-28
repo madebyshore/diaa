@@ -126,8 +126,9 @@ async function renderFreshSite(): Promise<PreviewSite> {
     throw new Error(
       "[preview] SANITY_READ_TOKEN is required to render draft content. " +
         "Create a Viewer token in Sanity Manage → API → Tokens and set " +
-        "SANITY_READ_TOKEN in your environment (apps/fe/.env for local " +
-        "`pnpm preview:cms`, or the diaa-preview project's env vars once deployed).",
+        "SANITY_READ_TOKEN in your environment (export it in your shell " +
+        "before `pnpm preview:cms` — nothing loads .env files — or set it " +
+        "in the diaa-preview project's env vars once deployed).",
     );
   }
 

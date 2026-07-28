@@ -8,6 +8,7 @@ Portfolio site rebuilt from the akimbo codebase. SPA with WebGPU rendering, cust
 - [Controller & Transitions](./docs/controller.md) — Navigation controller, TransitionHooks, transition choreography, custom transition API
 - [Page Animations](./docs/page-animations.md) — Content entrance/exit animations, scroll-triggered reveals, Anima usage, Reveal zone classes
 - [Routing](./docs/routing.md) — Co-located route folders, auto-registration, page lifecycle API, scroll save/restore
+- [Visual Editing](./docs/visual-editing.md) — Sanity Presentation preview: architecture, preview core, SPA overlay runtime, stega filter, local dev + deploy runbook
 - [GPU Rendering](./docs/gpu.md) — WebGPU scene system, planes, and shaders *(planned)*
 
 ## Directory Structure
@@ -20,9 +21,10 @@ src/
     primitives/          # Base classes (BasePage with lifecycle hooks)
     components/          # Shared UI components
     context.ts           # App singleton state (AppState, GPU/scene/media types)
-    cache.ts             # Page HTML cache
+    cache.ts             # Page HTML cache (+ reloadPkgFromNetwork() for the preview refresh flow)
     index.ts             # Application class — 5-phase boot sequence
     page-manager.ts      # Auto-registration via import.meta.glob + lifecycle + scroll restore
+    preview/             # Visual Editing SPA runtime — maybeEnableVisualEditing() (see docs/visual-editing.md)
   routes/                # Co-located route folders (HTML + TS per route)
     partials/            # Shared Mustache partials (nav, meta, ...)
     home/                # Home route: home.html + home.ts
@@ -32,6 +34,9 @@ src/
     case-study/          # CMS template: *case-study.html + case-study.ts
   engine/
     boot/                # Intro animation (pure — no GPU deps) + Loader texture preloader
+scripts/
+  preview/               # Host-agnostic Visual Editing preview core (render, stega, inject, auth, handler)
+  preview-server.ts      # Local node:http entrypoint for the preview core — `pnpm preview:cms`
 packages/
   kido/                  # Animation (Anima), scroller, GPU renderer primitives
 ```
