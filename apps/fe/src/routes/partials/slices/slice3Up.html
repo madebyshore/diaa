@@ -1,0 +1,12 @@
+<section class="slice-3up slice-3up--{{layout}}{{#bottomAligned}} slice-3up--bottom-aligned{{/bottomAligned}}" data-slice="slice3Up">
+  {{#images}}
+  <figure class="slice-3up__item">
+    <div class="slice-3up__media">
+      {{#image}}{{> picture}}{{/image}}
+    </div>
+    {{#hasCaption}}
+    <figcaption class="slice-caption">{{{captionHtml}}}</figcaption>
+    {{/hasCaption}}
+  </figure>
+  {{/images}}
+</section>

@@ -1,0 +1,6 @@
+{
+  "apps": {
+    "apps/fe": { "name": "diaa", "appPort": 3000 },
+    "apps/be": { "name": "be.diaa", "appPort": 3333 }
+  }
+}

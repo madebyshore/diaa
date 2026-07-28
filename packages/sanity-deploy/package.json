@@ -1,0 +1,94 @@
+{
+  "name": "sanity-deploy",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Trigger Vercel Deploy Hooks from your Sanity Studio",
+  "keywords": [
+    "sanity",
+    "sanity-plugin",
+    "vercel",
+    "deploy",
+    "webhook"
+  ],
+  "homepage": "https://github.com/bnpne/sanity-deploy#readme",
+  "bugs": {
+    "url": "https://github.com/bnpne/sanity-deploy/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/bnpne/sanity-deploy.git"
+  },
+  "license": "MIT",
+  "author": "bnpne <bentppaine@gmail.com>",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.esm.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.esm.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.esm.js",
+  "files": [
+    "dist",
+    "sanity.json",
+    "src"
+  ],
+  "scripts": {
+    "build": "pkg-utils build --clean",
+    "format": "prettier --write --cache --ignore-unknown .",
+    "link-watch": "plugin-kit link-watch",
+    "lint": "eslint '**/*.+(ts|js|tsx|jsx)'",
+    "watch": "pkg-utils watch --strict"
+  },
+  "dependencies": {
+    "@sanity/icons": "^3.7.0",
+    "@sanity/ui": "^2.15.13",
+    "@sanity/uuid": "^3.0.2",
+    "axios": "^1.8.4",
+    "spacetime": "^7.9.0",
+    "swr": "^2.3.3"
+  },
+  "devDependencies": {
+    "@sanity/eslint-config-studio": "^5.0.2",
+    "@sanity/pkg-utils": "^7.2.2",
+    "@sanity/plugin-kit": "^4.0.19",
+    "@types/react": "^19.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.29.1",
+    "@typescript-eslint/parser": "^8.29.1",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-react": "^7.32.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "prettier": "^3.5.3",
+    "prettier-plugin-packagejson": "^2.4.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-is": "^19.1.0",
+    "sanity": "^5.0.0",
+    "styled-components": "^6.1.17",
+    "typescript": "^5.8.3"
+  },
+  "sanityPlugin": {
+    "verifyPackage": {
+      "eslintImports": false,
+      "sanityV2Json": false,
+      "deprecatedFields": false,
+      "scripts": false,
+      "packageName": false,
+      "tsconfig": false,
+      "tsVersion": false
+    }
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "sanity": "^5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

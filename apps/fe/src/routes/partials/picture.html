@@ -1,0 +1,25 @@
+        <figure class="_g">
+          {{#hasVideo}}
+          <video
+            class="_g-video"
+            src="{{{video}}}"
+            autoplay
+            loop
+            muted
+            playsinline
+            {{#src}}poster="{{{src}}}"{{/src}}
+            width="{{width}}"
+            height="{{height}}"
+          ></video>
+          {{/hasVideo}}
+          {{^hasVideo}}
+          <img
+            src="{{{src}}}"
+            alt="{{alt}}"
+            {{#isFirst}}fetchpriority="high"{{/isFirst}}
+            {{^eager}}{{^isFirst}}loading="lazy"{{/isFirst}}{{/eager}}
+            width="{{width}}"
+            height="{{height}}"
+          />
+          {{/hasVideo}}
+        </figure>

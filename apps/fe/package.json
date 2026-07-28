@@ -1,0 +1,42 @@
+{
+  "name": "diaa",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm run lint && vite build && tsx scripts/img-optimize.ts",
+    "preview": "vite preview --strictPort --port 8080",
+    "lint": "eslint \"src/**/*.{ts,tsx,mts,cts}\" vite.config.ts",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx,mts,cts}\" vite.config.ts --fix",
+    "init": "tsx scripts/init.ts",
+    "cms:refresh": "tsx scripts/cms-refresh.ts",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "new-page": "plop new-page",
+    "new-transition": "plop new-transition"
+  },
+  "dependencies": {
+    "@sanity/client": "^7.18.0",
+    "@sanity/image-url": "^2.0.3",
+    "kido": "workspace:*",
+    "mustache": "^4.2.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import-x": "^4.16.2",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "lightningcss": "^1.32.0",
+    "plop": "^4.0.5",
+    "sass": "^1.98.0",
+    "sharp": "^0.34.5",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.0",
+    "vite": "^8.0.1",
+    "vitest": "^4.1.0"
+  }
+}

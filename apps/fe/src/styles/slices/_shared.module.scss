@@ -1,0 +1,58 @@
+@use "@/styles/includes" as *;
+
+/* Shared slice primitives. */
+
+/* Slice image figures: each `{{> picture}}` drops a `<figure class="_g"><img/></figure>`
+   that renders the image directly in DOM. The base `._g` rule sets width:100%
+   + aspect-ratio 3/4; inside a slice the wrapper owns the ratio, so the figure
+   just fills it (aspect-ratio: auto overrides the base). */
+.slice-image__media,
+.slice-image-with-text__media,
+.slice-slideshow__viewport,
+.slice-2up__media,
+.slice-3up__media {
+  ._g {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  /* `video` covers the MP4 branch of the `{{> picture}}` partial (the
+     sliceImage / sliceImageWithText video files) — it fills and crops the
+     wrapper exactly like the <img> so a slice's video and image are
+     interchangeable. Without this the global `._g video` (height:auto) would
+     win and the video wouldn't fill the aspect-ratio'd media box. */
+  ._g img,
+  ._g video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+/* Caption type — shared by every captioned slice (2Up / 3Up). Rand caption
+   spec via typo-caption. Positioned OUT of flow (absolute) directly under its
+   image so it never adds to the figure's height — sibling images stay aligned
+   by their media boxes. 1.5rem below the image. The figure is the positioning
+   context. */
+.slice-caption {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  margin-top: 1.5rem;
+  @include typo-caption;
+}
+
+/* Rich-text font-family toggles emitted by renderPortableText (serif/mono
+   decorators). Scoped to the rich-text containers so they don't leak. */
+.slice-text__body,
+.slice-image-with-text__text,
+.slice-caption {
+  .serif {
+    font-family: $font-serif;
+  }
+  .mono {
+    font-family: $font-mono;
+  }
+}

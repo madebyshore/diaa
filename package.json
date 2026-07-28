@@ -1,0 +1,29 @@
+{
+  "name": "tamahagane",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:proxy": "portless",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "new-page": "pnpm --filter tamahagane-fe run new-page",
+    "new-transition": "pnpm --filter tamahagane-fe run new-transition",
+    "img-optimize": "tsx scripts/img-optimize.ts"
+  },
+  "devDependencies": {
+    "fontverter": "^2.0.0",
+    "portless": "^0.13.1",
+    "prettier": "^3.8.1",
+    "sharp": "^0.34.5",
+    "tsx": "^4.21.0",
+    "turbo": "^2.8.19",
+    "typescript": "6.0.2"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

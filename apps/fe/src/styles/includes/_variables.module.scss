@@ -1,0 +1,37 @@
+$scroll-margin-top: 150px;
+
+// Grid tiers: base = mobile (<= 768px, 6 cols), -tablet = 769–1024px
+// inclusive (8 cols, applied via breakpoint-tablet), -md = desktop
+// (>= 1025px in practice — the tablet range wins the overlapping 1024
+// pixel; 12 cols). -sm is the legacy 769+ tier that -tablet fully shadows;
+// it stays as the fallback should the tablet override ever be removed.
+// Gap and container padding are the same 3rem rhythm at every tier.
+$columns: 6;
+$columns-sm: 12;
+$columns-tablet: 8;
+$columns-md: 12;
+
+$container-padding: 3rem;
+$container-padding-sm: 3rem;
+$container-padding-md: 3rem;
+
+$column-gap: 3rem;
+$column-gap-sm: 3rem;
+$column-gap-md: 3rem;
+
+$g-ratio: 1.618;
+$g-steps: 5;
+$g-start: 70vw;
+$g-start-sm: 37vw;
+
+:export {
+  g-start: $g-start;
+  g-start-sm: $g-start-sm;
+  columns: $columns;
+  columns-sm: $columns-sm;
+  columns-tablet: $columns-tablet;
+  columns-md: $columns-md;
+  container-padding: $container-padding;
+  container-padding-sm: $container-padding-sm;
+  container-padding-md: $container-padding-md;
+}

@@ -1,0 +1,321 @@
+@use "@/styles/includes" as *;
+
+.detail {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  background: $color-white;
+}
+
+/* `#page` sets default vertical padding and its id selector outranks `.detail`,
+   so qualify with the id to drop it — the detail page carries no page-level
+   padding; the slices own their own grid + container padding. */
+#page.detail {
+  padding: 0;
+}
+
+/* The detail page is a flex column holding the cover image (sized to match the
+   home reveal image), the authored slices, and a full-viewport outro. The title
+   nav is NOT in here — it is a sticky sibling above this container (see
+   `.detail__nav`). Slices own their own grid + container padding; the container
+   itself only sets the vertical rhythm (XL) between children. */
+.detail__container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: var(--XL);
+
+  /* Mobile: a fifth of the viewport between modules — matches the desktop
+     rhythm's 20vh default without the column-based floor. The 50svh bottom
+     padding is only a pre-measure fallback: DetailPage.setMobileEndPadding()
+     replaces it inline with 50vh − half the LAST module's measured height,
+     so at full scroll that module CENTRES on the viewport midline — the
+     mirror of the cover's 50vh − hero/2 centred start. */
+  @include breakpoint-mobile {
+    gap: 20vh;
+    padding-bottom: 50svh;
+  }
+
+  /* Desktop: the vertical rhythm between entries is 20vh, but must never be
+     smaller than the horizontal space between 2-up/3-up image entries
+     (client feedback). That horizontal space — one empty grid column plus
+     the gap on either side of it — is the floor: 1 column + 2 column gaps.
+     max() picks whichever is larger, so short/wide viewports (where 20vh
+     shrinks below the column spacing) fall back to the floor. */
+  @include breakpoint(md) {
+    --col-w: calc(
+      (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
+        var(--columns)
+    );
+    gap: max(calc(var(--col-w) + 2 * var(--column-gap)), 20vh);
+  }
+}
+
+/* Title nav — doubles as the "back to home" control, fixed to the top of the
+   viewport. It is a direct child of `.detail` (a sibling of `.detail__container`,
+   not inside it) and `position: fixed` takes it out of the document flow
+   entirely, so it reserves no space and the cover/content start at the very top
+   with the nav overlaid. `z-index: $z-index-header` lifts it above the
+   cover/slices; its background is transparent, so content shows through. Renders
+   the detail title, centered, full width — a PASSIVE heading on every tier:
+   closing lives in the persistent `( Close )` footer (`.detail__footer`), so
+   the nav takes no pointer events and has no hover swap. `text-box: cap
+   alphabetic` trims the line box to the cap height (matches
+   `.global-nav__link`). */
+.detail__nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: $z-index-header;
+  display: block;
+  width: 100%;
+  padding: var(--XS) 0;
+  text-align: center;
+  text-box: cap alphabetic;
+  color: inherit;
+  pointer-events: none;
+  background: transparent;
+
+  /* Mobile: same treatment as the home nav — base --XS padding above, none
+     below. */
+  @include breakpoint-mobile {
+    padding-bottom: 0;
+  }
+}
+
+/* The centered title label. `inline-block` so it establishes its own line
+   box for `text-box: cap alphabetic` to trim to the cap height (matches
+   `.detail__nav` and `.global-nav__link`). */
+.detail__nav-label {
+  display: inline-block;
+  text-box: cap alphabetic;
+}
+
+/* Cover image (first content under the nav). Positioned so the figure renders
+   at the IDENTICAL size and viewport position as the home text-mode reveal
+   image (`.home__text-gpu*`): same centre-8 box width, same figure %, and —
+   crucially — vertically centred at 50vh (where the fixed home reveal image
+   sits). This lets the home→detail transition keep that image live and have it
+   land here pixel-perfect (see controller/transitions/home-to-detail.ts).
+
+   The cover is NOT a tall 1:1 box: its top padding reserves the home image's
+   viewport-centred top offset (`50vh - heroH/2`) and the box ends at the figure
+   bottom (no space below), so the container's gap (--XL on mobile, the clamped
+   column-based rhythm on desktop — see `.detail__container`) places the first
+   slice exactly one gap under the hero. `flex-shrink: 0` so the flex column
+   never squeezes it. */
+.detail__cover {
+  /* Centre-8 box width, mirroring the page's 12-col grid math exactly: 1fr =
+     (content - 11 gaps) / 12, and centre-8 (cols 3→10) = 8 tracks + 7 gaps.
+     Built from the responsive grid tokens, so it tracks every breakpoint and
+     stays identical to `.home__text-gpu-inner`. */
+  --col-w: calc(
+    (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
+      var(--columns)
+  );
+  --centre-8: calc(8 * var(--col-w) + 7 * var(--column-gap));
+  /* --hero-h (the figure's rendered height) is set per coverSize below. */
+
+  /* Tablet (8 cols): the inner spans 2 / -2 (see .detail__cover-inner), so
+     the reference width the hero-height %s are taken from must match that
+     box — 6 tracks + 5 gaps — or the cover renders oversized. */
+  @include breakpoint-tablet {
+    --centre-8: calc(6 * var(--col-w) + 5 * var(--column-gap));
+  }
+
+  display: grid;
+  grid-template-columns: repeat(var(--columns), 1fr);
+  gap: var(--column-gap);
+  padding: 0 var(--container-padding);
+  /* Reserve the home reveal image's viewport-centred top offset so the bridged
+     image stays in place; no bottom padding → the cover ends at the figure. */
+  padding-top: calc(50vh - var(--hero-h) / 2);
+  align-items: start;
+  justify-items: stretch;
+  flex-shrink: 0;
+
+  /* Mobile: mirror the home reveal's geometry — the reference box is the
+     full viewport width (home's reveal inner is full-bleed on mobile) and
+     the container padding goes. The cover RESTS at the home-matched
+     centred position, same as desktop's formula (svh, matching the home
+     overlay's 100svh centring): the bridge image lands on it and never
+     moves; everything beneath fades in (see MOBILE_COVER_ENTRANCE_SLIDE
+     in detail.ts).
+     TO REVERT to the entrance slide: swap the padding back to `20vh 0 0`
+     (the settled page rhythm) AND flip MOBILE_COVER_ENTRANCE_SLIDE to
+     true in detail.ts — the two are a pair.
+     Declared after the base padding so these win the cascade. */
+  @include breakpoint-mobile {
+    --centre-8: 100vw;
+    padding: calc(50svh - var(--hero-h) / 2) 0 0;
+  }
+}
+
+/* Per-coverSize figure height as a % of centre-8 — same values as
+   `.home__text-gpu-figure`. Read off the inner's existing variant class via
+   :has() so no template change is needed; the parent needs --hero-h to size its
+   own top padding and the inner's height. */
+.detail__cover:has(.detail__cover-inner--4x3-sm),
+.detail__cover:has(.detail__cover-inner--4x3-lg) {
+  --hero-h: calc(0.4374 * var(--centre-8));
+}
+.detail__cover:has(.detail__cover-inner--3x4-sm),
+.detail__cover:has(.detail__cover-inner--3x4-lg) {
+  --hero-h: calc(0.5835 * var(--centre-8));
+}
+
+/* Mobile hero heights — the home mobile figures split sm/lg into distinct
+   widths (from the 375 design), so unlike desktop each variant needs its own
+   height: width fraction × the aspect ratio, as a fraction of centre-8
+   (= 100vw on mobile). Same values as `.home__text-gpu-figure`'s mobile
+   sizes, keeping the home→detail bridge pixel-matched.
+     4:3 sm 69.3333% × 3/4 = 0.52      4:3 lg 84% × 3/4 = 0.63
+     3:4 sm 53.0667% × 4/3 = 0.707556  3:4 lg 69.6% × 4/3 = 0.928
+   Declared after the desktop pairs so these equal-specificity overrides win. */
+@include breakpoint-mobile {
+  .detail__cover:has(.detail__cover-inner--4x3-sm) {
+    --hero-h: calc(0.52 * var(--centre-8));
+  }
+  .detail__cover:has(.detail__cover-inner--4x3-lg) {
+    --hero-h: calc(0.63 * var(--centre-8));
+  }
+  .detail__cover:has(.detail__cover-inner--3x4-sm) {
+    --hero-h: calc(0.707556 * var(--centre-8));
+  }
+  .detail__cover:has(.detail__cover-inner--3x4-lg) {
+    --hero-h: calc(0.928 * var(--centre-8));
+  }
+}
+
+/* The inner now IS the figure box (height = the figure height), spanning the
+   centre 8 of 12 cols — not a 1:1 reference box. The figure width % is unchanged
+   from before, so the rendered dimensions match the home figure exactly. */
+.detail__cover-inner {
+  grid-column: 3 / span 8;
+  position: relative;
+  width: 100%;
+  height: var(--hero-h);
+
+  /* Tablet (8 cols): one column in from each edge, matching the slice
+     placements; the parent redefines --centre-8 to this box's width so the
+     hero-height math stays proportional. */
+  @include breakpoint-tablet {
+    grid-column: 2 / -2;
+  }
+
+  /* Mobile: full-bleed, matching the home reveal's full-width inner (the
+     parent's --centre-8 is 100vw and its side padding is zeroed). */
+  @include breakpoint-mobile {
+    grid-column: 1 / -1;
+  }
+
+  /* The `{{> picture}}` figure, horizontally centred and filling the inner's
+     height. Width is the figure % of centre-8 (set per variant below); height
+     fills the inner (= --hero-h). Override the partial's default aspect so the
+     explicit width/height drive size — same crop behaviour as the home figure. */
+  ._g {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    aspect-ratio: auto;
+  }
+
+  ._g img,
+  ._g video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+/* Figure width as a % of centre-8 — same values as `.home__text-gpu-figure`
+   (sm and lg share %, only the aspect differs). */
+.detail__cover-inner--4x3-sm ._g,
+.detail__cover-inner--4x3-lg ._g {
+  width: 58.35%;
+}
+
+.detail__cover-inner--3x4-sm ._g,
+.detail__cover-inner--3x4-lg ._g {
+  width: 43.74%;
+}
+
+/* Mobile figure widths — the home mobile percentages (375-design widths /
+   375), split per sm/lg. Paired with the mobile --hero-h fractions above so
+   width × aspect = height and the crop matches home exactly. */
+@include breakpoint-mobile {
+  .detail__cover-inner--4x3-sm ._g {
+    width: 69.3333%;
+  }
+  .detail__cover-inner--4x3-lg ._g {
+    width: 84%;
+  }
+  .detail__cover-inner--3x4-sm ._g {
+    width: 53.0667%;
+  }
+  .detail__cover-inner--3x4-lg ._g {
+    width: 69.6%;
+  }
+}
+
+/* Full-viewport outro panel. Centers the DIAA logotype (same mark as the intro). */
+.detail__outro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+
+  /* Mobile: no outro panel — the fixed Close footer is the page's ending. */
+  @include breakpoint-mobile {
+    display: none;
+  }
+}
+
+/* The DIAA brand mark in the outro. Same SVG as the intro logotype; sized to its
+   native 67 × 16.341px ratio (6.7 × 1.6341rem at root 10px). Fills are
+   `currentColor`, so it tracks the page text color. Unlike `.intro__logo` it is
+   not hidden or absolutely positioned — it sits centered in the outro panel. */
+.detail__outro-logo {
+  width: 6.7rem;
+  height: 1.6341rem;
+}
+
+/* Mobile-only Close footer — the detail page's way home now that the title
+   nav is a passive heading on mobile. Reuses the home footer's
+   .global-nav--footer type/layout classes; this rule only pins it to the
+   bottom of the viewport on EVERY tier — the persistent way home now that
+   the title nav is a passive heading (the old desktop hover title ⇄
+   "( Close )" swap is gone). Desktop keeps the base .global-nav even --XS
+   padding over `bottom: 0`; mobile moves the offset to `bottom` (no
+   vertical padding) so the box hugs the content, mirroring the fixed top
+   nav. Qualified with `.detail` to outrank the .global-nav base. */
+.detail .detail__footer {
+  display: flex;
+  position: fixed;
+  top: auto;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: $z-index-header;
+
+  @include breakpoint-mobile {
+    bottom: var(--XS);
+    padding: 0 var(--XS);
+  }
+
+  /* Restore the base .global-nav parens that the --footer variant strips —
+     the label reads `( Close )`, matching the top nav's hover swap. */
+  &::before {
+    content: "(";
+  }
+
+  &::after {
+    content: ")";
+  }
+}

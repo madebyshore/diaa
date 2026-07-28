@@ -1,0 +1,91 @@
+/* Kill the mobile tap highlight (the grey/blue flash WebKit and Chrome
+   paint over a tapped link/button's box) site-wide — every interactive
+   element here styles its own active/hover states, and the flash reads as
+   a stray grey box on custom hit areas like the collapsed home nav. The
+   property inherits, so setting it on the root covers everything. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  padding: unset;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  outline-offset: unset;
+  background: unset;
+  border: unset;
+}
+
+a {
+  color: inherit;
+  text-decoration: unset;
+  cursor: pointer;
+  outline-offset: unset;
+}
+
+ul,
+ol {
+  padding: unset;
+  margin: unset;
+  list-style: none;
+}
+
+svg {
+  /* Avoid cropping issues caused by sub-pixel rendering */
+  overflow: unset;
+}
+
+input,
+textarea {
+  padding: unset;
+  background: unset;
+  border: unset;
+}
+
+textarea {
+  resize: none;
+}
+
+dialog {
+  width: unset;
+  max-width: unset;
+  height: unset;
+  max-height: unset;
+  padding: unset;
+  margin: unset;
+  background: unset;
+  border: unset;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: unset;
+  padding: unset;
+  font-weight: unset;
+  font-size: unset;
+  line-height: unset;
+  letter-spacing: unset;
+  text-transform: unset;
+  color: unset;
+  font-family: unset;
+}
+
+*,
+::backdrop,
+:after,
+:before {
+  box-sizing: border-box;
+  border: 0 solid;
+  margin: 0;
+  padding: 0;
+}

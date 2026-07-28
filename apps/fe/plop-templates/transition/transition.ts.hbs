@@ -1,0 +1,74 @@
+/**
+ * {{className}} — custom page transition from {{fromName}} to {{toName}}.
+ *
+ * Extends BaseTransition to define a custom animation for the
+ * "{{fromKey}}:{{toKey}}" route pair. Registered in the TransitionRegistry
+ * so it is automatically resolved when navigating between these two pages.
+ *
+ * Lifecycle:
+ *   out(fromEl, toEl) — animate the old page ({{fromName}}) away
+ *   in(fromEl, toEl)  — animate the new page ({{toName}}) into view
+ *   cleanup(toEl)     — remove inline styles and dynamic elements
+ *
+ * Tips:
+ *   - Use kido/anima + animaToPromise for all animations
+ *   - Use compositor-friendly properties (transform, opacity) for 60fps
+ *   - Set GPU plane opacities in in() if needed (see DefaultTransition)
+ *   - Always clean up dynamically created elements in cleanup()
+ */
+
+import { Anima } from "kido/anima";
+import { BaseTransition } from "./transition-registry";
+import { animaToPromise } from "./transition-fx";
+import { dbg } from "../debug";
+
+export class {{className}} extends BaseTransition {
+  /**
+   * Animate the outgoing page ({{fromName}}) out of view.
+   *
+   * @param fromEl - The DOM element of the {{fromName}} page that is leaving.
+   * @param _toEl  - The DOM element of the {{toName}} page entering (unused unless coordinated).
+   */
+  async out(fromEl: HTMLElement, _toEl: HTMLElement): Promise<void> {
+    dbg.txOut("{{fromKey}} → {{toKey}} custom out");
+
+    // TODO: Implement exit animation for {{fromName}}
+    // Example:
+    // await animaToPromise(new Anima({
+    //   el: fromEl,
+    //   d: 800,
+    //   e: [0.76, 0, 0.2, 1],
+    //   p: { o: [1, 0] },
+    // }));
+  }
+
+  /**
+   * Animate the incoming page ({{toName}}) into view.
+   *
+   * @param _fromEl - The DOM element of the {{fromName}} page that left (unused unless coordinated).
+   * @param toEl    - The DOM element of the {{toName}} page entering.
+   */
+  async in(_fromEl: HTMLElement, toEl: HTMLElement): Promise<void> {
+    dbg.txIn("{{fromKey}} → {{toKey}} custom in");
+
+    // TODO: Implement entrance animation for {{toName}}
+    // Example:
+    // await animaToPromise(new Anima({
+    //   el: toEl,
+    //   d: 800,
+    //   e: [0.76, 0, 0.2, 1],
+    //   p: { o: [0, 1] },
+    // }));
+  }
+
+  /**
+   * Clean up transition artifacts after the old page is removed.
+   * Remove dynamically created elements and strip inline styles.
+   *
+   * @param toEl - The new page element to clean up.
+   */
+  cleanup(toEl: HTMLElement): void {
+    // TODO: Remove dynamic elements, restore canvas z-index if changed
+    toEl.removeAttribute("style");
+  }
+}

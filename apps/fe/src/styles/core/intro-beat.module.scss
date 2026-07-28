@@ -1,0 +1,54 @@
+@use "@/styles/includes" as *;
+
+/* Return-to-home brand beat overlay — a persistent, hidden sibling of `.intro`.
+   On SPA navigations back to home, HomePage.in() (home.ts) activates this to
+   cover the page swap, holds the DIAA mark briefly, then fades the whole white
+   field out to reveal home — a compressed re-run of the intro brand beat using
+   the same "slow" ease. Unlike `.intro` it is NOT removed after boot: it lives
+   on the body for the life of the session and is reused on every return to home.
+   Hidden at rest (no paint, no layout cost, no pointer capture); `.is-active`
+   makes it cover, and HomePage.in() drives the fade via inline opacity. */
+.intro-beat {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* Matches `.intro` — above the header, dev grid, and every page element. The
+     two overlays never coexist (`.intro` is removed after boot), so sharing the
+     value is safe. */
+  z-index: 3141516;
+
+  background-color: $color-white;
+  color: $color-black;
+
+  /* Centre the DIAA mark, mirroring `.intro`. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  /* Hidden at rest: zero paint and no pointer capture until activated. */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Active = covering. HomePage.in() adds this to cover the swap (opacity 1),
+   then animates inline opacity 1 → 0 to fade the cover out, revealing home. */
+.intro-beat.is-active {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* The DIAA brand mark — same SVG and native size as `.intro__logo`
+   (67 × 16.341px = 6.7 × 1.6341rem at root 10px). Fills track `currentColor`
+   (the overlay's $color-black). Starts hidden, like `.intro__logo`: HomePage.in()
+   fades it in (0 → 1) on the intro's "slow" ease, then the cover fade-out carries
+   it back out, and the inline opacity is cleared so it rests at 0 for the next
+   return. */
+.intro-beat__logo {
+  width: 6.7rem;
+  height: 1.6341rem;
+  opacity: 0;
+}

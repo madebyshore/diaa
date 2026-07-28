@@ -1,0 +1,108 @@
+{
+  "name": "kido",
+  "version": "0.1.5",
+  "description": "Nice and fast animation & scroll utilities",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./tab": {
+      "types": "./dist/tab.d.ts",
+      "import": "./dist/tab.js"
+    },
+    "./raf": {
+      "types": "./dist/raf.d.ts",
+      "import": "./dist/raf.js"
+    },
+    "./utils": {
+      "types": "./dist/utils.d.ts",
+      "import": "./dist/utils.js"
+    },
+    "./svg": {
+      "types": "./dist/svg.d.ts",
+      "import": "./dist/svg.js"
+    },
+    "./split": {
+      "types": "./dist/split.d.ts",
+      "import": "./dist/split.js"
+    },
+    "./pointer": {
+      "types": "./dist/pointer.d.ts",
+      "import": "./dist/pointer.js"
+    },
+    "./wheel": {
+      "types": "./dist/wheel.d.ts",
+      "import": "./dist/wheel.js"
+    },
+    "./resize": {
+      "types": "./dist/resize.d.ts",
+      "import": "./dist/resize.js"
+    },
+    "./anima": {
+      "types": "./dist/anima.d.ts",
+      "import": "./dist/anima.js"
+    },
+    "./reveal": {
+      "types": "./dist/reveal.d.ts",
+      "import": "./dist/reveal.js"
+    },
+    "./scroller": {
+      "types": "./dist/scroller.d.ts",
+      "import": "./dist/scroller.js"
+    },
+    "./native-scroller": {
+      "types": "./dist/native-scroller.d.ts",
+      "import": "./dist/native-scroller.js"
+    },
+    "./orchestrator": {
+      "types": "./dist/orchestrator.d.ts",
+      "import": "./dist/orchestrator.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepare": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^6.0.2",
+    "vitest": "^3.0.0"
+  },
+  "keywords": [
+    "animation",
+    "scroll",
+    "raf",
+    "utilities",
+    "dom",
+    "smooth-scroll",
+    "virtual-scroll",
+    "webgpu",
+    "webgl",
+    "gpu"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bnpne/kido.git"
+  },
+  "author": "bnpne",
+  "publishConfig": {
+    "access": "public"
+  }
+}

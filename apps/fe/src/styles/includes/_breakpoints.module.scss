@@ -1,0 +1,60 @@
+@use "sass:map";
+
+// `sm` is 769 (not 768) by design: everything at or below 768px is the
+// mobile tier, styled by the mobile-first base rules + breakpoint-mobile
+// overrides. 769 is where the tablet tier begins (see breakpoint-tablet).
+$-breakpoints: (
+  "xs": 420,
+  "sm": 769,
+  "md": 1024,
+  "lg": 1280,
+  "xl": 1440,
+  "xxl": 1920,
+);
+
+@mixin breakpoint($width: "") {
+  @if map.has-key($-breakpoints, $width) {
+    @media only screen and (min-width: #{map.get($-breakpoints, $width)}px) {
+      @content;
+    }
+  }
+}
+
+/* Tablet range — 769px (the `sm` edge) through 1024px INCLUSIVE. Exact-768
+   and below is the mobile tier, so tablet styles must never leak onto a
+   768px viewport. Ends AT the `md` edge (1024 still holds the tablet
+   sizes), so this range overlaps `breakpoint(md)`'s first pixel — where the
+   two compete, the tablet declaration must come later in the cascade to win
+   (see root.module.scss). Desktop takes over from 1025. */
+@mixin breakpoint-tablet {
+  @media only screen and (min-width: #{map.get($-breakpoints, "sm")}px) and (max-width: #{map.get($-breakpoints, "md")}px) {
+    @content;
+  }
+}
+
+/* Mobile — everything at or below 768px (one pixel below the `sm` edge).
+   Base styles are mobile-first, so most mobile styling needs no media query
+   at all; this mixin is for the cases where mobile must OVERRIDE an
+   unconditioned base declaration that doubles as the desktop style. */
+@mixin breakpoint-mobile {
+  @media only screen and (max-width: #{map.get($-breakpoints, "sm") - 1}px) {
+    @content;
+  }
+}
+
+@mixin breakpoint-below($width: "") {
+  @if map.has-key($-breakpoints, $width) {
+    @media only screen and (max-width: #{map.get($-breakpoints, $width) - 1}px) {
+      @content;
+    }
+  }
+}
+
+:export {
+  xs: map.get($-breakpoints, "xs");
+  sm: map.get($-breakpoints, "sm");
+  md: map.get($-breakpoints, "md");
+  lg: map.get($-breakpoints, "lg");
+  xl: map.get($-breakpoints, "xl");
+  xxl: map.get($-breakpoints, "xxl");
+}
