@@ -27,7 +27,7 @@ Both `public/` and `.preview-runtime/` are entirely build-generated
 | Variable | Purpose |
 |---|---|
 | `SANITY_READ_TOKEN` | **Required.** A Sanity **Viewer** token (Sanity Manage → API → Tokens) — least-privilege read access to drafts. |
-| `SANITY_STUDIO_URL` | The Studio's deployed URL (e.g. `https://<studio-host>.sanity.studio`) — used for stega deep-links back to the Studio. |
+| `SANITY_STUDIO_URL` | **Required.** The Studio's URL — used for stega deep-links back to the Studio. The render core hard-fails without it (empty `studioUrl` makes stega throw on every fetch, silently blanking the preview). |
 | `SANITY_PROJECT_ID` / `SANITY_DATASET` | Optional — override `apps/fe/project.config.ts`'s defaults (`0in4i1po` / `production`). |
 | `PREVIEW_SESSION_SECRET` | Optional — HMAC key for the session cookie. Falls back to a hash of `SANITY_READ_TOKEN` if unset, so it's not strictly required. |
 | `PREVIEW_FE_ROOT` | Optional override — normally **not needed anywhere**: the render core auto-detects the copied `.preview-runtime/` tree on a deployed function and falls back to `apps/fe` locally (see `apps/fe/scripts/preview/render.ts` `resolveFeRoot()`). Set only to force a nonstandard path. |

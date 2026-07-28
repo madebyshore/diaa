@@ -256,8 +256,12 @@ Two terminals.
 
 ```bash
 pnpm --filter diaa build
-SANITY_READ_TOKEN=<viewer-token> pnpm --filter diaa preview:cms
+SANITY_READ_TOKEN=<viewer-token> SANITY_STUDIO_URL=http://localhost:3333 pnpm --filter diaa preview:cms
 ```
+
+Both variables are required — the server refuses to start rendering without
+either one (`SANITY_STUDIO_URL` points at wherever the Studio you're using
+runs; `http://localhost:3333` is `sanity dev`'s default).
 
 `preview:cms` runs `tsx apps/fe/scripts/preview-server.ts` on port 8080. It
 streams static assets straight from `apps/fe/dist/` and never re-bundles —
@@ -305,7 +309,7 @@ mint one.
 | Variable | Purpose |
 |---|---|
 | `SANITY_READ_TOKEN` | **Required.** A Sanity **Viewer** token — least-privilege read access to drafts. |
-| `SANITY_STUDIO_URL` | The Studio's deployed URL (e.g. `https://<studio-host>.sanity.studio`) — used for stega deep-links back into the Studio. |
+| `SANITY_STUDIO_URL` | **Required.** The Studio's URL (`http://localhost:3333` for a local `sanity dev`, or the deployed Studio URL) — stega deep-links back into the Studio. The server refuses to render without it: an empty `studioUrl` passes `@sanity/client`'s constructor but throws inside stega encoding on every fetch, which would otherwise silently serve an empty site. |
 | `SANITY_PROJECT_ID` / `SANITY_DATASET` | Optional — override `apps/fe/project.config.ts`'s defaults (`0in4i1po` / `production`). |
 | `PREVIEW_SESSION_SECRET` | Optional — HMAC key for the session cookie. Falls back to a hash of `SANITY_READ_TOKEN` if unset. |
 | `PREVIEW_FE_ROOT` | Optional override — normally not needed anywhere. The render core auto-detects the copied `.preview-runtime/` tree on a deployed function and falls back to `apps/fe` locally; set only to force a nonstandard path. |

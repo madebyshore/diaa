@@ -98,19 +98,32 @@ export interface PreviewSite {
 let memo: PreviewSite | null = null;
 let inflight: Promise<PreviewSite> | null = null;
 
-/** Reads `SANITY_STUDIO_URL` for the stega config (and for `inject.ts`'s
- *  `window.__SANITY_STUDIO_URL__` stamp — see handler.ts). Empty string
- *  (stega still enabled, just without a resolvable studio deep-link) when
- *  unset — this is a soft warning, not a hard failure like the missing-token
- *  case below. */
+/**
+ * Reads `SANITY_STUDIO_URL` for the stega config (and for `inject.ts`'s
+ * `window.__SANITY_STUDIO_URL__` stamp — see handler.ts).
+ *
+ * Hard-fails when unset, for the same reason the missing-token case below
+ * does: an empty `studioUrl` passes `@sanity/client`'s constructor check
+ * (which only rejects `undefined`) but throws `TypeError: config.studioUrl
+ * must be defined` inside `stegaEncodeSourceMap()` on every fetch. Those
+ * throws reject `loadSanityContent()`'s whole query batch, whose blanket
+ * catch then falls back to an empty render — the preview serves a blank
+ * content shell with zero stega characters, and the Presentation tool's
+ * document panel/overlays silently show nothing. Failing loudly at first
+ * render turns that hour of confusion into a one-line fix.
+ */
 export function studioUrlFromEnv(): string {
   const url = process.env.SANITY_STUDIO_URL;
   if (!url) {
-    console.debug(
-      "[preview] SANITY_STUDIO_URL is not set — stega links back to the Studio will be unresolvable",
+    throw new Error(
+      "[preview] SANITY_STUDIO_URL is required — stega encoding throws on " +
+        "every fetch without it, and the preview would silently serve an " +
+        "empty site. Set it to the Studio's URL (http://localhost:3333 for " +
+        "a local `sanity dev`, or the deployed Studio URL) in your shell " +
+        "before `pnpm preview:cms`, or in the diaa-preview env vars.",
     );
   }
-  return url ?? "";
+  return url;
 }
 
 /**
