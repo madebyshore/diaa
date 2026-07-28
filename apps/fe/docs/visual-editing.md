@@ -215,11 +215,23 @@ value**: the invisible characters corrupt the value (a stega-tagged image
 URL 404s; a stega-tagged slug never matches an entry in `App.config.routes`).
 
 `buildPreviewStega()` (`apps/fe/scripts/preview/stega.ts`) builds a filter
-that excludes exactly those fields, matched on the **last segment of
-`resultPath`** — the alias name each GROQ query gives the field, not its
-underlying Studio schema path. This matters because GROQ aliases (e.g.
-`"image": image.asset->url`) determine the actual key a value arrives under,
-not the schema field name.
+that excludes exactly those fields, matched on the **nearest string segment
+of `resultPath`, walking backward past any array index** — the alias name
+each GROQ query gives the field, not its underlying Studio schema path. This
+matters because GROQ aliases (e.g. `"image": image.asset->url`) determine
+the actual key a value arrives under, not the schema field name.
+
+> **Array-index blind spot.** A value inside a bare `string[]` field (no
+> wrapping object — e.g. `siteOptions.introText`) reaches the filter with a
+> `resultPath` like `["introText", 0]`: the *actual* last segment is the
+> numeric index, not the field name. Matching only `resultPath.at(-1)`
+> against the exclusion set silently excludes nothing for such fields — this
+> is exactly how `introText` shipped stega-encoded despite looking like it
+> should have been caught. `lastStringSegment()` in `stega.ts` walks the path
+> from the end and skips numeric/keyed-array segments to find the real key.
+> Fields that are arrays of *objects* (`footerLinks[]`, `grid[]`, slice
+> `images[]`, …) never hit this: their leaf value's path already ends in the
+> object's own property name (`["footerLinks", 0, "href"]`).
 
 | Excluded key | Where it comes from | Why it must stay clean |
 |---|---|---|
@@ -230,21 +242,37 @@ not the schema field name.
 | `coverImage` | `pageHomeQuery` grid items, `allDetailsQuery` → `coverMedia()`/`sanityPicture()` in `sanity-content.ts` | Also splits on `?` |
 | `coverVideo` | `pageHomeQuery` grid items, `allDetailsQuery` | Same as `coverImage` |
 | `url` | The array-item alias in `sliceImageSlideshow.ts` (`images[]{ "url": asset->url }`), `slice2Up.ts`, `slice3Up.ts` (`images[]{ "url": image.asset->url, caption }`) | Consumed by `pictureFromUrl()`/`resolveCaptionedImages()` |
+| `introText` | `siteOptionsQuery.introText` (a bare `string[]`) — renamed `introPhrases` in `sanity-content.ts`, serialized verbatim by `routes-plugin.ts` into the `<script class="intro__phrases">` JSON payload | `Intro.setRandomPhrase()` (`apps/fe/src/engine/boot/intro.ts`) writes the chosen phrase straight into `.intro__text.textContent`, no `Split`, no per-character animation. `Application.init()` `await`s `intro.play()` (boot phase 4) *before* phase 5 wires up page entrance + interactivity. A stega-tagged phrase turns a few words into a string carrying tens of thousands of invisible zero-width characters (ZWSP/ZWNJ/ZWJ); setting `textContent` to that forces the browser's line-breaking/bidi/grapheme-shaping pass to run over the whole run on first layout (ZWJ especially — shaping engines aren't linear under dense ZWJ runs), which can block the main thread for seconds to minutes. `play()` stalls, phase 5 never runs, and the Presentation iframe looks completely dead — this **was** the reported "won't route to a page or anything" bug |
+| `title` | `pageHomeQuery.title` (unused downstream), `grid[]`/`allDetailsQuery.title`, taxonomy `title`, `pageContactQuery`/`pageImprintQuery.title`, `footerLinks[].title`, slice CTA title (`helpers.resolveCta`) | Feeds `document.title` composition (`"<siteTitle> - <pageTitle>"`) on **every** cache entry and `coverMedia()`'s `alt` parameter — one encoded string duplicated across all 30 cache entries' `<title>` tags and every cover image's `alt` attribute, the single biggest contributor to the multi-MB page bloat |
+| `name` | `siteOptionsQuery.name` → `sanity-content.ts`'s `siteTitle` | Same `<title>`/OG-meta duplication-across-every-page concern as `title`. Never rendered as visible body copy (the nav wordmark is static markup, not CMS-driven), so no click-to-edit tradeoff here |
+
+**Known tradeoff on `title`.** A Detail/grid item's visible heading normally
+renders via `stylizedTitle` (kept encoded, see below), with plain `title`
+only as the escaped-text fallback when no `stylizedTitle` is authored. That
+fallback heading, the taxonomy nav-filter button labels (`{{title}}` in
+`home.html` — taxonomies have no `stylizedTitle` alternative), and slice CTA
+button labels lose Presentation click-to-edit as a result of excluding
+`title`. This is accepted: correctness (no page-breaking bloat, no intro
+hang) outweighs inline-editing convenience for these specific plain-text
+fallbacks — editors can still edit them directly in the Studio.
 
 Explicitly **not** excluded — these stay stega-encoded by design:
-`title`, `stylizedTitle`, `text`, `caption`, `quoteAuthor`, `name`
-(`siteOptions`), `introText`. All of them are rendered as visible text or
-Portable Text, and `escapeHtml()` (`scripts/utils/portable-text.ts`) only
-touches `&<>"'` — the zero-width stega characters survive into the DOM
-untouched, which is exactly what Presentation's click-to-edit overlays need
-to find and decode.
+`stylizedTitle`, `text`, `caption`, `quoteAuthor`. All of them are rendered
+as visible Portable Text or plain body copy with no attribute or routing
+role, and `escapeHtml()` (`scripts/utils/portable-text.ts`) only touches
+`&<>"'` — the zero-width stega characters survive into the DOM untouched,
+which is exactly what Presentation's click-to-edit overlays need to find and
+decode.
 
 > **This is a living document, and so is the filter.** Any new slice
 > resolver, singleton, or GROQ query field that ends up rendered as a route
 > key, a filename, a URL, or an HTML attribute value **must** be added to
 > `EXCLUDED_RESULT_KEYS` in `apps/fe/scripts/preview/stega.ts` — and to the
-> table above — before it ships. A field that's missed doesn't fail loudly;
-> it silently 404s an image or breaks a route match only on the *preview*
+> table above — before it ships. Check whether the field is a bare array of
+> strings (like `introText`) before assuming last-segment matching will
+> catch it — see the array-index blind spot callout above. A field that's
+> missed doesn't fail loudly; it silently 404s an image, breaks a route
+> match, or (per the intro case) stalls the whole page on the *preview*
 > deployment, which is easy to miss since production never runs stega at
 > all.
 
