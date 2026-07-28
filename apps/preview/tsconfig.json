@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "resolveJsonModule": true
+  },
+  // Only the api/ function is checked directly — it imports apps/fe's
+  // preview/scripts modules by relative path, and tsc automatically pulls
+  // those into the program too (import graphs aren't bounded by `include`).
+  // scripts/copy-assets.mjs is plain Node ESM (runs straight via `node` in
+  // the Vercel buildCommand with no compile step) and is intentionally left
+  // out of this program — verify it with `node --check` instead.
+  "include": ["api/**/*.ts", "types/**/*.d.ts"]
+}

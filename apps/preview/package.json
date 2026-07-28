@@ -1,0 +1,21 @@
+{
+  "name": "diaa-preview",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Vercel project serving draft Sanity content for Studio Presentation (Visual Editing). Iframed by apps/be's presentationTool. See apps/fe/docs/visual-editing.md.",
+  "scripts": {
+    "build": "cd ../.. && pnpm --filter diaa build && node apps/preview/scripts/copy-assets.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sanity/client": "^7.18.0",
+    "@sanity/preview-url-secret": "^4.1.2",
+    "mustache": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}

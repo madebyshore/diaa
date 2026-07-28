@@ -23,6 +23,7 @@
  * `apps/preview/api/` (run from wherever Vercel's bundler puts it).
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,14 +31,49 @@ import { renderSite, type RenderedSite } from "../routes-plugin.js";
 import { buildPreviewStega } from "./stega.js";
 
 /**
- * Absolute path to the `apps/fe` package root. Derived from this file's own
- * location (`apps/fe/scripts/preview/render.ts` → up two levels), so it
- * resolves correctly no matter which process's cwd imports this module.
+ * Resolves the root directory this module reads templates/manifest from.
+ *
+ * Three candidates, in priority order:
+ *   1. `PREVIEW_FE_ROOT` env var — explicit override, always wins.
+ *   2. The `apps/fe` package root derived from this file's own
+ *      `import.meta.url` — the normal case (local `preview:cms`, tests),
+ *      accepted only when its `src/routes/` actually exists on disk.
+ *   3. `<cwd>/.preview-runtime` — the deployed Vercel function. There,
+ *      `functions.includeFiles` globs can't reliably escape the
+ *      `apps/preview` project root to reach sibling `apps/fe` files, so
+ *      `apps/preview/scripts/copy-assets.mjs` copies the runtime-read subset
+ *      (route templates, shell template, build manifest) into
+ *      `.preview-runtime/` mirroring this same relative layout, and the
+ *      function's cwd is the project root. Probing for it here means the
+ *      deployment works with zero env configuration.
+ *
+ * If neither probe matches we still return the derived path so the eventual
+ * template read fails with a path in its error message rather than here.
  */
-export const FE_ROOT = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../..",
-);
+function resolveFeRoot(): string {
+  if (process.env.PREVIEW_FE_ROOT) {
+    return path.resolve(process.env.PREVIEW_FE_ROOT);
+  }
+  const derived = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../..",
+  );
+  if (fs.existsSync(path.join(derived, "src/routes"))) return derived;
+  const bundled = path.resolve(".preview-runtime");
+  if (fs.existsSync(path.join(bundled, "src/routes"))) {
+    console.debug(`[preview] FE root resolved to bundled runtime: ${bundled}`);
+    return bundled;
+  }
+  return derived;
+}
+
+/**
+ * Absolute path to the directory holding the fe templates and build
+ * manifest — `apps/fe` itself locally, or the copied `.preview-runtime/`
+ * tree on a deployed Vercel function. See `resolveFeRoot()` for the
+ * resolution rules.
+ */
+export const FE_ROOT = resolveFeRoot();
 
 /** Routes directory `renderSite()` scans — same layout the Vite plugin uses. */
 export const ROUTES_DIR = path.join(FE_ROOT, "src/routes");

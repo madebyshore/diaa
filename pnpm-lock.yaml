@@ -161,6 +161,28 @@ importers:
         specifier: ^4.1.0
         version: 4.1.0(@types/node@25.5.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.0.1(@types/node@25.5.0)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.98.0)(terser@5.48.0)(tsx@4.21.0)(yaml@2.8.4))
 
+  apps/preview:
+    dependencies:
+      '@sanity/client':
+        specifier: ^7.18.0
+        version: 7.25.0
+      '@sanity/preview-url-secret':
+        specifier: ^4.1.2
+        version: 4.1.2(@sanity/client@7.25.0)
+      mustache:
+        specifier: ^4.2.0
+        version: 4.2.0
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.13.3
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+
   packages/kido:
     devDependencies:
       tsup:
@@ -3800,6 +3822,9 @@ packages:
 
   '@types/minimist@1.2.5':
     resolution: {integrity: sha512-hov8bUuiLiyFPGyFPE1lwWhmzYbirOXQNNo40+y3zow8aFVTeyn3VWL0VFFfdNddA8S4Vf0Tc062rzyNr7Paag==}
+
+  '@types/node@24.13.3':
+    resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
 
   '@types/node@25.5.0':
     resolution: {integrity: sha512-jp2P3tQMSxWugkCUKLRPVUpGaL5MVFwF8RDuSRztfwgN1wmqJeMSbKlnEtQqU8UrhTmzEmZdu2I6v2dpp7XIxw==}
@@ -11970,7 +11995,7 @@ snapshots:
     dependencies:
       '@inquirer/prompts': 8.4.2(@types/node@25.5.0)
       '@oclif/core': 4.11.1
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       babel-plugin-react-compiler: 1.0.0
       boxen: 8.0.1
       debug: 4.4.3
@@ -12008,13 +12033,13 @@ snapshots:
       '@oclif/plugin-help': 6.2.46
       '@oclif/plugin-not-found': 3.2.82(@types/node@25.5.0)
       '@sanity/cli-core': 1.3.2(@noble/hashes@2.2.0)(@types/node@25.5.0)(lightningcss@1.32.0)(sass@1.98.0)(terser@5.48.0)(yaml@2.8.4)
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       '@sanity/codegen': 6.1.0(@oclif/core@4.11.1)(@sanity/cli-core@1.3.2(@noble/hashes@2.2.0)(@types/node@25.5.0)(lightningcss@1.32.0)(sass@1.98.0)(terser@5.48.0)(yaml@2.8.4))(@sanity/telemetry@0.9.0(react@19.2.6))
       '@sanity/descriptors': 1.3.0
       '@sanity/export': 6.1.0
       '@sanity/generate-help-url': 4.0.0
       '@sanity/id-utils': 1.0.0
-      '@sanity/import': 6.0.1(@sanity/client@7.22.0)(@types/react@19.2.14)
+      '@sanity/import': 6.0.1(@sanity/client@7.25.0)(@types/react@19.2.14)
       '@sanity/migrate': 6.1.2(@oclif/core@4.11.1)(@sanity/cli-core@1.3.2(@noble/hashes@2.2.0)(@types/node@25.5.0)(lightningcss@1.32.0)(sass@1.98.0)(terser@5.48.0)(yaml@2.8.4))(@types/react@19.2.14)(xstate@5.31.0)
       '@sanity/runtime-cli': 15.0.4(@types/node@25.5.0)(lightningcss@1.32.0)(sass@1.98.0)(terser@5.48.0)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.4)
       '@sanity/schema': 5.24.0(@types/react@19.2.14)
@@ -12102,13 +12127,13 @@ snapshots:
       '@oclif/plugin-help': 6.2.46
       '@oclif/plugin-not-found': 3.2.82(@types/node@25.5.0)
       '@sanity/cli-core': 1.3.2(@noble/hashes@2.2.0)(@types/node@25.5.0)(lightningcss@1.32.0)(sass@1.98.0)(terser@5.48.0)(yaml@2.8.4)
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       '@sanity/codegen': 6.1.0(@oclif/core@4.11.1)(@sanity/cli-core@1.3.2(@noble/hashes@2.2.0)(@types/node@25.5.0)(lightningcss@1.32.0)(sass@1.98.0)(terser@5.48.0)(yaml@2.8.4))(@sanity/telemetry@0.9.0(react@19.2.6))
       '@sanity/descriptors': 1.3.0
       '@sanity/export': 6.1.0
       '@sanity/generate-help-url': 4.0.0
       '@sanity/id-utils': 1.0.0
-      '@sanity/import': 6.0.1(@sanity/client@7.22.0)(@types/react@19.2.14)
+      '@sanity/import': 6.0.1(@sanity/client@7.25.0)(@types/react@19.2.14)
       '@sanity/migrate': 6.1.2(@oclif/core@4.11.1)(@sanity/cli-core@1.3.2(@noble/hashes@2.2.0)(@types/node@25.5.0)(lightningcss@1.32.0)(sass@1.98.0)(terser@5.48.0)(yaml@2.8.4))(@types/react@19.2.14)(xstate@5.31.0)
       '@sanity/runtime-cli': 15.0.4(@types/node@25.5.0)(lightningcss@1.32.0)(sass@1.98.0)(terser@5.48.0)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.4)
       '@sanity/schema': 5.24.0(@types/react@19.2.14)
@@ -12349,10 +12374,10 @@ snapshots:
     dependencies:
       '@sanity/signed-urls': 2.0.4
 
-  '@sanity/import@6.0.1(@sanity/client@7.22.0)(@types/react@19.2.14)':
+  '@sanity/import@6.0.1(@sanity/client@7.25.0)(@types/react@19.2.14)':
     dependencies:
       '@sanity/asset-utils': 2.3.0
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       '@sanity/generate-help-url': 4.0.0
       '@sanity/mutator': 5.24.0(@types/react@19.2.14)
       debug: 4.4.3
@@ -12412,7 +12437,7 @@ snapshots:
     dependencies:
       '@oclif/core': 4.11.1
       '@sanity/cli-core': 1.3.2(@noble/hashes@2.2.0)(@types/node@25.5.0)(lightningcss@1.32.0)(sass@1.98.0)(terser@5.48.0)(yaml@2.8.4)
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       '@sanity/mutate': 0.16.1(xstate@5.31.0)
       '@sanity/types': 5.24.0(@types/react@19.2.14)
       '@sanity/util': 5.24.0(@types/react@19.2.14)
@@ -12429,7 +12454,7 @@ snapshots:
 
   '@sanity/mutate@0.16.1(xstate@5.31.0)':
     dependencies:
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       '@sanity/diff-match-patch': 3.2.0
       '@sanity/uuid': 3.0.2
       hotscript: 1.0.13
@@ -12443,7 +12468,7 @@ snapshots:
   '@sanity/mutate@0.18.1(xstate@5.32.5)':
     dependencies:
       '@isaacs/ttlcache': 2.1.5
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       '@sanity/diff-match-patch': 3.2.0
       '@sanity/uuid': 3.0.2
       hotscript: 1.0.13
@@ -12650,6 +12675,11 @@ snapshots:
       '@sanity/client': 7.18.0
       '@sanity/uuid': 3.0.3
 
+  '@sanity/preview-url-secret@4.1.2(@sanity/client@7.25.0)':
+    dependencies:
+      '@sanity/client': 7.25.0
+      '@sanity/uuid': 3.0.3
+
   '@sanity/prism-groq@1.1.2(prismjs@1.27.0)':
     optionalDependencies:
       prismjs: 1.27.0
@@ -12663,7 +12693,7 @@ snapshots:
       '@oclif/plugin-help': 6.2.46
       '@sanity/blueprints': 0.18.0
       '@sanity/blueprints-parser': 0.4.0
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       adm-zip: 0.5.17
       array-treeify: 0.1.5
       cardinal: 2.1.1
@@ -12706,7 +12736,7 @@ snapshots:
       '@oclif/plugin-help': 6.2.46
       '@sanity/blueprints': 0.18.0
       '@sanity/blueprints-parser': 0.4.0
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       adm-zip: 0.5.17
       array-treeify: 0.1.5
       cardinal: 2.1.1
@@ -12758,7 +12788,7 @@ snapshots:
   '@sanity/sdk@2.11.0(@types/react@19.2.14)(immer@11.1.8)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6))(xstate@5.31.0)':
     dependencies:
       '@sanity/bifur-client': 0.4.1
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       '@sanity/comlink': 3.1.1
       '@sanity/diff-match-patch': 3.2.0
       '@sanity/diff-patch': 6.0.0
@@ -12813,7 +12843,7 @@ snapshots:
 
   '@sanity/types@5.24.0(@types/react@19.2.14)':
     dependencies:
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       '@sanity/media-library-types': 1.4.0
       '@types/react': 19.2.14
 
@@ -12899,7 +12929,7 @@ snapshots:
     dependencies:
       '@date-fns/tz': 1.4.1
       '@date-fns/utc': 2.1.1
-      '@sanity/client': 7.22.0
+      '@sanity/client': 7.25.0
       '@sanity/types': 5.24.0(@types/react@19.2.14)
       date-fns: 4.1.0
       rxjs: 7.8.2
@@ -13143,7 +13173,7 @@ snapshots:
 
   '@types/follow-redirects@1.14.4':
     dependencies:
-      '@types/node': 25.5.0
+      '@types/node': 24.13.3
 
   '@types/hast@2.3.10':
     dependencies:
@@ -13163,7 +13193,7 @@ snapshots:
   '@types/liftoff@4.0.3':
     dependencies:
       '@types/fined': 1.1.5
-      '@types/node': 25.5.0
+      '@types/node': 24.13.3
 
   '@types/linkify-it@5.0.0': {}
 
@@ -13176,9 +13206,14 @@ snapshots:
 
   '@types/minimist@1.2.5': {}
 
+  '@types/node@24.13.3':
+    dependencies:
+      undici-types: 7.18.2
+
   '@types/node@25.5.0':
     dependencies:
       undici-types: 7.18.2
+    optional: true
 
   '@types/normalize-package-data@2.4.4': {}
 
@@ -13204,7 +13239,7 @@ snapshots:
 
   '@types/through@0.0.33':
     dependencies:
-      '@types/node': 25.5.0
+      '@types/node': 24.13.3
 
   '@types/trusted-types@2.0.7':
     optional: true
@@ -15100,7 +15135,7 @@ snapshots:
 
   eval@0.1.8:
     dependencies:
-      '@types/node': 25.5.0
+      '@types/node': 24.13.3
       require-like: 0.1.2
 
   event-source-polyfill@1.0.31: {}
