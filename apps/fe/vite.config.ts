@@ -165,7 +165,6 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "src"),
       "@engine": path.resolve(import.meta.dirname, "src/engine"),
       "@app": path.resolve(import.meta.dirname, "src/app"),
-      "@kido": path.resolve(import.meta.dirname, "src/kido"),
     },
   },
   server: {
