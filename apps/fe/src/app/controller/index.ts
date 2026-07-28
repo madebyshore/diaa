@@ -44,6 +44,44 @@ import type { TransitionCallbacks } from "./types";
 const TRANSITION_TIMEOUT_MS = 8000;
 
 // ---------------------------------------------------------------------------
+// Navigation-observer hook
+// ---------------------------------------------------------------------------
+
+/** Callback signature for `onNavigationCommitted()` — receives the pathname
+ *  that was just pushed onto browser history. */
+type NavigationObserver = (url: string) => void;
+
+/**
+ * Registered navigation observers. Deliberately generic (not preview- or
+ * visual-editing-specific) — any future subsystem that needs to mirror SPA
+ * pushState navigations (analytics, the Sanity Presentation URL bar, …) can
+ * subscribe here instead of Ctrl growing a bespoke hook per consumer.
+ */
+const navigationObservers = new Set<NavigationObserver>();
+
+/**
+ * Registers a callback that fires with the new pathname immediately after
+ * every `history.pushState()` call inside `Ctrl.navigate()` (skipped for
+ * "back" navigations, which don't pushState — those are already observable
+ * via the native `popstate` event). Introduced for
+ * `src/app/preview/visual-editing.ts`, which needs Sanity Presentation's URL
+ * bar to track in-iframe link clicks that never fire `popstate`.
+ *
+ * Invocation is wrapped in try/catch at the call site, so a throwing
+ * observer can never break navigation.
+ *
+ * @param cb - Called with the new pathname after each forward navigation's
+ *   pushState.
+ * @returns An unsubscribe function.
+ */
+export function onNavigationCommitted(cb: NavigationObserver): () => void {
+  navigationObservers.add(cb);
+  return () => {
+    navigationObservers.delete(cb);
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Ctrl
 // ---------------------------------------------------------------------------
 
@@ -188,6 +226,17 @@ export class Ctrl {
     if (target !== "back" && typeof history !== "undefined") {
       history.pushState({ page: path }, "", path);
       dbg.ctrlHistory("pushState", path);
+
+      // Notify any registered navigation observers (see onNavigationCommitted
+      // above) now that the URL has actually committed. Never let a
+      // misbehaving observer break navigation.
+      for (const observer of navigationObservers) {
+        try {
+          observer(path);
+        } catch (err) {
+          console.error("[ctrl] navigation observer threw", err);
+        }
+      }
     }
 
     // Build the callbacks object for TransitionManager. Ctrl supplies DOM

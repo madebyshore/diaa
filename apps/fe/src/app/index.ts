@@ -24,6 +24,7 @@ import { App } from "./context";
 import { installController } from "./controller";
 import { dbg } from "./debug";
 import { PageManager } from "./page-manager";
+import { maybeEnableVisualEditing } from "./preview/visual-editing";
 import { bootstrap, resetScrollPosition } from "./utils";
 
 /**
@@ -93,6 +94,16 @@ export class Application {
 
     const ctrl = installController();
     App.ctrl = ctrl;
+
+    // Fire-and-forget: enables Sanity Visual Editing overlays when this page
+    // is served by the preview deployment (gated on window.__PREVIEW__ —
+    // see src/app/preview/visual-editing.ts). A no-op everywhere else. The
+    // function already catches its own errors; the .catch() here is a second
+    // safety net so a rejected promise can never surface as an unhandled
+    // rejection and must never block the boot sequence below.
+    void maybeEnableVisualEditing().catch((err: unknown) => {
+      console.debug("[visual-editing] boot hook failed:", err);
+    });
 
     // -----------------------------------------------------------------------
     // Phase 3 — Scroller init + page init (before intro)
