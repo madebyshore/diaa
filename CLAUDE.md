@@ -1,45 +1,45 @@
 # Tamahagane — CLAUDE.md
 
-Portfolio site. **Vanilla TypeScript SPA** with custom routing, Sanity CMS, and kido-based animation. **Not Next.js, not React, not Vue.** Ignore any tooling that assumes otherwise.
+Portfolio site. **Nuxt 4 app** (`srcDir: app/`), Sanity CMS, GSAP + Lenis animation, kido utilities. Static production build (`nuxt generate`) plus an SSR preview deployment with Sanity Visual Editing. **Not the old vanilla-TS SPA** — that codebase (custom `Ctrl` router, 5-phase boot, Mustache prerender, kido/anima, WebGPU) was deleted wholesale in the Phase 7 cutover. Ignore any tooling, docs, or muscle memory that assumes the old architecture.
 
 ---
 
 ## Project
 
 - **Name:** Tamahagane (玉鋼)
-- **Version:** 0.1.0 — building toward v1.0.0
-- **Origin:** rebuilt from the `akimbo` codebase
+- **Origin:** ground-up Nuxt rewrite of the original vanilla-TS SPA (see `plans/twinkly-shimmying-marshmallow.md` for the historical build plan; the rewrite landed across Phases 0–7, all in CHANGELOG history)
 - **Structure:** Turborepo monorepo, pnpm workspace
 
 ```
 apps/
-  fe/       Vite 8 SPA — the website
-  be/       Sanity Studio (schemas + desk)
+  fe/       Nuxt 4 SPA/SSR app — the website (srcDir: app/)
+  be/       Sanity Studio (schemas + desk + presentationTool)
   editor/   WGSL shader playground (not covered here unless asked)
 packages/
-  kido/     Animation, scroll, reveal, text split, resize, pointer
+  kido/     Raf, Sniff, ResizeHub — survives the rewrite as utilities only
 ```
+
+`apps/fe` deploys as **two separate Vercel projects** from the same codebase: a static production build (`nuxt generate`, zero server, zero Sanity drafts/tokens) and an SSR preview build (`nuxt build`, drafts perspective, stega encoding, Sanity Presentation overlays). See `apps/fe/docs/visual-editing.md` for the full split.
 
 ---
 
 ## Absolute rules (do not violate)
 
-1. **Never use GSAP.** All animation is `kido/anima` via `new Anima({...})` + `animaToPromise()`. No exceptions.
-2. **Never hand-register a page class.** `PageManager.autoRegister()` discovers modules via `import.meta.glob("../routes/*/*.ts", { eager: true })`. Just create the folder.
-3. **Never create new pages or custom transitions by hand.** Use the plop generators: `pnpm run new-page` / `pnpm run new-transition`. The generators wire up HTML, TS, sanity-content entries, transition registry entries. Edit the scaffold afterwards.
-4. **Never skip the changelog.** Every commit that touches app code adds an entry under `[Unreleased]` in the root `CHANGELOG.md` (Keep a Changelog format).
-5. **Never read `ak.json`.** The boot manifest is `tmhgne.json` now. Only old comments reference `ak.json`.
+1. **`app/data/**` is server-only.** Every file under `apps/fe/app/data/` (Sanity client, queries, content loaders, slice resolvers, stega, preview-auth crypto) may import `@sanity/client` and may carry read tokens. It must never be imported from client-bundled code — Vue components, `.client.ts` plugins, composables that run in the browser. The only legal entry points are `.server.ts` Nuxt plugins (`app/plugins/content.server.ts`), Nitro server routes (`server/`, `server-preview/`), and `nuxt.config.ts`'s build-time `prerender:routes` hook. **Type-only imports are fine** (`import type { SiteOptionsContent } from "~/data/content"`) — composables like `usePageData`/`useSiteOptions` do exactly this to stay typed without pulling `@sanity/client` into the client graph.
+2. **GSAP is the animation library.** `kido/anima` is retired for this app — kido survives only for `Raf`, `Sniff`, and `ResizeHub`. All tweens go through `gsap.to()`/`gsap.set()` (or the page-controller pattern below). Registered `CustomEase` names live in `apps/fe/app/gsap/eases.ts`: `slow`, `o4`, `io`, `o6`. **Only `slow` is load-bearing** in shipped code today (intro beat, home entrance, mode/filter switches, every controller's default content fade) — `o4`/`io`/`o6` are registered for parity with dead-code transition alternates from the old app and currently have no live caller. Don't assume all four are in active use; check before reusing one.
+3. **The stega exclusion list is a living document.** `apps/fe/app/data/stega.ts`'s `EXCLUDED_RESULT_KEYS` set controls which GROQ result fields are allowed to carry Sanity's invisible stega-encoding for Visual Editing overlays. Any new query field whose value becomes a URL, an HTML attribute, a route/slug key, or a `<title>`/alt-text source **must** be added to that set, or preview builds will 404 images, mis-route slugs, or (worst case) hang the intro on a stega-bloated string — see the file's own comment block for the full mechanism, the array-index blind spot, and the intro-hang story before touching it.
+4. **Preview code is structurally excluded from prod — never convert this to a runtime `if`.** Two independent gates in `apps/fe/nuxt.config.ts` keep preview-only code out of the module graph entirely (not just tree-shaken): `nitro.scanDirs` only includes `server-preview/` when `previewEnabled`, and the `plugins` array only registers `app/plugins-preview/visual-editing.client.ts` when `previewEnabled` — that file deliberately lives outside the auto-scanned `app/plugins/` directory so the array is the *only* way it's ever referenced. Verify any change here with a zero-bytes grep against a prod build: `grep -rl "visual-editing\|preview-url-secret\|stegaEncode" .output/public/_nuxt/*.js` must return nothing.
+5. **Never skip the changelog.** Every commit that touches app code adds an entry under `[Unreleased]` in the root `CHANGELOG.md` (Keep a Changelog format).
+6. **Class parity — controllers and styles move together.** Page/slice controllers (`apps/fe/app/controllers/**`, `apps/fe/app/transitions/**`) query DOM by the same BEM class names the SCSS modules and Vue templates define. Renaming a class in a `.vue` template or `.module.scss` file without updating the matching `querySelector`/`gsap.to()` selector in its controller silently breaks the animation with no compile-time error — touch both together.
 
 ---
 
 ## Code style
 
-- **Comments:** Every function and class gets a descriptive comment above its declaration explaining *what* it does and *why*. Treat comments as something a senior dev would find useful — not a restatement of the name.
-- **Existing code:** When touching a file, add comments to any function/class that lacks one.
-- **console.debug:** Sprinkle at meaningful lifecycle points (navigation, transition phases, page lifecycle, GPU operations). Use grep-friendly bracketed prefixes: `[router]`, `[transition:out]`, `[page:home:init]`, `[boot:phase5]`, `[gpu]`.
-- **`dbg.*`:** Prefer the structured debug helpers from `@app/debug` (`dbg.page`, `dbg.ctrl`, `dbg.bootPhase`, `dbg.txOut`, etc.) where they exist. They wrap console.debug with consistent formatting.
-- **Types:** Strict. No `any` unless genuinely unavoidable, and never silently. Explicit return types on functions, typed params, interfaces/types for data shapes.
-- **Imports:** Use path aliases — `@app/*`, `@engine/*`, `@/*`, `@kido/*`. Kido is a bare workspace import (`import { Anima } from "kido/anima"`).
+- **Comments:** Every function and class gets a descriptive comment above its declaration explaining *what* it does and *why*. The shipped code leans heavily on this — expect (and continue) long rationale comments on anything non-obvious: server/client boundaries, sequencing gotchas, framework quirks.
+- **console.debug:** Sprinkle at meaningful lifecycle points (data fetch, route resolution, transition phases, boot). Bracketed prefixes: `[data]`, `[content]`, `[preview]`, `[boot]`.
+- **Types:** Strict. No `any` unless genuinely unavoidable. Explicit return types on exported functions, typed params, interfaces/types for data shapes.
+- **Imports:** Nuxt 4 auto-imports composables/components — no explicit import needed for `usePageData`, `<FigureBase>`, etc. `~/` resolves to `apps/fe/app/`. `kido` is a bare workspace import (`import { Raf } from "kido/raf"`).
 
 ---
 
@@ -47,8 +47,7 @@ packages/
 
 - `CHANGELOG.md` at repo root — Keep a Changelog format.
 - Every commit that changes app code adds an entry under `[Unreleased]`.
-- Pre-1.0 semver: `0.MINOR.PATCH` — minor for features/refactors, patch for fixes.
-- Bump both `apps/fe/package.json` and the root `package.json` on meaningful milestones.
+- Pre-1.0 semver on the root package: `0.MINOR.PATCH` — minor for features/refactors, patch for fixes. `apps/fe` versions independently and reset to `2.0.0` at the Nuxt cutover to mark the rewrite generation (see the CHANGELOG's docs-rewrite entry for the reasoning).
 
 ---
 
@@ -56,10 +55,9 @@ packages/
 
 Authoritative deep-dive docs (read when you need more than this file provides):
 
-- `apps/fe/docs/boot.md` — boot sequence (5 phases, DOM-only, see below)
-- `apps/fe/docs/routing.md` — co-located routes, auto-registration
-- `apps/fe/docs/controller.md` — Ctrl, TransitionManager, custom transitions (DOM-only)
-- `apps/fe/docs/page-animations.md` — `in()`/`out()` hooks, Reveal zone classes, Anima usage
+- `apps/fe/docs/architecture.md` — data flow (queries → `content.ts` → `content.server.ts` → `useState` → pages), static vs. preview build modes, the `prerender:routes` hook
+- `apps/fe/docs/animation.md` — page-controller lifecycle, transition sequencing (the sequential-timing-in-simultaneous-Vue-hooks design), boot/intro, the home→detail bridge, nav lock, Lenis
+- `apps/fe/docs/visual-editing.md` — enabling preview, the stega exclusion list, env var matrix, the two-Vercel-project deploy runbook, troubleshooting
 
 When you add or change a feature in `apps/fe`, update `apps/fe/README.md` and the relevant `apps/fe/docs/*.md`. If you introduce a new subsystem, create a new doc file and link it from the README.
 
@@ -74,566 +72,141 @@ When you add or change a feature in `apps/fe`, update `apps/fe/README.md` and th
 
 # apps/fe — Frontend
 
-Port 3000. Stack: Vite 8 (rolldown), TypeScript, Mustache, SCSS modules, kido, Sanity client (build-time only).
+Package name `diaa`. Nuxt 4, `srcDir: "app/"`. Stack: Vue 3, TypeScript, SCSS modules, GSAP + CustomEase, Lenis, kido (`Raf`/`Sniff`/`ResizeHub` only), `@sanity/client` (server-only), `@portabletext/vue`.
 
-## Aliases
+## Directory layout
 
-```ts
-"@"       → apps/fe/src
-"@app"    → apps/fe/src/app
-"@engine" → apps/fe/src/engine
-"@kido"   → apps/fe/src/kido  // legacy, rarely used
+```
+apps/fe/
+├── nuxt.config.ts            # previewEnabled gates plugins[] + nitro.scanDirs; prerender:routes hook
+├── vercel.json                # STATIC PROD deploy config only (framework:null, nuxt generate output)
+├── .env.example
+├── public/assets/fonts/       # ported verbatim, keep the Optimo license comment
+├── app/
+│   ├── app.vue                 # IntroOverlay + IntroBeat (siblings of #app) + <NuxtPage :transition :page-key>
+│   ├── pages/
+│   │   ├── index.vue           # home — usePageController(createHomeController())
+│   │   └── [slug].vue          # detail | contact | imprint, branches on content.template; 404s on no match
+│   ├── components/
+│   │   ├── brand/DiaaWordmark.vue
+│   │   ├── intro/{IntroOverlay,IntroBeat}.vue      # SSR-visible-by-default via CSS, no v-if/ClientOnly
+│   │   ├── media/FigureBase.vue                     # img|video branch; single <img>/<video>, no <picture> srcset
+│   │   ├── content/RichText.vue                     # @portabletext/vue wrapper + custom marks
+│   │   ├── slices/{SliceRenderer,Slice2Up,Slice3Up,SliceImage,SliceImageWithText,SliceImageSlideshow,SliceText}.vue
+│   │   └── dev/HomeAnimGui.client.vue                # Ctrl+F tuning panel, .client.vue + import.meta.dev gated
+│   ├── composables/
+│   │   ├── useSiteOptions.ts / usePageData.ts / usePageSeo.ts   # useState hydrated by content.server.ts
+│   │   ├── usePageController.ts                       # route-fullPath → controller registry
+│   │   ├── useNavLock.ts                               # nav mutex: beforeEach guard + 8s safety valve
+│   │   ├── useLenisScroll.ts                            # $lenis bridge, native-scroll fallback on mobile
+│   │   ├── useBoot.ts                                   # playIntro() + runBoot(), first-load entrance
+│   │   └── useHomeAnim.ts                               # tunables + localStorage, read live by home.ts
+│   ├── controllers/                                      # imperative DOM choreography, factory-per-mount
+│   │   ├── page-controller.ts                            # PageController contract + BaseController default
+│   │   ├── home.ts / detail.ts / rich-text-page.ts
+│   │   └── index.ts
+│   ├── transitions/
+│   │   ├── default.ts                                    # sequential timing inside Vue's simultaneous hooks
+│   │   ├── home-to-detail.ts                             # image-bridge clone/hide handoff
+│   │   └── index.ts
+│   ├── lib/{image-bridge,beat-skip,scroll-restore}.ts    # one-slot / per-route module handoffs
+│   ├── gsap/eases.ts                                       # CustomEase curve table
+│   ├── plugins/
+│   │   ├── ease.client.ts                                 # registers CustomEase curves
+│   │   ├── lenis.client.ts                                # Lenis + Raf tick, history.scrollRestoration
+│   │   ├── nav-direction.client.ts                        # popstate → "back" flag
+│   │   ├── click-delegation.client.ts                     # global <a> click interception (SPA nav)
+│   │   └── content.server.ts                              # per-request fetch → useSiteOptions/usePageData
+│   ├── plugins-preview/visual-editing.client.ts            # ONLY registered when previewEnabled (see rule #4)
+│   ├── data/                                                # SERVER-ONLY (rule #1)
+│   │   ├── client.ts                                       # getSanityClient(perspective), published vs drafts
+│   │   ├── queries.ts                                      # GROQ constants + buildSlicesProjection()
+│   │   ├── content.ts                                      # loadSiteOptions / loadRouteContent / loadAllRoutePaths
+│   │   ├── image-url.ts                                    # sanityPicture() / pictureFromUrl() → MediaData
+│   │   ├── stega.ts                                        # buildPreviewStega(), the exclusion list (rule #3)
+│   │   ├── preview-auth-core.ts                            # pure HMAC sign/verify, shared prod+preview
+│   │   ├── sanity-defaults.ts                               # default projectId/dataset shared with nuxt.config.ts
+│   │   └── slices/{types,registry,helpers,slice*.ts}        # SliceDefinition ports (see slice contract below)
+│   └── styles/                                              # core/, includes/, pages/, slices/ — barrelled in core.scss
+├── server/routes/{sitemap.xml,robots.txt}.get.ts            # always scanned; branch on previewEnabled at runtime
+├── server-preview/                                          # ONLY scanned when previewEnabled (rule #4)
+│   ├── routes/preview/{enable,disable,refresh}.*
+│   ├── middleware/noindex.ts                                 # global 401 gate + X-Robots-Tag stamping
+│   └── utils/preview-auth.ts                                 # H3/Nitro cookie wrapper around preview-auth-core.ts
+└── docs/{architecture,animation,visual-editing}.md
 ```
 
-## The 5-phase boot sequence
+## Data layer + slice registry contract
 
-`Application.init()` in `apps/fe/src/app/index.ts` runs these in strict order. Each phase awaits the previous. The ordering exists so pages can set their hidden initial DOM state (elements at opacity 0, split text offscreen) **before** the intro overlay wipes away — no flash of unstyled content.
+The Sanity fetch pipeline is **server-only, request-scoped** (not build-time-once like the old Vite pipeline). `app/plugins/content.server.ts` runs once per SSR request or prerendered route, resolves the perspective (published vs. an authenticated drafts session), fetches the site-wide singleton and the current route's content in parallel via `data/content.ts`, and writes both into `useState` (`usePageData()`, `useSiteOptions()`) for every component on that render to read without re-fetching. See `apps/fe/docs/architecture.md` for the full flow diagram.
 
-1. **Intro creation** — `new Intro()`. Sets up the brand-beat overlay (no GPU, no texture loading).
-2. **Controller install** — `history.scrollRestoration = "manual"`, `installController()`. Wires click + popstate event delegation.
-3. **Scroller + page init** — `new NativeScroller()`, `scroller.registerRoute()` per route, `PageManager.registerFromRoutes()`, `await PageManager.initCurrentPage()`. This runs `page.init(container)` which is where the page sets DOM elements to `opacity: 0` and places split text offscreen.
-4. **Intro animation** — `await intro.play()`. The DIAA mark fades in, holds, then the overlay fades out. No flash because phase 3 already applied the hidden initial state.
-5. **Page entrance animations** — `await PageManager.animateCurrentPageIn()` → runs `page.in()` which fades the page container in, reveals split text, etc.
+### Adding a new slice
 
-Rendering is DOM-only. There is no WebGPU, no canvas, and no GPU chunk. Desktop and mobile render identically.
-
-## Global App singleton
-
-`apps/fe/src/app/context.ts` exports `const App: AppState`. It's a plain object (not a class) so any module can `import { App } from "@app/context"` and access the same live reference. Fields are populated progressively during boot. Key fields:
-
-- `App.config.routes` — `{ [url]: pageKey }` map (e.g. `"/about": "about"`). Populated from `tmhgne.json`.
-- `App.route` — `{ old: {url, page}, new: {url, page} }`. Updated by `Ctrl._navigateRoute()` on every nav.
-- `App.is` / `App.was` — boolean flags keyed by page key, for conditional logic in page modules.
-- `App.cache` — `{ [url]: { title, html } }` — pre-rendered inner HTML for SPA navigation, loaded from the inlined `tmhgne.json` payload.
-- `App.scroller` — `NativeScroller` or `Scroller`.
-- `App.ctrl` — the installed `Ctrl` instance.
-- `App.mutating` — transition lock. Navigation bails if true.
-- `App.target` — `"back"` for popstate, otherwise the anchor element. Pages read this to decide scroll restore vs. reset.
-
-In dev mode `window.App` is exposed for DevTools inspection.
-
----
-
-## Creating a new page (the correct way)
-
-**Always run the generator:**
-
-```bash
-cd apps/fe
-pnpm run new-page
-```
-
-Prompts:
-
-1. **Page name** — kebab-case folder name (e.g. `contact`, `case-study`).
-2. **Route path** — URL path (defaults to `/{name}`).
-3. **Page title** — browser tab title (defaults to PascalCase of name).
-4. **Is this a CMS template route?** — if yes, the HTML file gets a `*` prefix and is rendered once per Sanity document at that template key.
-
-What the generator creates:
-
-- `src/routes/{name}/{name}.html` (or `*{name}.html` for CMS templates) — Mustache fragment using `{{> nav}}` and a container.
-- `src/routes/{name}/{name}.ts` — `{PascalName}Page extends BasePage` with scaffolded `init()`, `in()`, `out()`.
-- Appends a page entry to `scripts/sanity-content.ts`.
-
-**After the generator runs, you:**
-
-1. Replace the placeholder HTML with the real template. Pass dynamic data via Mustache tags (`{{title}}`, `{{#images}}{{> picture}}{{/images}}`, etc.).
-2. Fill `init()` — query DOM, set hidden initial state (split text offscreen, `container.style.opacity = "0"`, etc.). **Setting hidden state here prevents a flash** because init runs before the intro overlay wipes.
-3. Fill `in()` — entrance animations using `new Anima({...})` wrapped in `animaToPromise(...)`. Return a Promise that resolves when animations complete.
-4. Fill `out()` — fast (200–500ms) content exit animation before the curtain wipe.
-5. Update the page's entry in `scripts/sanity-content.ts` with real image/media data (localPicture or sanityPicture — see the CMS section).
-6. Add any page-specific styles in `apps/fe/src/styles/pages/_{name}.module.scss` and re-export from `pages.scss`.
-7. Add a link in `src/routes/partials/nav.html` if it should appear in the top nav.
-8. Update `CHANGELOG.md` under `[Unreleased]`.
-9. If the page introduces a new subsystem or significant behaviour, update `apps/fe/README.md` + the relevant `docs/*.md`.
-
-**Why the generator matters:** it keeps the folder structure, the sanity-content entry, and the import paths in sync. Manual creation is a known source of drift — don't do it unless the generator physically cannot express what you need, in which case mirror its output exactly.
-
----
-
-## Creating a new slice (the correct way)
-
-A "slice" is a CMS-authored content block the editor can drop into any page. They are page-agnostic and live in **six places** that all dispatch from one Sanity `_type`:
+A "slice" is a CMS-authored content block droppable into any Detail page. Six exist today: `sliceImage`, `sliceImageWithText`, `sliceImageSlideshow`, `slice2Up`, `slice3Up`, `sliceText`. A new one touches:
 
 | Location | What it is |
 |---|---|
-| `apps/be/schemaTypes/slices/slice<PascalName>.js` | Sanity schema. Registered in `slices/index.js`. |
-| `apps/fe/scripts/slices/slice<PascalName>.ts` | Build-time resolver — GROQ `query` fragment + `resolve(raw, ctx)` transformer + `template` (partial filename). Registered in `scripts/slices/index.ts`. |
-| `apps/fe/src/routes/partials/slices/slice<PascalName>.html` | Mustache partial. Section root carries `data-slice="slice<PascalName>"`. |
-| `apps/fe/src/styles/slices/_<kebab-name>.module.scss` | BEM SCSS module. Re-exported in `styles/slices.scss`. |
-| `apps/fe/src/app/slices/slice<PascalName>.ts` | **Only if the slice has interactive JS.** Pure-CSS slices skip this. Registered in `app/slices/index.ts`. |
-| `apps/fe/src/styles/slices.scss` | Barrel — `@use` the new module. |
+| `apps/be/schemaTypes/slices/slice<PascalName>.js` | Sanity schema. Registered in `slices/index.js`'s `sliceList` array (controls Studio "Add item" order — independent of the frontend registry's order; the two are not required to match, but check both when adding one). |
+| `apps/fe/app/data/slices/slice<PascalName>.ts` | Build-time-shape resolver: a `SliceDefinition` object — `name` (matches the Sanity `_type`), `query` (GROQ fragment, no `_type`/`_key` — those are added by the projection wrapper), `resolve(raw, ctx): TResolved`. Register it in `app/data/slices/registry.ts`'s `sliceRegistry` array. **`resolve()` does not pre-render HTML** — return raw Portable Text blocks where the field is rich text; `<RichText>` renders them client-side (this is a real change from the old pipeline, which pre-rendered HTML strings at build time). |
+| `apps/fe/app/components/slices/Slice<PascalName>.vue` | Vue component taking a `data` prop — exactly the `resolve()` output, already transformed server-side. **Never** import `data/**` or re-resolve raw Sanity fields here — `SliceRenderer.vue` guarantees `resolve()` already ran exactly once, server-side. Register the component in `SliceRenderer.vue`'s local `sliceComponents` map, keyed by `_type`. |
+| `apps/fe/app/styles/slices/_<kebab-name>.module.scss` | BEM SCSS module, `.slice-<kebab-name>` root + `.slice-<kebab-name>__<element>` children. Re-export from `apps/fe/app/styles/slices.scss`. |
+| `apps/fe/app/data/queries.ts` | Nothing to add by hand — `buildSlicesProjection()` composes every registered slice's `query` field into one GROQ `slices[] {...}` projection automatically. |
 
-### Naming
+Helpers available in `apps/fe/app/data/slices/helpers.ts`: `richTextQuery(field)` (resolves internal-link markDefs to hrefs), `resolveCta(raw)` (flattens a CTA object, maps the `__home__` slug sentinel → `/`), `mediaFromUrls(...)` (builds `MediaData` for an image/video pair), `resolveCaptionedImages(...)` (2Up/3Up caption arrays), `resolveLocations(...)`, `hasPortableTextContent(blocks)` (non-whitespace check, replaces the old `renderPortableText().length` idiom).
 
-- BEM classes use the slice's CMS name converted to kebab-case: `sliceFeaturedProjects` → `.slice-featured-projects` and `.slice-featured-projects__<element>`. Never use page-prefixed names like `home-*`.
-- The `data-slice` attribute matches the Sanity `_type` exactly (camelCase): `data-slice="sliceFeaturedProjects"`. The runtime registry dispatches on this attribute.
+### Slice rules
 
-### How slices get fetched + rendered
+1. **Never query slice DOM from a page controller.** A slice's own interactivity (the slideshow's `activeIndex`, click handlers) lives in the slice's own `<script setup>` — see `SliceImageSlideshow.vue` for the one interactive slice today.
+2. **Never call `resolve()` from a Vue component.** The raw-Sanity → props transform runs exactly once, server-side, in `resolveSlices()` (`data/slices/registry.ts`). Components are pure props-in/DOM-out.
+3. **Any new field that becomes a URL, href, or route key must be added to `data/stega.ts`'s exclusion set** — see absolute rule #3.
+4. **Update `CHANGELOG.md`** — CMS name, what it renders, where it's mounted.
 
-1. The slice registry in `apps/fe/scripts/slices/index.ts` is the single source of truth. `apps/fe/scripts/utils/queries.ts` walks every registered slice's `query` field and composes one `slices[] { _type, _key, ... }` projection inside `buildPageQuery()`.
-2. `apps/fe/scripts/sanity-content.ts` fetches the slice-driven page query (e.g. `pageHomeSlicesQuery`), the `globals` singleton (for locations), and the `clients` singleton (for the carousel). Raw slices and singletons are persisted in the disk cache (`apps/fe/.cache/sanity-content.json`) — no Sanity refetch on dev rebuilds.
-3. On every `loadSanityContent()` call the renderer cache is reset and `renderSlices(rawSlices, ctx)` walks the array, dispatching each `_type` to its registered resolver, then rendering the matching partial via Mustache. The resulting HTML string is attached to `page.data.home.slicesHtml` (or `page.data.about.slicesHtml`, etc.).
-4. The page template splices it in via triple-mustache:
+## Page-controller + transition contract
 
-```mustache
-{{#home}}
-  {{{slicesHtml}}}
-{{/home}}
-```
+Every route's imperative animation (as opposed to declarative CSS) goes through a **`PageController`** (`app/controllers/page-controller.ts`): `onInit(root)` (synchronous — must complete before any paint), `onDestroy()`, `in(root): Promise<void>`, `out(root): Promise<void>` (both mandatory, GSAP-driven), optional `onScroll?(e)`. `BaseController` supplies the default 1.2s-in/0.8s-out `"slow"`-eased content fade; `home.ts`/`detail.ts`/`rich-text-page.ts` extend it with page-specific choreography. Controllers are **factories** (`createHomeController()`, not a singleton), registered per-mount via `usePageController()` into a `route.fullPath`-keyed map.
 
-5. At runtime, `BasePage.init()` calls `initSlices(this.container)` which walks every `[data-slice]` element and runs the matching init from `apps/fe/src/app/slices/index.ts`. Aggregated teardown runs from `BasePage.cleanup()` — listeners and timers never leak across SPA navigation.
+Route transitions run through `<NuxtPage :transition="defaultTransition">` (`app/transitions/default.ts`) — `css: false`, **no `mode`**, so outgoing and incoming pages coexist in the DOM (required for the home→detail image bridge). The file re-imposes diaa's real *sequential* wall-clock timing (out fully resolves, then in starts) inside Vue transition hooks that would otherwise run `onLeave`/`onEnter` concurrently, using a module-scope promise (`leaveFinished`) that `onEnter` awaits before starting the incoming controller's `in()`. Full mechanics, the FOUC-critical `.is-controlled` synchronization, and the home→detail bridge's "hide beneath a solid clone" fix (not fade — avoids a double-shadow composite) are documented in `apps/fe/docs/animation.md`.
 
-### Slice runtime contract
+## Visual editing / preview
 
-```ts
-// apps/fe/src/app/slices/slice<PascalName>.ts
-export function initSlice<PascalName>(root: Element): (() => void) | void {
-  const section = root as HTMLElement;
-  // Query inside `root` only — never `document.querySelector`. A slice
-  // must work on any page that contains it; multiple instances on one
-  // page must each work independently.
-
-  // ...wire listeners / timers...
-
-  return () => {
-    // removeEventListener / clearInterval / etc. The aggregated teardown
-    // is invoked from BasePage.cleanup() on navigation.
-  };
-}
-```
-
-Register it with one line in `apps/fe/src/app/slices/index.ts`:
-
-```ts
-import { initSlice<PascalName> } from "./slice<PascalName>";
-
-const sliceInits: Record<string, SliceInit> = {
-  // ...
-  slice<PascalName>: initSlice<PascalName>,
-};
-```
-
-Keys must match the `data-slice` attribute. Pure-CSS slices skip the registry and are silently ignored.
-
-### Build-time resolver contract
-
-```ts
-// apps/fe/scripts/slices/slice<PascalName>.ts
-const slice<PascalName>: SliceDefinition<RawSlice<PascalName>, ResolvedSlice<PascalName>> = {
-  name: "slice<PascalName>",       // matches Sanity _type
-  template: "slice<PascalName>",   // matches Mustache partial filename
-  query: `
-    field1,
-    "field2": pt::text(field2),
-    "image": image.asset->url
-  `,
-  resolve: (raw, ctx) => ({ ... }), // raw → template data
-};
-```
-
-Helpers in `apps/fe/scripts/slices/helpers.ts`:
-
-- `pictureFromUrl(url, alt, index, width?, height?)` — builds responsive `PictureData` (avif/webp/jpg srcsets via Sanity URL params) so slice `{{> picture}}` reuses the shared partial.
-- `resolveCta(raw)` — flattens a CTA object into `{ title, href, blank }`. Maps the `__home__` slug sentinel to `/`.
-- `preserveLineBreaks(text)` — `\n` → `<br>` for `pt::text()` output.
-- `renderPortableText(blocks, opts?)` — Portable Text → HTML. `wrap: "p"` wraps each block in `<p>`.
-- `resolveLocations(globalsDoc)` — pre-resolved global locations consumed by location-aware slices.
-
-### Rules
-
-1. **Never query slice DOM from a page module.** Page modules own page-level concerns (entrance/exit animations, cross-slice coordination). All "click this button → toggle that data attribute" logic lives in the slice's own runtime file.
-2. **Never query outside the `root` argument.** A `document.querySelector` inside a slice module breaks reusability across pages.
-3. **Always return a teardown if you attached anything.** Listeners and `setInterval` handles must release or they leak across navigation.
-4. **Backgrounds and theme:** use `var(--bg-theme)`, never the Sass `$bg-theme` literal, for any background that should track the page theme. The CSS var resolves at runtime; the Sass variable bakes a compile-time value.
-5. **Z-index and sticky stacking belong to the page**, not the slice. Slices set their own visual identity (background, padding, layout); z-index ordering and `position: sticky / top: 0 / height: 110vh` rules live in `pages/_<page>.module.scss` scoped under the page class and target `.slice-*` instances. Keeps slices reusable.
-6. **Update `CHANGELOG.md`** when adding a slice — describe the CMS name, what it renders, where it's mounted.
-
-### Token compatibility
-
-Slice modules `@use "@/styles/includes" as *` and reference shared tokens that exist as compatibility aliases in this project: `$font-mono`, `$font-accent`, `$color-page-bg`, plus mixins `link`, `float-cta`, `typo-eyebrow`. If a new slice needs a token outside that set, add an alias in `apps/fe/src/styles/includes/` rather than editing the slice module — keeps slices portable across projects.
-
----
-
-## Page lifecycle
-
-Every route module default-exports a class extending `BasePage` (`@app/primitives/base-page`). PageManager calls hooks in this order:
-
-```
-Navigate to /about
-  ├─ PageManager.beforeOut()         (saves scroll, awaits outgoing page.out())
-  ├─ callbacks.update()              (bridges to the in phase)
-  ├─ callbacks.insertNew()           (old + new pages coexist in DOM)
-  ├─ Promise.all(transition.out(), transition.in())   (simultaneous)
-  ├─ double-RAF                      (wait for layout commit)
-  ├─ 150ms delay, callbacks.removeOld()
-  └─ PageManager.afterIn()           (new page.init() → page.in(), scroll restore)
-```
-
-### BasePage hook contract
-
-```ts
-class MyPage extends BasePage {
-  async init(container: Element | null): Promise<void> {
-    if (!container) return;
-    await super.init(container);            // stores container on `this.container`
-    // Query DOM, set hidden initial DOM state for entrance (e.g. opacity: 0).
-    // Runs BEFORE the intro overlay wipes on first boot.
-  }
-
-  async in(): Promise<void> {
-    // Entrance animations. Return Promise that resolves when done.
-    // BasePage's default implementation fades the container from opacity 0 to 1.
-  }
-
-  async out(): Promise<void> {
-    // Content-level exit animation. Runs BEFORE the transition curtain.
-    // Keep it fast (200–500ms) so the transition doesn't feel sluggish.
-  }
-
-  async cleanup(): Promise<void> {
-    // Non-visual teardown: cancel timers, unsubscribe events, release resources.
-  }
-
-  onScroll?(e: ScrollEvent): void {
-    // Optional. Subscribed to App.scroller in PageManager.animateCurrentPageIn.
-  }
-}
-```
-
-**Rule of thumb:** `init()` = query + hide. `in()` = reveal. `out()` = fast content exit. `cleanup()` = teardown.
-
----
-
-## Animation — kido/anima
-
-**Never use GSAP.** All animation goes through `Anima`:
-
-```ts
-import { Anima } from "kido/anima";
-import { animaToPromise } from "@app/controller/transition-fx";
-
-await animaToPromise(new Anima({
-  el: this.heroTitle,
-  d: 1000,                          // duration ms
-  e: [0.16, 1, 0.3, 1],             // easing: bezier array or named preset ("oQ", "oC", "io")
-  de: 100,                          // delay ms
-  r: 5,                             // optional round precision
-  p: {                              // animated properties
-    o: [0, 1],                      // opacity
-    y: [40, 0, "px"],               // translateY (unit optional, "px" default)
-    x: [-20, 0, "px"],
-    scale: [0.9, 1],
-    scaleX: [0, 1],
-  },
-  u: (state) => {                   // per-frame update callback (for custom drivers)
-    // state.prE = eased progress 0→1
-    // Use this to drive non-CSS values each frame.
-  },
-  // cb fires on completion — animaToPromise uses this internally
-}));
-```
-
-**Common eases** (from `DefaultTransition`):
-
-| Shape | Bezier | Use for |
-|---|---|---|
-| o6 | `[0.16, 1, 0.3, 1]` | Fast start, smooth decel — page transforms |
-| o4 | `[0.25, 1, 0.5, 1]` | Gentler decel — opacity overlays |
-| io | `[0.76, 0, 0.2, 1]` | Ease in-out — curtain + clip reveals |
-| codrops | `[0.38, 0.05, 0.65, 0.82]` | Content fades |
-| `"oQ"` | (kido preset) | Split text |
-| `"oC"` | (kido preset) | Div scale |
-
-**Stagger** by passing incrementing `de` values:
-
-```ts
-for (let i = 0; i < items.length; i++) {
-  anims.push(animaToPromise(new Anima({
-    el: items[i], d: 900, e: [0.16, 1, 0.3, 1],
-    de: 200 + i * 100,
-    p: { o: [0, 1], y: [40, 0, "px"] },
-  })));
-}
-await Promise.all(anims);
-```
-
-### Scroll-triggered reveals — zone classes
-
-`PageManager.initCurrentPage()` auto-initialises `Reveal` from kido on every page with these selectors:
-
-| Class | Effect |
-|---|---|
-| `._s` (or `.z__s`) | Split text — word-by-word slide up |
-| `.z__o` | Opacity fade (children with `.o` stagger) |
-| `.z__d` | Div scale — `scaleX(0→1)` |
-| `.z__g` | SVG stroke-dashoffset mask reveal |
-
-Append `-N` for stagger delay (`.z__o-2` = +200ms). Two numbers — `.z__o-1-3` — means 100ms when scrolled into view, 300ms when already in viewport on page load.
-
-**Split text modifiers:**
-
-```html
-<h2 class="_s">Splits per word, default 100ms stagger</h2>
-<p class="_s s-40">40ms stagger instead</p>
-<p class="_s t-1">Adds rotateX(-30deg) tilt</p>
-<h2 class="_s" data-split="br">Splits on &lt;br&gt; tags instead of words</h2>
-```
-
-The `Split` class in kido wraps each word in `<span class="s__o"><span class="s__i">` — the `.s__i` is the animated inner element.
-
----
-
-## Navigation & transitions
-
-All navigation flows through `Ctrl` in `apps/fe/src/app/controller/index.ts`. `installController()` wires event delegation on `document` for `<a>` clicks and on `window` for `popstate`. Both call `ctrl.navigate(path, target)`.
-
-### Flow
-
-```
-Click or popstate
-  ↓
-Ctrl.navigate(path)
-  ├─ Guard: bail if App.mutating
-  ├─ Set App.mutating, start 8s safety timer
-  ├─ _navigateRoute(path)                    (updates App.route.old/new, App.is, App.was)
-  ├─ document.title = cache.title            (INFR-01)
-  ├─ _setActiveNavLink(path)                 (ROUT-05)
-  ├─ history.pushState (skipped if target === "back")
-  └─ TransitionManager.out(callbacks)
-      ├─ PageManager.beforeOut()             (save scroll, page.out())
-      └─ callbacks.update() → Ctrl._in()
-          └─ TransitionManager.in(callbacks)
-              ├─ callbacks.insertNew()       (both pages in DOM)
-              ├─ Promise.all(transition.out(fromEl, toEl), transition.in(fromEl, toEl))
-              ├─ double-RAF                  (layout commit)
-              ├─ 150ms delay, callbacks.removeOld()
-              └─ PageManager.afterIn()       (page.init + page.in, scroll restore)
-  → finally: clear safety timer, App.mutating = false
-```
-
-### Transition classes
-
-Every visible transition extends `BaseTransition`:
-
-```ts
-abstract class BaseTransition {
-  abstract out(fromEl: HTMLElement, toEl: HTMLElement): Promise<void>;
-  abstract in(fromEl: HTMLElement, toEl: HTMLElement): Promise<void>;
-  cleanup?(toEl: HTMLElement): void;
-}
-```
-
-- `out()` and `in()` run **simultaneously** via `Promise.all`.
-- Keep their durations roughly equal — the longer one determines total transition time.
-- The default is `EmptyTransition` — a clean DOM swap where page-level `in()`/`out()` drive container opacity crossfades. Read `apps/fe/src/app/controller/transition-fx.ts` before writing a custom one.
-
-### Creating a custom transition
-
-**Always use the generator:**
-
-```bash
-cd apps/fe
-pnpm run new-transition
-```
-
-Prompts:
-
-1. From page (choose from existing route folders)
-2. To page (choose from existing route folders)
-3. Class name (defaults to `{From}{To}Transition`)
-
-What it creates:
-
-- `src/app/controller/transitions/{from}-to-{to}.ts` — class extending `BaseTransition` with scaffolded `out()`, `in()`, `cleanup()`.
-- Adds the import and `this.registry.register("{from}", "{to}", new ...)` call in the `Ctrl` constructor in `controller/index.ts`.
-
-**After scaffolding, implement `out()` and `in()`** using `animaToPromise(new Anima({...}))`. Always call `toEl.removeAttribute("style")` in `cleanup()` so the new page returns to normal document flow.
-
-**Registry keys are page keys**, not URL paths. The key is the folder name (`"home"`, `"about"`, `"case-study"`). CMS-driven routes all share one page key (e.g. every `/case-study/*` URL uses `"case-study"`).
-
-### Scroll save/restore
-
-- **Save:** `PageManager.beforeOut()` snapshots `{cur, tar}` from the scroller.
-- **Back-nav (`App.target === "back"`):** `initCurrentPage()` calls `scrollTo(snap.tar, true)` for an instant jump.
-- **Forward-nav:** resets to `scrollTo(0, true)`.
-- `history.scrollRestoration = "manual"` is set in boot phase 2 so the browser doesn't fight us.
-
----
-
-## CMS — Sanity
-
-**Sanity is fetched at BUILD TIME only.** There is no runtime Sanity client in the browser bundle. The flow is:
-
-1. `scripts/sanity-content.ts` calls `loadSanityContent()` which uses `@sanity/client` to fetch with GROQ queries from `scripts/utils/queries.ts`.
-2. It returns `{ pages }` — `pages` is an array of `{ path, key, title, template, data }`.
-3. `scripts/routes-plugin.ts` (Vite plugin `RoutesAndBootPlugin`) receives this, renders each page's Mustache template with `data`, writes the HTML file to `dist/`, and emits `tmhgne.json` containing the route map and pre-rendered inner HTML cache.
-4. At runtime, `loadPkg()` in `apps/fe/src/app/cache.ts` reads the inlined `<script id="__TMHGNE__">` payload and populates `App.config.routes` and `App.cache`.
-
-### Sanity project
-
-Configured in `apps/fe/project.config.ts` under `sanity: { projectId, dataset }`. The live project is `r8x2r9d9`. Env vars override:
-
-| Variable | Purpose |
-|---|---|
-| `SANITY_PROJECT_ID` | Sanity project identifier |
-| `SANITY_DATASET` | Sanity dataset name |
-| `SANITY_READ_TOKEN` | Read token (optional for public data) |
-| `SANITY_API_VERSION` | Defaults to `2023-10-10` |
-| `SITE_URL` | Base URL for sitemap generation |
-
-### Adding a new CMS-driven page
-
-1. **Add/extend the schema** in `apps/be/schemaTypes/` — either `documents/singletons/` for a one-off page, `documents/collections/` for a repeatable type, or `documents/site/` for site-level config.
-2. Register the schema in `apps/be/schemaTypes/index.js` (import + add to `schemaTypes` array).
-3. Deploy the studio if needed: `cd apps/be && npx sanity deploy`.
-4. **Add a GROQ query** in `apps/fe/scripts/utils/queries.ts` — look at `coverQuery` and `homePageQuery` for the pattern.
-5. **Extend `loadSanityContent()`** in `scripts/sanity-content.ts` — fetch the query, build `PictureData` entries via `sanityPicture(url, alt, index)`, push a page entry:
-
-```ts
-pages.push({
-  path: `/work/${slug}`,
-  key: `case-${slug}`,      // used as the PageManager key
-  title: cover.title,
-  template: "case-study",   // matches src/routes/case-study/ folder
-  data: { cover, images: pictures },
-});
-```
-
-6. **If this is a new route template** (not an existing one), create the folder with a CMS template HTML (star-prefix): `src/routes/case-study/*case-study.html` and `src/routes/case-study/case-study.ts`. Use the generator (`pnpm run new-page`, answer "yes" to "Is this a CMS template route?").
-7. Reference dynamic fields in the Mustache template: `{{title}}`, `{{#images}}{{> picture}}{{/images}}`, etc.
-
-### Static page with responsive images
-
-For static pages with local images in `public/assets/images/`:
-
-```ts
-pages.push({
-  path: "/",
-  key: "home",
-  title: "Tamahagane",
-  template: "home",
-  data: {
-    images: [
-      localPicture("1", "Project thumbnail", 0),
-      localPicture("2", "Project thumbnail", 1),
-    ],
-  },
-});
-```
-
-`localPicture(basename, alt, index)` produces `PictureData` with srcsets pointing at `/assets/images/{basename}-{640,1024,1920}w.{avif,webp,jpg}`. The image-optimize build step (`tsx scripts/img-optimize.ts`, runs after `vite build`) generates those variants using sharp. The `index === 0` entry gets `fetchpriority="high"`; others get `loading="lazy"`.
-
-### The `{{> picture}}` partial
-
-`src/routes/partials/picture.html` renders a responsive `<picture>` with AVIF/WebP/JPEG sources from a `PictureData` object. Use it in any template:
-
-```mustache
-{{#images}}
-  {{> picture}}
-{{/images}}
-```
-
----
-
-## Rendering
-
-Rendering is DOM-only. There is no WebGPU, no `<canvas>`, and no GPU bundle. Page images are responsive `<figure class="_g"><img></figure>` elements rendered via the shared `{{> picture}}` partial — the `._g` class simply sets `aspect-ratio`, `overflow: hidden`, and `img { object-fit: cover }`. The home page's text-mode hover reveal (`.home__text-gpu` / `.home__text-gpu-figure`) is a pure DOM overlay: hovering a text label toggles `.is-active` on the matching figure, fading a centered `<img>` in via CSS.
-
----
-
-## Image pipeline
-
-1. Source images live in `apps/fe/public/assets/images/` (originals only, `.jpg`).
-2. `vite build` copies them to `dist/assets/images/`.
-3. `tsx scripts/img-optimize.ts` runs after build and generates AVIF, WebP, JPEG variants at 640w, 1024w, 1920w using sharp.
-4. `localPicture(basename, alt, index)` in `sanity-content.ts` emits the matching srcsets.
-5. The `{{> picture}}` partial renders a responsive `<picture>` element with all three format sources.
-
----
-
-## Styles
-
-SCSS modules under `apps/fe/src/styles/`. Entry is `core.scss`.
-
-- `core/` — reset, base, root, intro
-- `includes/` — variables, breakpoints, colors, typography, layout, helpers, z-index
-- `pages/` — per-page styles, barrelled in `pages.scss`
-
-Breakpoint `md` = 1024px.
-
-When adding a new page, create `pages/_{name}.module.scss` and add the import to `pages.scss`.
-
----
-
-## kido — animation & DOM utilities
-
-`packages/kido` exposes these subpaths (each is a tree-shakeable entry — verify against `packages/kido/package.json`):
-
-| Import | What it gives you |
-|---|---|
-| `kido` (barrel) | `Raf, RafHub, Delay, Timer, Tab, Svg, Split, PointerMove, WheelKeys, ResizeHub, Anima, Reveal, Scroller, Sniff, Ease, cubicBezier, clamp, lerp, damp, round, bounds, queryAll, setTheme, ...` |
-| `kido/anima` | `Anima`, `AnimaConfig`, `AnimaPlayOptions`, `AnimaState` |
-| `kido/raf` | `Raf, RafHub, Delay, Timer, getFrameRatio` |
-| `kido/utils` | `clamp, lerp, aLerp, iLerp, damp, round, queryAll, bounds, Sniff, Ease, ...` |
-| `kido/split` | `Split` — text splitter |
-| `kido/reveal` | `Reveal` — scroll-triggered zone reveals |
-| `kido/scroller` | `Scroller` — virtual scroller |
-| `kido/native-scroller` | `NativeScroller` — damped native scroll with per-route state |
-| `kido/resize` | `ResizeHub` — global resize observer |
-| `kido/pointer` | `PointerMove` |
-| `kido/wheel` | `WheelKeys` |
-| `kido/svg` | `Svg` path/line helpers |
-| `kido/tab` | `Tab` visibility detection |
-
-**kido is mutable during the refactor.** If you need a feature that kido doesn't have, you may extend it — don't copy-paste animation primitives into the fe app. Remember to bump its version and rebuild (`pnpm --filter kido build`) when consumed changes ship.
+Enabled via `NUXT_PUBLIC_PREVIEW_ENABLED=true` at build time, which structurally includes `server-preview/**` and the `visual-editing.client.ts` plugin (see rule #4). Auth is a stateless HMAC session cookie set by `/preview/enable` (validated against Sanity's `previewUrlSecret`), read on every request by `app/plugins/content.server.ts` to decide published vs. drafts perspective. Full enable flow, the stega exclusion mechanism, the env var matrix, and the two-Vercel-project deploy runbook (including the dashboard checklist and the h3-import / scanDirs gotchas) live in `apps/fe/docs/visual-editing.md`.
 
 ---
 
 # apps/be — Sanity Studio
 
-Sanity v3 + React 19. Edit schemas, deploy the studio, and the frontend picks up new content on next build.
+Sanity v3 + React 19, package `diaa-be`. Includes `presentationTool` for Visual Editing, configured in `apps/be/sanity.config.js` with `previewMode.enable: '/preview/enable'` (the Nuxt app's route, not a standalone preview server) and `resolve.locations` bodies for `pageHome`, `detail`, `pageContact`, `pageImprint`.
 
 ## Layout
 
 ```
 schemaTypes/
   documents/
-    collections/   repeatable types (caseStudy, page)
-    singletons/    one-off documents (pageHome)
-    site/          site-level config (siteNav, siteOptions)
-  objects/         reusable field objects (seo, internalLink, externalLink, textBlock)
-  slices/          builder slices (gridBuilder, zineBuilder, zinePage)
+    collections/   detail, taxonomy
+    singletons/    pageHome, pageContact, pageImprint
+    site/          siteOptions
+  objects/         seo, internalLink, externalLink, cta, textBlock, richText, imageWithCaption
+  slices/          slice2Up, slice3Up, sliceImage, sliceImageSlideshow, sliceImageWithText, sliceText
   index.js         barrel — add new schemas here
-components/        custom Sanity input components (gridBuilder, imagePositioner)
-plugins/builder/   custom plugin
-utils/             helper functions, internal link targets
-desk.js            studio desk structure
-sanity.config.js   studio config
-sanity.cli.js      CLI config
+sanity.config.js    studio config incl. presentationTool
+desk.js             studio desk structure
 ```
 
 ## Adding a schema
 
-1. Create the file under `documents/collections/` (repeatable) or `documents/singletons/` (one-off) or `objects/` (reusable field).
-2. Use `defineType` + `defineField` from `sanity`. Look at `documents/singletons/pageHome.js` for the pattern — title/images/slices/seo field groups with icons from `react-icons`.
-3. Import and add to `schemaTypes/index.js`.
-4. If it should appear in the desk, update `desk.js`.
-5. Deploy: `cd apps/be && npx sanity deploy`.
-6. On the frontend side, add a GROQ query to `apps/fe/scripts/utils/queries.ts` and extend `loadSanityContent()` in `scripts/sanity-content.ts`.
+1. Create the file under `documents/collections/` (repeatable), `documents/singletons/` (one-off), or `objects/` (reusable field).
+2. Import and add to `schemaTypes/index.js`.
+3. If it should appear in the desk, update `desk.js`.
+4. Deploy: `cd apps/be && npx sanity deploy`.
+5. On the frontend: add a GROQ query fragment to `apps/fe/app/data/queries.ts`, extend `apps/fe/app/data/content.ts`'s loaders, and (for slices) follow the slice contract above.
 
 ---
 
 # packages/kido
 
-Workspace package. Published-ready (`publishConfig.access: public`) but consumed internally via `workspace:*`.
-
-- **kido** — animation, scroll, DOM utilities. ESM, tree-shakeable, 14+ subpath exports. Refactorable.
+Workspace package, `workspace:*` in `apps/fe/package.json`. Post-rewrite, `apps/fe` consumes only `Raf`, `Sniff`, and `ResizeHub` — the Lenis scroll tick and mobile-detection utilities. `kido/anima`, `Reveal`, `Split`, `Scroller`/`NativeScroller` are no longer imported by `apps/fe` (GSAP + Lenis replaced them) but remain in the package for any other consumer.
 
 Build kido in watch mode: `pnpm --filter kido dev`.
-
-Run all builds: `pnpm build` at repo root (turbo).
 
 ---
 
@@ -647,24 +220,19 @@ pnpm install
 pnpm dev
 
 # Dev — specific app
-pnpm --filter fe dev                 # frontend on :3000
-pnpm --filter tamahagane-be dev      # Sanity Studio
+pnpm --filter diaa dev                # frontend (Nuxt dev server)
+pnpm --filter diaa-be dev             # Sanity Studio
 
 # Build
-pnpm build                           # all (turbo)
-pnpm --filter fe build               # fe only (lint + vite build + img-optimize)
+pnpm build                            # all (turbo)
+pnpm --filter diaa build              # nuxt generate — static prod output → apps/fe/.output/public
+pnpm --filter diaa build:ssr          # nuxt build — SSR output, used by the preview deploy
+pnpm --filter diaa check-types        # nuxt typecheck
+pnpm --filter diaa lint               # eslint .
 
-# Test
-pnpm test                            # all
-pnpm --filter fe test                # fe only (vitest)
-
-# Scaffolding (always do this instead of by-hand file creation)
-cd apps/fe
-pnpm run new-page
-pnpm run new-transition
-
-# Sanity deploy
-cd apps/be && npx sanity deploy
+# Sanity
+cd apps/be && npx sanity dev          # Studio dev server
+cd apps/be && npx sanity deploy       # deploy hosted Studio
 ```
 
 ---
@@ -673,7 +241,7 @@ cd apps/be && npx sanity deploy
 
 - Node ≥ 18
 - pnpm ≥ 10.20.0
-- Any modern browser — rendering is DOM-only.
+- Any modern browser.
 
 ---
 
@@ -681,34 +249,29 @@ cd apps/be && npx sanity deploy
 
 | File | Role |
 |---|---|
-| `apps/fe/src/main.ts` | Entry — instantiates `Application` and calls `init()` |
-| `apps/fe/src/app/index.ts` | `Application` class — 5-phase boot orchestrator |
-| `apps/fe/src/app/context.ts` | `App` singleton + AppState types |
-| `apps/fe/src/app/cache.ts` | `loadPkg()` — reads inlined `tmhgne.json` into App state |
-| `apps/fe/src/app/utils.ts` | `bootstrap()`, `resetScrollPosition()`, initial route setup |
-| `apps/fe/src/app/page-manager.ts` | `PageManager` singleton — auto-registration, lifecycle, scroll save/restore |
-| `apps/fe/src/app/primitives/base-page.ts` | `BasePage` — init/in/out/cleanup contract |
-| `apps/fe/src/app/primitives/component.ts` | `Component` — reusable animated element base class |
-| `apps/fe/src/app/controller/index.ts` | `Ctrl` + `installController()` — navigation entry point |
-| `apps/fe/src/app/controller/transition-manager.ts` | out/in choreography |
-| `apps/fe/src/app/controller/transition-registry.ts` | `BaseTransition` + `TransitionRegistry` |
-| `apps/fe/src/app/controller/transition-fx.ts` | `EmptyTransition` + `animaToPromise` |
-| `apps/fe/src/app/controller/types.ts` | `TransitionCallbacks`, `NormalizedUrl` |
-| `apps/fe/src/engine/boot/intro.ts` | `Intro` — brand-beat overlay animation |
-| `apps/fe/src/routes/` | Co-located route folders (`{name}/{name}.html` + `{name}.ts`) |
-| `apps/fe/src/routes/partials/` | Shared Mustache partials (`nav`, `meta`, `picture`, `grid`, `intro`) |
-| `apps/fe/scripts/routes-plugin.ts` | Vite plugin — route discovery, Mustache rendering, `tmhgne.json` emission |
-| `apps/fe/scripts/sanity-content.ts` | Build-time Sanity fetcher — emits `{ pages }` |
-| `apps/fe/scripts/utils/queries.ts` | GROQ queries |
-| `apps/fe/scripts/utils/image-url.ts` | Sanity image URL builder |
-| `apps/fe/scripts/img-optimize.ts` | Post-build sharp variants (AVIF/WebP/JPEG) |
-| `apps/fe/plopfile.mjs` | `new-page` / `new-transition` generators |
-| `apps/fe/plop-templates/` | Handlebars templates used by plop |
-| `apps/fe/index.html` | Shell template (wrapped around every route's rendered fragment) |
-| `apps/fe/project.config.ts` | Site-level config (colors, grid, Sanity project) |
-| `apps/fe/vite.config.ts` | Vite config, aliases |
-| `packages/kido/src/anima.ts` | `Anima` — animation primitive |
-| `packages/kido/src/reveal.ts` | `Reveal` — scroll-zone reveals |
-| `packages/kido/src/split.ts` | `Split` — text word splitter |
-| `packages/kido/src/native-scroller.ts` | `NativeScroller` — damped native scroll |
-| `apps/be/schemaTypes/index.js` | Sanity schema barrel — register new types here |
+| `apps/fe/nuxt.config.ts` | Config, `previewEnabled` gating, `prerender:routes` hook |
+| `apps/fe/app/app.vue` | Root component — Intro overlay/beat, `<NuxtPage>` + transition wiring, boot kickoff |
+| `apps/fe/app/plugins/content.server.ts` | Per-request Sanity fetch → `useState` hydration |
+| `apps/fe/app/data/content.ts` | `loadSiteOptions` / `loadRouteContent` / `loadAllRoutePaths` — the published/drafts seam |
+| `apps/fe/app/data/client.ts` | Sanity client factory (published vs. drafts perspective) |
+| `apps/fe/app/data/stega.ts` | Stega exclusion filter — see absolute rule #3 |
+| `apps/fe/app/data/slices/registry.ts` | Slice registry — `sliceRegistry`, `resolveSlices()` |
+| `apps/fe/app/data/queries.ts` | GROQ query constants, `buildSlicesProjection()` |
+| `apps/fe/app/composables/usePageData.ts` / `useSiteOptions.ts` | `useState` reads of server-fetched content |
+| `apps/fe/app/composables/usePageController.ts` | Route-fullPath → `PageController` registry |
+| `apps/fe/app/composables/useNavLock.ts` | Navigation mutex + 8s safety valve |
+| `apps/fe/app/composables/useBoot.ts` | Intro playback + first-load entrance |
+| `apps/fe/app/controllers/page-controller.ts` | `PageController` contract + `BaseController` default |
+| `apps/fe/app/controllers/home.ts` | Home page choreography (mode/filter toggles, hover reveal, brand beat) |
+| `apps/fe/app/controllers/detail.ts` | Detail page choreography + bridge consumption |
+| `apps/fe/app/transitions/default.ts` | Sequential-timing-in-simultaneous-hooks transition |
+| `apps/fe/app/transitions/home-to-detail.ts` | Home→detail image bridge |
+| `apps/fe/app/gsap/eases.ts` | `CustomEase` curve table |
+| `apps/fe/app/plugins/lenis.client.ts` | Lenis instance, Raf tick, `$lenis` (null on mobile) |
+| `apps/fe/app/plugins-preview/visual-editing.client.ts` | Sanity overlay runtime (preview builds only) |
+| `apps/fe/server-preview/routes/preview/enable.get.ts` | Preview session grant (HMAC cookie) |
+| `apps/fe/server-preview/middleware/noindex.ts` | Preview auth gate + `X-Robots-Tag: noindex` |
+| `apps/fe/vercel.json` | Static prod deploy config |
+| `apps/be/sanity.config.js` | Studio config incl. `presentationTool` |
+| `apps/be/schemaTypes/index.js` | Sanity schema barrel |
+| `packages/kido/src/raf.ts` | `Raf`/`RafHub` — ticks Lenis |
