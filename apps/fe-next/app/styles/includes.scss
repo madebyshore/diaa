@@ -1,6 +1,9 @@
-// Barrel of shared design tokens (colors, breakpoints, easing, z-index, ...),
-// `@use`d automatically into every SCSS module via the Vite `additionalData`
-// config in nuxt.config.ts. Phase 4 forwards the full token set ported from
-// the reference build; today only breakpoints exist, as a minimal stub that
-// proves the injection resolves.
 @forward "./includes/breakpoints.module";
+@forward "./includes/colors.module";
+@forward "./includes/eases.module";
+@forward "./includes/globals.module";
+@forward "./includes/layout.module";
+@forward "./includes/helpers.module";
+@forward "./includes/typography.module";
+@forward "./includes/variables.module";
+@forward "./includes/z-index.module";

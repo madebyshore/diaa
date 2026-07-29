@@ -1,0 +1,106 @@
+@use "@/styles/includes" as *;
+
+/* Image-with-Text — centered title, image, rich-text body stacked with S gaps.
+   3:2 spans the center 4 columns; 3:4 is centered with a fixed height of 4
+   column-widths. */
+.slice-image-with-text {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), 1fr);
+  column-gap: var(--column-gap);
+  row-gap: var(--S);
+  padding: 0 var(--container-padding);
+  align-items: start;
+}
+
+.slice-image-with-text__title {
+  grid-column: 3 / span 8;
+  margin: 0;
+  text-align: center;
+
+  /* Tablet (8 cols): one column in from each edge. */
+  @include breakpoint-tablet {
+    grid-column: 2 / -2;
+  }
+
+  /* Mobile (6 cols): full width, still centred as text. */
+  @include breakpoint-mobile {
+    grid-column: 1 / -1;
+  }
+}
+
+.slice-image-with-text__media {
+  grid-column: 5 / span 4;
+  margin: 0;
+  overflow: hidden;
+
+  /* Tablet (8 cols): keep the narrower centered look — middle 4 of 8. */
+  @include breakpoint-tablet {
+    grid-column: 3 / span 4;
+  }
+
+  /* Landscape ratios (3:2, 4:3): center 6 columns wide, height driven purely
+     by the aspect ratio. Tablet (8 cols) keeps the same center-6 shape via
+     one column in from each edge. */
+  &--ar-3x2,
+  &--ar-4x3 {
+    grid-column: 4 / span 6;
+
+    @include breakpoint-tablet {
+      grid-column: 2 / -2;
+    }
+  }
+  &--ar-3x2 {
+    aspect-ratio: 3 / 2;
+  }
+  &--ar-4x3 {
+    aspect-ratio: 4 / 3;
+  }
+  &--ar-3x4 {
+    grid-column: 1 / -1;
+    justify-self: center;
+    height: calc-columns(4);
+    aspect-ratio: 3 / 4;
+  }
+
+  /* Mobile: mirror the plain image slice's ratio-driven placement —
+     landscape runs full width, portrait centres on the middle 4 of 6.
+     The 3:4 variant drops its column-derived fixed height (it was sized
+     against the desktop 12-col tracks); the aspect ratio sizes it from
+     its own tracks like every other mobile image. */
+  @include breakpoint-mobile {
+    &--ar-3x2,
+    &--ar-4x3 {
+      grid-column: 1 / -1;
+    }
+    &--ar-3x4 {
+      grid-column: 2 / -2;
+      justify-self: stretch;
+      height: auto;
+    }
+  }
+}
+
+.slice-image-with-text__text {
+  /* Center 6 of the 12 desktop columns — narrower than the title's 8 so the
+     body reads at a comfortable measure. */
+  grid-column: 4 / span 6;
+  text-align: center;
+
+  /* Tablet (8 cols): one column in from each edge (center 6 of 8). */
+  @include breakpoint-tablet {
+    grid-column: 2 / -2;
+  }
+
+  /* Mobile (6 cols): full width. */
+  @include breakpoint-mobile {
+    grid-column: 1 / -1;
+  }
+
+  p {
+    margin: 0;
+
+    & + p {
+      margin-top: var(--XS);
+    }
+  }
+}

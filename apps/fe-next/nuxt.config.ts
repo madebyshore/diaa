@@ -63,6 +63,29 @@ export default defineNuxtConfig({
     head: {
       // Old shell (`index.html`) declared `<html lang="en">` directly.
       htmlAttrs: { lang: "en" },
+      // Font preloads, ported verbatim from `index.html`'s two `<link
+      // rel="preload">` tags. Only the two "Upright" weight-VF files are
+      // preloaded (the pair actually used above the fold on first paint —
+      // Italic variants and Rand load on demand); `crossorigin: "anonymous"`
+      // is required even though these are same-origin requests, or the
+      // browser treats the preload and the actual @font-face fetch as two
+      // different requests and loads the file twice.
+      link: [
+        {
+          rel: "preload",
+          href: "/assets/fonts/HWBeaujonTextVF-Upright.ttf",
+          as: "font",
+          type: "font/ttf",
+          crossorigin: "anonymous",
+        },
+        {
+          rel: "preload",
+          href: "/assets/fonts/HWBeaujonVF-Upright.ttf",
+          as: "font",
+          type: "font/ttf",
+          crossorigin: "anonymous",
+        },
+      ],
     },
   },
 
@@ -100,6 +123,15 @@ export default defineNuxtConfig({
       for (const path of paths) {
         ctx.routes.add(path);
       }
+
+      // Hand-rolled Nitro routes (server/routes/*.get.ts) aren't discovered
+      // by the crawler either — they're server handlers, not linked pages —
+      // so they need the same explicit registration as the CMS routes above
+      // or `nuxt generate` would never call them and no static file would
+      // exist for them in `.output/public`.
+      ctx.routes.add("/sitemap.xml");
+      ctx.routes.add("/robots.txt");
+
       console.info(`[prerender:routes] registered ${paths.length} route(s)`);
     },
   },
