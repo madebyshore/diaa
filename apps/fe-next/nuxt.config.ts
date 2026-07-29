@@ -14,6 +14,8 @@
 // only ever import each other via relative paths), which is what makes them
 // safely importable from this file in the first place — see the
 // `prerender:routes` hook comment below for why that matters.
+import { fileURLToPath } from "node:url";
+
 import { loadAllRoutePaths } from "./app/data/content";
 import type { SanityClientConfig } from "./app/data/client";
 import {
@@ -109,30 +111,52 @@ export default defineNuxtConfig({
   // renders.
   hooks: {
     async "prerender:routes"(ctx) {
-      const config: SanityClientConfig = {
-        projectId: process.env.SANITY_PROJECT_ID || SANITY_DEFAULT_PROJECT_ID,
-        dataset: process.env.SANITY_DATASET || SANITY_DEFAULT_DATASET,
-        apiVersion: process.env.SANITY_API_VERSION || SANITY_DEFAULT_API_VERSION,
-        sanityReadToken: process.env.SANITY_READ_TOKEN,
-      };
+      // Phase 6 split: `nuxt build` (SSR — both a plain SSR run AND the
+      // preview deployment) still runs Nitro's prerenderer for whatever
+      // routes get registered here — it is NOT exclusive to
+      // `nuxt generate`, discovered the hard way when a previewEnabled
+      // SSR build 500'd on every content route. Baking `/`, `/:slug`,
+      // `/contact`, `/imprint` as static HTML at build time would freeze
+      // them at whatever the crawler saw THEN (always "published", no
+      // session cookie exists at build time) and — worse — means Nitro
+      // serves that frozen file at runtime instead of ever invoking
+      // `plugins/content.server.ts`'s per-request drafts+stega branch,
+      // silently defeating preview for every content route. So content
+      // routes are ONLY registered for prerendering in the prod
+      // (`!previewEnabled`) build; a preview build renders every content
+      // route dynamically, per request, same as any other SSR route.
+      if (!previewEnabled) {
+        const config: SanityClientConfig = {
+          projectId: process.env.SANITY_PROJECT_ID || SANITY_DEFAULT_PROJECT_ID,
+          dataset: process.env.SANITY_DATASET || SANITY_DEFAULT_DATASET,
+          apiVersion: process.env.SANITY_API_VERSION || SANITY_DEFAULT_API_VERSION,
+          sanityReadToken: process.env.SANITY_READ_TOKEN,
+        };
 
-      // Prod/`nuxt generate` always crawls the "published" perspective —
-      // preview's SSR build never runs `generate`, so there is no drafts
-      // branch to thread through here.
-      const paths = await loadAllRoutePaths("published", config);
-      for (const path of paths) {
-        ctx.routes.add(path);
+        // Prod/`nuxt generate` always crawls the "published" perspective —
+        // preview's SSR build never runs `generate`, so there is no drafts
+        // branch to thread through here.
+        const paths = await loadAllRoutePaths("published", config);
+        for (const path of paths) {
+          ctx.routes.add(path);
+        }
+        console.info(`[prerender:routes] registered ${paths.length} content route(s)`);
+      } else {
+        console.info("[prerender:routes] previewEnabled — skipping content-route prerendering (served dynamically)");
       }
 
       // Hand-rolled Nitro routes (server/routes/*.get.ts) aren't discovered
       // by the crawler either — they're server handlers, not linked pages —
       // so they need the same explicit registration as the CMS routes above
-      // or `nuxt generate` would never call them and no static file would
-      // exist for them in `.output/public`.
+      // or `nuxt generate`/`nuxt build` would never call them and no static
+      // file would exist for them in the output. Safe to prerender in BOTH
+      // modes: `previewEnabled` is a build-time-fixed value (an env var),
+      // not a per-request one, so robots.txt's previewEnabled-branched body
+      // and sitemap.xml's always-"published" route list can't go stale
+      // between "what the crawler saw" and "what a live request would get"
+      // the way a content route's drafts-perspective render could.
       ctx.routes.add("/sitemap.xml");
       ctx.routes.add("/robots.txt");
-
-      console.info(`[prerender:routes] registered ${paths.length} route(s)`);
     },
   },
 
@@ -160,6 +184,16 @@ export default defineNuxtConfig({
     // Phase 1 by data/client.ts (Sanity client) and the preview-auth routes.
     sanityReadToken: process.env.SANITY_READ_TOKEN,
     previewSessionSecret: process.env.PREVIEW_SESSION_SECRET,
+    // Phase 6: where the Sanity Studio lives — feeds `buildPreviewStega()`'s
+    // `studioUrl` (data/stega.ts) so encoded overlay metadata can deep-link
+    // back into the Studio. Server-only (never needed client-side — the
+    // `@sanity/visual-editing` overlay runtime derives everything it needs
+    // from the stega-encoded metadata already embedded in the rendered
+    // HTML, not from a separate config value). `data/stega.ts`'s
+    // `requireStudioUrl()` hard-fails if this is empty wherever it's
+    // actually consumed, rather than silently degrading — see that
+    // function's doc comment for the lesson behind that.
+    sanityStudioUrl: process.env.SANITY_STUDIO_URL,
 
     public: {
       // projectId + dataset are inherently public — they appear in every
@@ -176,5 +210,35 @@ export default defineNuxtConfig({
       // not just tree-shake it away.
       previewEnabled,
     },
+  },
+
+  // Phase 6 structural-exclusion gate #1 — Nitro server routes. Additive,
+  // NOT a replacement: Nuxt builds its own `nitro.scanDirs` internally
+  // (always includes this app's `server/` dir) and merges the user-supplied
+  // config on top via `defu`, which concatenates array values rather than
+  // overwriting them (`node_modules/.../defu/dist/defu.mjs`'s `_defu()`:
+  // `Array.isArray(value) && Array.isArray(object[key])` → `[...value,
+  // ...object[key]]`) — verified against the installed nitropack@2.13.4 /
+  // nuxt@4.5.1 pair in this repo's lockfile before relying on it here.
+  // `server/` therefore stays scanned in EVERY build regardless of this
+  // array's contents; the only thing this line controls is whether
+  // `server-preview/` (preview-only Nitro routes: `/preview/enable|
+  // disable|refresh`, the noindex/auth-gate middleware) is ALSO scanned.
+  // When `previewEnabled` is false (every `nuxt generate` prod build), that
+  // directory is never scanned at all — not tree-shaken post-bundle, never
+  // in the module graph to begin with. Verify with:
+  //   grep -r "preview" .output/server/chunks/**/*.mjs  (prod build → none)
+  nitro: {
+    // ABSOLUTE path required — Nitro silently skips scanDirs entries it
+    // can't resolve rather than erroring, so a bare relative string here
+    // ("server-preview") looked correct but produced a build with zero
+    // preview routes/middleware actually bundled (caught by this phase's
+    // own verification: `find .output/server -iname "*preview*"` came back
+    // empty on the first attempt). `fileURLToPath(new URL(...))` resolves
+    // relative to THIS file, exactly like Nuxt's own internal scanDirs
+    // entries (e.g. `join(rootDir, 'server')`) are always absolute too.
+    scanDirs: previewEnabled
+      ? [fileURLToPath(new URL("./server-preview", import.meta.url))]
+      : [],
   },
 });

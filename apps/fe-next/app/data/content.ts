@@ -33,6 +33,8 @@
  * `[slug].vue` — 404s).
  */
 
+import type { StegaConfig } from "@sanity/client";
+
 import { getSanityClient, type SanityClientConfig, type SanityPerspective } from "./client";
 import { sanityPicture, type MediaData } from "./image-url";
 import {
@@ -225,12 +227,19 @@ function isRoutable(allowRouting: boolean | null | undefined): boolean {
  * Load the site-wide singleton (title, intro phrases, footer links, seo).
  * Independent of route — fetch once per request/build and share across
  * every page (nav, footer, `<title>` composition, the intro overlay).
+ *
+ * `stega` (Phase 6) is only meaningful for the "drafts" perspective — pass
+ * `buildPreviewStega(requireStudioUrl(...))` (data/stega.ts) from an
+ * authenticated preview request; omit it (or pass "published") everywhere
+ * else. See `data/client.ts`'s `getSanityClient()` for why this is a no-op
+ * on the "published" branch regardless of what's passed here.
  */
 export async function loadSiteOptions(
   perspective: SanityPerspective,
   config: SanityClientConfig,
+  stega?: StegaConfig,
 ): Promise<SiteOptionsContent> {
-  const client = getSanityClient(perspective, config);
+  const client = getSanityClient(perspective, config, stega);
   const siteOptions = await client.fetch<SiteOptionsDoc | null>(siteOptionsQuery);
 
   const introPhrases = (siteOptions?.introText ?? [])
@@ -259,12 +268,14 @@ export async function loadSiteOptions(
 
 /** Build the home route's content: the flattened grid + taxonomy list +
  *  footer links (the old pipeline duplicated footerLinks onto the home
- *  page's own data alongside the site-wide singleton — kept for parity). */
+ *  page's own data alongside the site-wide singleton — kept for parity).
+ *  `stega` — see `loadSiteOptions()`'s doc comment. */
 async function loadHomeContent(
   perspective: SanityPerspective,
   config: SanityClientConfig,
+  stega?: StegaConfig,
 ): Promise<HomeRouteContent> {
-  const client = getSanityClient(perspective, config);
+  const client = getSanityClient(perspective, config, stega);
   const [pageHome, siteOptions] = await Promise.all([
     client.fetch<PageHomeDoc | null>(pageHomeQuery),
     client.fetch<SiteOptionsDoc | null>(siteOptionsQuery),
@@ -320,13 +331,14 @@ async function loadHomeContent(
 const DETAIL_SLICE_CONTEXT: SliceContext = { globals: null, clients: null, locations: [] };
 
 /** Try to resolve `path` as a `/:slug` Detail route. Returns null if no
- *  routable Detail matches. */
+ *  routable Detail matches. `stega` — see `loadSiteOptions()`'s doc comment. */
 async function loadDetailContent(
   slug: string,
   perspective: SanityPerspective,
   config: SanityClientConfig,
+  stega?: StegaConfig,
 ): Promise<DetailRouteContent | null> {
-  const client = getSanityClient(perspective, config);
+  const client = getSanityClient(perspective, config, stega);
   const detail = await client.fetch<DetailRef | null>(detailBySlugQuery, { slug });
   if (!detail || !hasCover(detail) || !isRoutable(detail.allowRouting)) return null;
 
@@ -347,13 +359,15 @@ async function loadDetailContent(
 }
 
 /** Try to resolve `path` as the Contact singleton (slug falls back to
- *  "contact" when unauthored). Returns null if the slug doesn't match. */
+ *  "contact" when unauthored). Returns null if the slug doesn't match.
+ *  `stega` — see `loadSiteOptions()`'s doc comment. */
 async function loadContactContent(
   slug: string,
   perspective: SanityPerspective,
   config: SanityClientConfig,
+  stega?: StegaConfig,
 ): Promise<RichTextRouteContent | null> {
-  const client = getSanityClient(perspective, config);
+  const client = getSanityClient(perspective, config, stega);
   const pageContact = await client.fetch<RichTextPageDoc | null>(pageContactQuery);
   if ((pageContact?.slug ?? "contact") !== slug) return null;
   return {
@@ -364,13 +378,15 @@ async function loadContactContent(
 }
 
 /** Try to resolve `path` as the Imprint singleton (slug falls back to
- *  "imprint" when unauthored). Returns null if the slug doesn't match. */
+ *  "imprint" when unauthored). Returns null if the slug doesn't match.
+ *  `stega` — see `loadSiteOptions()`'s doc comment. */
 async function loadImprintContent(
   slug: string,
   perspective: SanityPerspective,
   config: SanityClientConfig,
+  stega?: StegaConfig,
 ): Promise<RichTextRouteContent | null> {
-  const client = getSanityClient(perspective, config);
+  const client = getSanityClient(perspective, config, stega);
   const pageImprint = await client.fetch<RichTextPageDoc | null>(pageImprintQuery);
   if ((pageImprint?.slug ?? "imprint") !== slug) return null;
   return {
@@ -384,25 +400,29 @@ async function loadImprintContent(
  * Resolve one route's content. `path` is the full pathname (e.g. "/",
  * "/some-project", "/contact"). Tries, in order: home ("/" only) → Detail by
  * slug → Contact → Imprint. Returns null when nothing matches — the caller
- * (Phase 2's `[slug].vue`) is responsible for 404ing.
+ * (`[slug].vue`) is responsible for 404ing.
+ *
+ * `stega` (Phase 6) — see `loadSiteOptions()`'s doc comment; threaded
+ * through to whichever sub-loader ends up resolving `path`.
  */
 export async function loadRouteContent(
   path: string,
   perspective: SanityPerspective,
   config: SanityClientConfig,
+  stega?: StegaConfig,
 ): Promise<RouteContent | null> {
-  if (path === "/") return loadHomeContent(perspective, config);
+  if (path === "/") return loadHomeContent(perspective, config, stega);
 
   const slug = path.replace(/^\/+/, "");
   if (!slug) return null;
 
-  const detail = await loadDetailContent(slug, perspective, config);
+  const detail = await loadDetailContent(slug, perspective, config, stega);
   if (detail) return detail;
 
-  const contact = await loadContactContent(slug, perspective, config);
+  const contact = await loadContactContent(slug, perspective, config, stega);
   if (contact) return contact;
 
-  const imprint = await loadImprintContent(slug, perspective, config);
+  const imprint = await loadImprintContent(slug, perspective, config, stega);
   if (imprint) return imprint;
 
   console.debug(`[content] no route matched — path="${path}"`);
