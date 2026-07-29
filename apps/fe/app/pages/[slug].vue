@@ -100,79 +100,111 @@ usePageController(controller);
 </script>
 
 <template>
-  <!-- Detail -->
-  <section v-if="content.template === 'detail'" id="page" class="detail">
-    <!-- Passive title heading — closing lives in the persistent ( Close )
-         footer below (Phase 5 adds the desktop hover "( Close )" swap). -->
-    <div class="detail__nav">
-      <span class="detail__nav-label detail__nav-label--title">
-        <RichText inline :blocks="content.stylizedTitle" :fallback="content.title" />
-      </span>
-    </div>
-    <div class="detail__container">
-      <div class="detail__cover">
-        <div :class="`detail__cover-inner detail__cover-inner--${content.cover.coverSize}`">
-          <FigureBase
-            :src="content.cover.src"
-            :alt="content.cover.alt"
-            :width="content.cover.width"
-            :height="content.cover.height"
-            :is-first="content.cover.isFirst"
-            :has-video="content.cover.hasVideo"
-            :video="content.cover.video"
-          />
-        </div>
-      </div>
-      <SliceRenderer :slices="content.slices" />
-      <div class="detail__outro">
-        <DiaaWordmark logo-class="detail__outro-logo" />
-      </div>
-    </div>
-    <!-- Mobile-only Close footer — see contact/imprint below for the same
-         pattern; a plain <a href="/"> so Phase 5's click delegation runs the
-         detail → home transition. -->
-    <nav class="global-nav global-nav--footer detail__footer" aria-label="Close">
-      <a class="global-nav__link" href="/">Close</a>
-    </nav>
-  </section>
+  <section id="page" :class="content.template">
+    <!--
+      Single root element — Nuxt/Vue requires a page component to have
+      EXACTLY one root node for stable `$el` resolution and page-transition
+      tracking. The old markup here was three ALTERNATIVE root-level
+      `<section v-if>/<section v-else-if>` elements, which Vue compiles to a
+      multi-root Fragment; Nuxt detects this and warns "does not have a
+      single root node and will cause errors when navigating between
+      routes" (NUXT_E4004) — and it wasn't just a warning: it broke
+      composables/usePageController.ts's first-load `onMounted` guard
+      (`getCurrentInstance()?.proxy?.$el` resolves to nothing for a Fragment
+      root, so `controller.onInit()` silently never ran on a hard-loaded
+      Detail/Contact/Imprint page) and destabilized `<Transition>`'s own
+      element tracking during a home → detail SPA navigation. Fixed by
+      giving the component ONE static root (its template-name class now a
+      `:class` binding) and moving each conditional branch to a `<template
+      v-if>` (a Vue construct that adds no wrapper element of its own)
+      INSIDE that root — the rendered DOM for any given template is
+      byte-identical to the old markup, only the component's OWN root shape
+      changed.
 
-  <!-- Contact -->
-  <section v-else-if="content.template === 'contact'" id="page" class="contact">
-    <div class="contact__nav">
-      <span class="contact__nav-label contact__nav-label--title">{{ content.title }}</span>
-    </div>
-    <div class="contact__container">
-      <div class="contact__main">
-        <div class="contact__body">
-          <RichText :blocks="content.body" />
+      THIS COMMENT MUST STAY HERE, inside `<section>`, never as a sibling
+      BEFORE its opening tag — Vue's compiler counts a top-level HTML
+      comment as its own root node too (confirmed against the compiled
+      render function: a comment placed ahead of `<section>` produces
+      `createElementBlock(Fragment, ..., [commentVNode, sectionVNode])`,
+      i.e. TWO root children again — Nuxt's own diagnostics for this class
+      of error literally note "HTML comments are considered elements as
+      well"). Putting the whole comment block as `<section>`'s first CHILD
+      instead keeps the compiled output to a single root element.
+    -->
+    <!-- Detail -->
+    <template v-if="content.template === 'detail'">
+      <!-- Passive title heading — closing lives in the persistent ( Close )
+           footer below (Phase 5 adds the desktop hover "( Close )" swap). -->
+      <div class="detail__nav">
+        <span class="detail__nav-label detail__nav-label--title">
+          <RichText inline :blocks="content.stylizedTitle" :fallback="content.title" />
+        </span>
+      </div>
+      <div class="detail__container">
+        <div class="detail__cover">
+          <div :class="`detail__cover-inner detail__cover-inner--${content.cover.coverSize}`">
+            <FigureBase
+              :src="content.cover.src"
+              :alt="content.cover.alt"
+              :width="content.cover.width"
+              :height="content.cover.height"
+              :is-first="content.cover.isFirst"
+              :has-video="content.cover.hasVideo"
+              :video="content.cover.video"
+            />
+          </div>
+        </div>
+        <SliceRenderer :slices="content.slices" />
+        <div class="detail__outro">
+          <DiaaWordmark logo-class="detail__outro-logo" />
         </div>
       </div>
-      <div class="contact__outro">
-        <DiaaWordmark logo-class="contact__outro-logo" />
-      </div>
-    </div>
-    <nav class="global-nav global-nav--footer contact__footer" aria-label="Close">
-      <a class="global-nav__link" href="/">Close</a>
-    </nav>
-  </section>
+      <!-- Mobile-only Close footer — see contact/imprint below for the same
+           pattern; a plain <a href="/"> so Phase 5's click delegation runs
+           the detail → home transition. -->
+      <nav class="global-nav global-nav--footer detail__footer" aria-label="Close">
+        <a class="global-nav__link" href="/">Close</a>
+      </nav>
+    </template>
 
-  <!-- Imprint -->
-  <section v-else-if="content.template === 'imprint'" id="page" class="imprint">
-    <div class="imprint__nav">
-      <span class="imprint__nav-label imprint__nav-label--title">{{ content.title }}</span>
-    </div>
-    <div class="imprint__container">
-      <div class="imprint__main">
-        <div class="imprint__body">
-          <RichText :blocks="content.body" />
+    <!-- Contact -->
+    <template v-else-if="content.template === 'contact'">
+      <div class="contact__nav">
+        <span class="contact__nav-label contact__nav-label--title">{{ content.title }}</span>
+      </div>
+      <div class="contact__container">
+        <div class="contact__main">
+          <div class="contact__body">
+            <RichText :blocks="content.body" />
+          </div>
+        </div>
+        <div class="contact__outro">
+          <DiaaWordmark logo-class="contact__outro-logo" />
         </div>
       </div>
-      <div class="imprint__outro">
-        <DiaaWordmark logo-class="imprint__outro-logo" />
+      <nav class="global-nav global-nav--footer contact__footer" aria-label="Close">
+        <a class="global-nav__link" href="/">Close</a>
+      </nav>
+    </template>
+
+    <!-- Imprint -->
+    <template v-else-if="content.template === 'imprint'">
+      <div class="imprint__nav">
+        <span class="imprint__nav-label imprint__nav-label--title">{{ content.title }}</span>
       </div>
-    </div>
-    <nav class="global-nav global-nav--footer imprint__footer" aria-label="Close">
-      <a class="global-nav__link" href="/">Close</a>
-    </nav>
+      <div class="imprint__container">
+        <div class="imprint__main">
+          <div class="imprint__body">
+            <RichText :blocks="content.body" />
+          </div>
+        </div>
+        <div class="imprint__outro">
+          <DiaaWordmark logo-class="imprint__outro-logo" />
+        </div>
+      </div>
+      <nav class="global-nav global-nav--footer imprint__footer" aria-label="Close">
+        <a class="global-nav__link" href="/">Close</a>
+      </nav>
+    </template>
   </section>
 </template>
