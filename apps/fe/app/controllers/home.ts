@@ -332,6 +332,17 @@ export function createHomeController(): PageController {
    * desktop widths; `force` skips the mutating/mode-switch freeze for
    * init/filter-time re-syncs, where there is no bridge clone or hover state
    * to protect.
+   *
+   * Called `force`d from THREE places: onInit (via applyFilter, against
+   * whatever scroll happens to be at mount time — before this page's own
+   * scroll reset/restore has run), filter-switch time (against the new
+   * item layout), and again from the top of in() (against the NOW-FINAL
+   * entrance scroll — transitions/default.ts's onEnter finishes
+   * restoreOrResetScroll() before in() is ever invoked). The in()-time call
+   * is the one that actually matters for correctness: onInit's own call can
+   * only ever be provisional, computed too early, and nothing re-syncs it
+   * again until the user's first real scroll (onScroll, below) — which is
+   * why a stale figure used to stay active through the whole entrance.
    */
   function updateScrollReveal(force = false): void {
     if (!window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
@@ -995,6 +1006,28 @@ export function createHomeController(): PageController {
       // Clear any stale inline opacity left by out() on a previous mount.
       if (textPane) textPane.style.opacity = "";
       if (imagePane) imagePane.style.opacity = "";
+
+      // Mobile: re-sync the scroll-driven reveal now that the scroll
+      // position is FINAL. onInit()'s own updateScrollReveal(true) call
+      // (via applyFilter → applyFilterVisibility) runs from
+      // transitions/default.ts's onBeforeEnter — which fires well before
+      // onEnter's scroll reset/restore (restoreOrResetScroll, called
+      // synchronously right before this in() is invoked) — so it computed
+      // the nearest-midline item against whatever scroll the OUTGOING page
+      // happened to be at, not this page's actual entrance scroll (0 on
+      // forward nav, the snapshot on back-nav). The result: the wrong
+      // figure held `.is-active` and stayed wrong until the user's first
+      // real scroll event (onScroll → updateScrollReveal()) self-corrected
+      // it. There is no stale state to clear here first — onInit() runs
+      // against a fresh DOM/closure every mount (no <KeepAlive>, no
+      // module-level state), so the only thing wrong was WHEN the one
+      // existing call ran, not leftover `.is-active` from a previous visit.
+      // `force: true` bypasses the mutating/mode-switch freeze, matching
+      // onInit's own forced call — there is no bridge clone or hover state
+      // to protect this early in the entrance (container is still opacity 0
+      // here, per transitions/default.ts's onEnter pin), and it must win
+      // over a wrong index unconditionally. No-ops on desktop widths.
+      updateScrollReveal(true);
 
       // Return-to-home brand beat: on every SPA navigation back to home,
       // echo the intro. useNavLock().mutating is true only during a
