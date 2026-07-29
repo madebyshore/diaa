@@ -54,6 +54,12 @@ function installRouteTracking(): void {
 let leaveFinished: Promise<void> = Promise.resolve();
 let resolveLeave: (() => void) | null = null;
 
+/** Nav direction for the CURRENT navigation, captured once by onEnter
+ *  (`takeNavDirection()` clears the flag on read) and consumed later by
+ *  onAfterEnter's scroll restore — see that hook for why the restore itself
+ *  has to happen there, not here. */
+let capturedDirection: "back" | "forward" = "forward";
+
 /**
  * createDefaultTransition() — the Vue <Transition> props object passed to
  * `<NuxtPage :transition="defaultTransition">` in app.vue.
@@ -128,11 +134,10 @@ export function createDefaultTransition(): TransitionProps {
       const controller = getPageController(incomingPath);
       const { $lenis } = useNuxtApp();
 
-      // Scroll restore/reset BEFORE the entrance fade, matching
-      // initCurrentPage()'s ordering (restore happens before
-      // animateCurrentPageIn).
-      const direction = takeNavDirection();
-      restoreOrResetScroll($lenis, incomingPath, direction);
+      // Captured now (takeNavDirection() clears the flag on read) but not
+      // ACTED on until onAfterEnter, well below — see that hook's comment
+      // for why the restore itself has to happen there.
+      capturedDirection = takeNavDirection();
 
       // Sequential timing: wait for the OLD page's out() to fully resolve
       // before starting the new page's real entrance — reproduces diaa's
@@ -150,6 +155,55 @@ export function createDefaultTransition(): TransitionProps {
     onAfterEnter(el) {
       const page = el as HTMLElement;
       page.removeAttribute("style");
+
+      // Scroll restore/reset goes HERE — after removeAttribute("style")
+      // has already returned the page to normal document flow — not
+      // earlier. Two failure modes if it ran any sooner, both found by
+      // testing against a real Lenis instance rather than assumed:
+      //
+      // 1. Before `leaveFinished` (the original bug report): the outgoing
+      //    page is still in normal flow, NOT position:fixed, and still
+      //    visibly mid-fade — an instant `lenis.scrollTo(..., {immediate:
+      //    true})` yanks the whole document's scroll position while it's
+      //    fully on screen, reading as "jump to top, THEN fade out"
+      //    instead of "fade out in place."
+      // 2. After `leaveFinished` but still BEFORE this unpin (where an
+      //    earlier version of this fix placed it, inside onEnter): the
+      //    incoming page is still `position:fixed` here (pinned by
+      //    onBeforeEnter, unpinned only by the `removeAttribute` above) —
+      //    a fixed-position element contributes NO normal-flow height, so
+      //    with the outgoing page already gone, the document's measured
+      //    scrollable height can be near-zero at that exact moment. A
+      //    restore to a saved non-zero position got silently clamped back
+      //    to 0 by Lenis's own bounds — confirmed via Playwright: the
+      //    console log showed the correct target being restored, but
+      //    `window.scrollY` never actually reached it.
+      //
+      // This mirrors diaa's real ordering: `EmptyTransition.cleanup()`
+      // un-pins the incoming page BEFORE `PageManager.afterIn()` ever runs
+      // `initCurrentPage()`'s restore-or-reset — the page is back in normal
+      // flow, with real measurable height, by the time scroll is ever
+      // touched. `capturedDirection` was read once, up in onEnter (its
+      // module-scope flag has to be consumed exactly once per nav,
+      // regardless of when the resulting restore actually happens).
+      const { $lenis } = useNuxtApp();
+      // `resize()` FIRST, synchronously — Lenis caches its scrollable
+      // `limit` (read from `content.scrollHeight`) and only recomputes it
+      // automatically via a DEBOUNCED ResizeObserver callback, which would
+      // not have fired yet at this exact tick. With the incoming page having
+      // just come OFF `position:fixed` above, the document's real height
+      // just changed; without forcing a synchronous recalculation first,
+      // `scrollTo()`'s own internal `clamp(0, target, this.limit)` clamps
+      // against the STALE (near-zero, from while this page contributed no
+      // normal-flow height) limit — confirmed via Playwright: the restore's
+      // own debug log showed the correct target, but the clamp silently
+      // dropped it back to 0 before this fix. Exactly matches
+      // `initCurrentPage()`'s own comment: "Recalculate scroller bounds
+      // against the freshly-initialised page before restoring scroll... so
+      // without this, scrollTo() below would clamp to a stale max."
+      $lenis?.resize();
+      restoreOrResetScroll($lenis, incomingPath, capturedDirection);
+
       // Re-apply .is-controlled after removeAttribute("style") wiped the
       // class list along with inline styles — matches diaa's
       // EmptyTransition.cleanup() re-pinning opacity 0 after
