@@ -71,10 +71,14 @@ export function createDefaultTransition(): TransitionProps {
       const { $lenis } = useNuxtApp();
       saveScroll(outgoingPath, $lenis);
 
-      // Home→detail bridge dispatch point (Phase 5b fills in the real
-      // logic — see transitions/home-to-detail.ts, currently a no-op stub).
+      // Home→detail bridge dispatch point. Cheap route-name gate here (skip
+      // the DOM query entirely on any navigation that isn't home→[slug]);
+      // bridgeOut() itself does the precise per-item match against
+      // incomingPath (see that file's header — [slug].vue serves Detail,
+      // Contact, AND Imprint through the same route name, so this alone
+      // can't tell them apart).
       if (outgoingName === "index" && incomingName === "slug") {
-        bridgeOut(fromEl);
+        bridgeOut(fromEl, incomingPath);
       }
     },
 
