@@ -12,6 +12,9 @@
     "check-types": "nuxt typecheck",
     "postinstall": "nuxt prepare"
   },
+  "dependencies": {
+    "@sanity/client": "^7.25.0"
+  },
   "devDependencies": {
     "@nuxt/eslint": "^1.16.0",
     "eslint": "^10.0.3",
