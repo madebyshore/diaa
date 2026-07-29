@@ -22,6 +22,14 @@
  * path this component can actually receive, `null` can only mean "no
  * Detail/Contact/Imprint matched" — genuinely a 404, not an ambiguous
  * "still loading" or "home with an empty grid" state.
+ *
+ * Phase 6 note on `content` below: it's a `computed()`, not the plain
+ * destructured local this file originally had. Preview refresh
+ * (`plugins-preview/visual-editing.client.ts`) replaces
+ * `usePageData().value` wholesale after a Studio draft save — a value
+ * captured once at setup would never observe that write, silently making
+ * live refresh a no-op for every Detail/Contact/Imprint route. See the
+ * `content` computed's own comment below for the full reasoning.
  */
 
 import { createDetailController } from "~/controllers/detail";
@@ -30,18 +38,21 @@ import { createRichTextController } from "~/controllers/rich-text-page";
 const pageData = usePageData();
 const siteOptions = useSiteOptions();
 
-// Capture into a local const (not repeated `pageData.value` reads) so
-// TypeScript's control-flow narrowing on the `=== null` check below applies
-// to every later reference to `content`.
-const content = pageData.value;
-if (content === null || content.template === "home") {
-  // `content.template === "home"` is unreachable in practice (Nuxt's router
-  // only mounts this page for a path other than "/", and "/" is the only
-  // path `loadRouteContent()` ever resolves to a `HomeRouteContent`) — the
-  // check exists so TypeScript narrows `content` to `DetailRouteContent |
-  // RichTextRouteContent` below (both carry `.title`; `HomeRouteContent`
-  // doesn't), without an `as` cast. Genuinely reaching this branch would
-  // mean routing itself is broken, so 404 is still the right response.
+// Initial snapshot — used ONLY to type-narrow away the null/"home" cases
+// (a genuine 404 for this component, per the file header) and as the
+// `content` computed's fallback value below. Not read again after this
+// guard; `content.value` is the reactive source of truth for everything
+// else in this component.
+const initialContent = pageData.value;
+if (initialContent === null || initialContent.template === "home") {
+  // `initialContent.template === "home"` is unreachable in practice
+  // (Nuxt's router only mounts this page for a path other than "/", and
+  // "/" is the only path `loadRouteContent()` ever resolves to a
+  // `HomeRouteContent`) — the check exists so TypeScript narrows
+  // `initialContent` to `DetailRouteContent | RichTextRouteContent` here
+  // (both carry `.title`; `HomeRouteContent` doesn't), without an `as`
+  // cast. Genuinely reaching this branch would mean routing itself is
+  // broken, so 404 is still the right response.
   throw createError({
     statusCode: 404,
     statusMessage: "Page not found",
@@ -49,24 +60,42 @@ if (content === null || content.template === "home") {
   });
 }
 
+// Reactive view of the route's content — see the file header's Phase 6
+// note. Falls back to `initialContent` whenever `pageData.value` is
+// transiently null/home, which never happens in practice post-guard (the
+// route/template a mounted `[slug].vue` instance is showing doesn't change
+// out from under it — only the CONTENT of the same document does via
+// preview refresh), but keeps this a total function without an `as` cast.
+// Template bindings below (`content.template`, `content.title`, ...) don't
+// need `.value` — Vue auto-unwraps a `computed()` referenced by name in
+// `<script setup>` templates, same as a plain `ref()`.
+const content = computed(() => {
+  const data = pageData.value;
+  return data && data.template !== "home" ? data : initialContent;
+});
+
 const siteTitle = computed(() => siteOptions.value?.siteTitle ?? "");
 // "<siteTitle> - <pageTitle>" — every non-home route composes the document
 // title this way (ported from the old build's title-composition rule, see
 // the Phase-1 CHANGELOG entry's "browser/tab title format" note).
-usePageSeo(() => `${siteTitle.value} - ${content.title}`, siteTitle);
+usePageSeo(() => `${siteTitle.value} - ${content.value.title}`, siteTitle);
 
-console.debug(`[page:slug] rendering — template="${content.template}", title="${content.title}"`);
+console.debug(
+  `[page:slug] rendering — template="${content.value.template}", title="${content.value.title}"`,
+);
 
 // Wire the matching controller by template — detail gets its full
 // bridge/mobile-slide/bottom-dwell choreography (controllers/detail.ts),
 // contact/imprint share the rich-text factory (controllers/rich-text-page.ts)
-// keyed by their own BEM block name. `content.template` is narrowed to
-// "detail" | "contact" | "imprint" here (the "home" branch threw a 404
-// above), so this ternary is exhaustive without a fallback case.
+// keyed by their own BEM block name. Read off `initialContent` (not the
+// reactive `content`) — the controller is chosen ONCE, at mount, for
+// whichever template this document resolved to; a preview refresh changes
+// that document's field values, never its `_type`/template, so there is no
+// scenario where the controller choice itself needs to react to a refresh.
 const controller =
-  content.template === "detail"
+  initialContent.template === "detail"
     ? createDetailController()
-    : createRichTextController(content.template);
+    : createRichTextController(initialContent.template);
 usePageController(controller);
 </script>
 

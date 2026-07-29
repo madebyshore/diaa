@@ -241,4 +241,19 @@ export default defineNuxtConfig({
       ? [fileURLToPath(new URL("./server-preview", import.meta.url))]
       : [],
   },
+
+  // Phase 6 structural-exclusion gate #2 — the visual-editing client plugin.
+  // Unlike Nitro's scanDirs, Nuxt's own directory-based plugin auto-scan
+  // (`app/plugins/**`) is NOT conditionally toggleable by this `plugins`
+  // array — that array is ADDITIVE to the directory scan, not a switch for
+  // it, so a file living inside `app/plugins/` would be auto-registered
+  // regardless of what's pushed here. That's why the actual plugin source
+  // lives at `app/plugins-preview/visual-editing.client.ts` — a directory
+  // Nuxt does NOT auto-scan — and is registered EXCLUSIVELY through this
+  // array. When `previewEnabled` is false, the array is empty and that file
+  // is never imported by anything; when true, this is the only place it's
+  // referenced. Verify with:
+  //   grep -r "visual-editing\|preview-url-secret\|stegaEncode" .output/public/_nuxt/*.js
+  //   (prod build → zero matches)
+  plugins: previewEnabled ? ["~/plugins-preview/visual-editing.client"] : [],
 });
