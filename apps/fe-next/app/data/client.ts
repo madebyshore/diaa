@@ -4,9 +4,26 @@
  * SERVER-ONLY. This module pulls in `@sanity/client` and (on the drafts
  * path) carries the read token, so it must NEVER be imported from
  * client-only code — reach it only through `content.ts`, which is itself
- * only ever called from `.server.ts` plugins / server routes. A stray
- * client-side import of this file (or of `content.ts`) would leak
- * `@sanity/client` and the read token into the browser bundle.
+ * only ever called from `.server.ts` plugins / server routes, OR (Phase 2)
+ * directly from `nuxt.config.ts`'s `prerender:routes` hook — a build-process
+ * context, not client code either.
+ *
+ * Config is passed in EXPLICITLY (`SanityClientConfig`) rather than this
+ * module calling `useRuntimeConfig()` itself. Two callers need two very
+ * different sources for the same three values (projectId/dataset/
+ * apiVersion + the drafts token):
+ *   - `content.server.ts` (a real Nuxt plugin — has a live app context) —
+ *     builds it from `useRuntimeConfig()`.
+ *   - `nuxt.config.ts`'s `prerender:routes` hook (Phase 2) — runs in the
+ *     Nuxt build/CLI process, BEFORE any Nuxt app instance exists, so
+ *     `useRuntimeConfig()` isn't callable there — builds it from
+ *     `process.env` instead.
+ * Keeping `data/*.ts` free of any `useRuntimeConfig()` call (rather than
+ * making it optional-with-a-fallback) is also what keeps this file
+ * typecheckable when `nuxt.config.ts` imports it: that file's TS program
+ * doesn't carry Nuxt's auto-import ambient types, so a bare
+ * `useRuntimeConfig()` reference inside a module it imports fails to
+ * resolve under `nuxt typecheck` even if never actually called at runtime.
  *
  * Two perspectives, two very different trust levels:
  *   - "published" — the prod/`nuxt generate` path. CDN-backed, anonymous,
@@ -24,15 +41,30 @@ import { createClient, type SanityClient, type StegaConfig } from "@sanity/clien
 /** Which content pipeline a request/build is fetching through. */
 export type SanityPerspective = "published" | "drafts";
 
+/**
+ * Project/dataset/apiVersion (+ optional drafts read token), built by
+ * whichever caller has the appropriate context — see the file header.
+ */
+export interface SanityClientConfig {
+  projectId: string;
+  dataset: string;
+  apiVersion: string;
+  /** Only meaningful for the "drafts" perspective. */
+  sanityReadToken?: string;
+}
+
 // Memoized per perspective — each is a distinct client (different useCdn/
-// token/stega config), so a single module-scope client would be wrong.
+// token/stega config), so a single module-scope client would be wrong. Note
+// this cache is module-instance-scoped: the build-process module graph that
+// loads this file from `nuxt.config.ts`'s hook is a different instantiation
+// than the one loaded inside the built Nitro server that actually renders
+// routes, so the two contexts' clients can never collide.
 const clients: Partial<Record<SanityPerspective, SanityClient>> = {};
 
 /**
- * Returns a memoized Sanity read client for the given perspective, built
- * from `useRuntimeConfig()`. Must be called within Nuxt context (a
- * `.server.ts` plugin, a server route, or `useAsyncData`'s handler) because
- * it reads runtime config.
+ * Returns a memoized Sanity read client for the given perspective and
+ * config (see `SanityClientConfig` / the file header for where callers get
+ * `config` from).
  *
  * `stega` is accepted but unused today — Phase 6 will pass
  * `buildPreviewStega(studioUrl)` here for the "drafts" perspective so
@@ -43,15 +75,13 @@ const clients: Partial<Record<SanityPerspective, SanityClient>> = {};
  */
 export function getSanityClient(
   perspective: SanityPerspective,
+  config: SanityClientConfig,
   stega?: StegaConfig,
 ): SanityClient {
   const existing = clients[perspective];
   if (existing) return existing;
 
-  const config = useRuntimeConfig();
-  const projectId = config.public.sanityProjectId;
-  const dataset = config.public.sanityDataset;
-  const apiVersion = config.public.sanityApiVersion;
+  const { projectId, dataset, apiVersion } = config;
 
   if (!projectId || !dataset) {
     throw new Error(

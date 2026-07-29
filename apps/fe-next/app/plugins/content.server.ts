@@ -11,15 +11,28 @@
  * place `data/content.ts` (and therefore `@sanity/client`) gets imported —
  * satisfying the server-only discipline documented on every module under
  * `data/`.
+ *
+ * `data/content.ts`'s functions take an explicit `SanityClientConfig` rather
+ * than calling `useRuntimeConfig()` themselves (see `data/client.ts`'s file
+ * header) — this plugin is the one place with a live Nuxt app context, so it
+ * builds that config here and threads it through both loader calls.
  */
 import { loadRouteContent, loadSiteOptions } from "~/data/content";
-import type { SanityPerspective } from "~/data/client";
+import type { SanityClientConfig, SanityPerspective } from "~/data/client";
 
 export default defineNuxtPlugin(async () => {
   // Perspective is hardcoded to "published" for now — Phase 6 swaps this to
   // a cookie-gated "drafts" perspective (set by /preview/enable) plus the
   // stega config, without touching any of the loaders above it.
   const perspective: SanityPerspective = "published";
+
+  const runtimeConfig = useRuntimeConfig();
+  const config: SanityClientConfig = {
+    projectId: runtimeConfig.public.sanityProjectId,
+    dataset: runtimeConfig.public.sanityDataset,
+    apiVersion: runtimeConfig.public.sanityApiVersion,
+    sanityReadToken: runtimeConfig.sanityReadToken,
+  };
 
   // `useRoute()` is safe to call inside a Nuxt plugin — vue-router is
   // installed before user plugins run, both in SSR and during
@@ -30,8 +43,8 @@ export default defineNuxtPlugin(async () => {
   console.debug(`[content] fetching — path="${path}", perspective="${perspective}"`);
 
   const [siteOptions, pageContent] = await Promise.all([
-    loadSiteOptions(perspective),
-    loadRouteContent(path, perspective),
+    loadSiteOptions(perspective, config),
+    loadRouteContent(path, perspective, config),
   ]);
 
   useSiteOptions().value = siteOptions;

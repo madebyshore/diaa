@@ -3,20 +3,28 @@
  *
  * SERVER-ONLY (imports `client.ts`, which carries `@sanity/client` and, on
  * the drafts path, a read token). Never import this from client-side code —
- * reach it only from `.server.ts` plugins or server routes/prerender hooks.
+ * reach it only from `.server.ts` plugins, server routes, or (Phase 2)
+ * `nuxt.config.ts`'s `prerender:routes` build hook.
  *
  * Ported from `apps/fe/scripts/sanity-content.ts`'s `loadSanityContent()`,
  * split into two request-scoped loaders instead of one build-time
  * do-everything function:
- *   - `loadSiteOptions(perspective)` — the site-wide singleton (title, intro
- *     phrases, footer links). Fetched once per request/build, independent of
- *     which route is being rendered.
- *   - `loadRouteContent(path, perspective)` — resolves ONE route's data.
- *     The old pipeline built every page's data in one pass at build time;
- *     this port fetches per-route on demand (SSR request, or one
- *     `prerender:routes` invocation per path in Phase 2) since Nuxt's
- *     model is request/route-scoped rather than "build the whole site's
- *     data into one manifest object."
+ *   - `loadSiteOptions(perspective, config)` — the site-wide singleton
+ *     (title, intro phrases, footer links). Fetched once per request/build,
+ *     independent of which route is being rendered.
+ *   - `loadRouteContent(path, perspective, config)` — resolves ONE route's
+ *     data. The old pipeline built every page's data in one pass at build
+ *     time; this port fetches per-route on demand (SSR request, or one
+ *     `prerender:routes` invocation per path in Phase 2) since Nuxt's model
+ *     is request/route-scoped rather than "build the whole site's data into
+ *     one manifest object."
+ *
+ * Every function below takes `config: SanityClientConfig` explicitly rather
+ * than reaching for `useRuntimeConfig()` itself. This file has two callers
+ * with two different sources for that config (`content.server.ts`'s live
+ * Nuxt app context vs. `nuxt.config.ts`'s build-process `process.env`) — see
+ * `client.ts`'s file header for the full rationale, including why this also
+ * keeps the module typecheckable from `nuxt.config.ts`.
  *
  * Route resolution mirrors the old routing precedence: "/" is always home;
  * anything else is tried as a Detail slug, then a Contact slug, then an
@@ -25,7 +33,7 @@
  * `[slug].vue` — 404s).
  */
 
-import { getSanityClient, type SanityPerspective } from "./client";
+import { getSanityClient, type SanityClientConfig, type SanityPerspective } from "./client";
 import { sanityPicture, type MediaData } from "./image-url";
 import {
   allTaxonomiesQuery,
@@ -220,8 +228,9 @@ function isRoutable(allowRouting: boolean | null | undefined): boolean {
  */
 export async function loadSiteOptions(
   perspective: SanityPerspective,
+  config: SanityClientConfig,
 ): Promise<SiteOptionsContent> {
-  const client = getSanityClient(perspective);
+  const client = getSanityClient(perspective, config);
   const siteOptions = await client.fetch<SiteOptionsDoc | null>(siteOptionsQuery);
 
   const introPhrases = (siteOptions?.introText ?? [])
@@ -253,8 +262,9 @@ export async function loadSiteOptions(
  *  page's own data alongside the site-wide singleton — kept for parity). */
 async function loadHomeContent(
   perspective: SanityPerspective,
+  config: SanityClientConfig,
 ): Promise<HomeRouteContent> {
-  const client = getSanityClient(perspective);
+  const client = getSanityClient(perspective, config);
   const [pageHome, siteOptions] = await Promise.all([
     client.fetch<PageHomeDoc | null>(pageHomeQuery),
     client.fetch<SiteOptionsDoc | null>(siteOptionsQuery),
@@ -314,8 +324,9 @@ const DETAIL_SLICE_CONTEXT: SliceContext = { globals: null, clients: null, locat
 async function loadDetailContent(
   slug: string,
   perspective: SanityPerspective,
+  config: SanityClientConfig,
 ): Promise<DetailRouteContent | null> {
-  const client = getSanityClient(perspective);
+  const client = getSanityClient(perspective, config);
   const detail = await client.fetch<DetailRef | null>(detailBySlugQuery, { slug });
   if (!detail || !hasCover(detail) || !isRoutable(detail.allowRouting)) return null;
 
@@ -340,8 +351,9 @@ async function loadDetailContent(
 async function loadContactContent(
   slug: string,
   perspective: SanityPerspective,
+  config: SanityClientConfig,
 ): Promise<RichTextRouteContent | null> {
-  const client = getSanityClient(perspective);
+  const client = getSanityClient(perspective, config);
   const pageContact = await client.fetch<RichTextPageDoc | null>(pageContactQuery);
   if ((pageContact?.slug ?? "contact") !== slug) return null;
   return {
@@ -356,8 +368,9 @@ async function loadContactContent(
 async function loadImprintContent(
   slug: string,
   perspective: SanityPerspective,
+  config: SanityClientConfig,
 ): Promise<RichTextRouteContent | null> {
-  const client = getSanityClient(perspective);
+  const client = getSanityClient(perspective, config);
   const pageImprint = await client.fetch<RichTextPageDoc | null>(pageImprintQuery);
   if ((pageImprint?.slug ?? "imprint") !== slug) return null;
   return {
@@ -376,19 +389,20 @@ async function loadImprintContent(
 export async function loadRouteContent(
   path: string,
   perspective: SanityPerspective,
+  config: SanityClientConfig,
 ): Promise<RouteContent | null> {
-  if (path === "/") return loadHomeContent(perspective);
+  if (path === "/") return loadHomeContent(perspective, config);
 
   const slug = path.replace(/^\/+/, "");
   if (!slug) return null;
 
-  const detail = await loadDetailContent(slug, perspective);
+  const detail = await loadDetailContent(slug, perspective, config);
   if (detail) return detail;
 
-  const contact = await loadContactContent(slug, perspective);
+  const contact = await loadContactContent(slug, perspective, config);
   if (contact) return contact;
 
-  const imprint = await loadImprintContent(slug, perspective);
+  const imprint = await loadImprintContent(slug, perspective, config);
   if (imprint) return imprint;
 
   console.debug(`[content] no route matched — path="${path}"`);
@@ -407,13 +421,18 @@ export async function loadRouteContent(
  * slug" (see the `detailBySlugQuery` comment in `queries.ts`); reusing
  * `loadHomeContent()`'s output is what guarantees this function can never
  * drift out of sync with what `loadRouteContent()` actually resolves.
+ *
+ * Called from `nuxt.config.ts`'s `prerender:routes` build hook, which has no
+ * live Nuxt app instance — `config` is built there from `process.env`
+ * instead of `useRuntimeConfig()`.
  */
 export async function loadAllRoutePaths(
   perspective: SanityPerspective,
+  config: SanityClientConfig,
 ): Promise<string[]> {
-  const client = getSanityClient(perspective);
+  const client = getSanityClient(perspective, config);
   const [home, pageContact, pageImprint] = await Promise.all([
-    loadHomeContent(perspective),
+    loadHomeContent(perspective, config),
     client.fetch<RichTextPageDoc | null>(pageContactQuery),
     client.fetch<RichTextPageDoc | null>(pageImprintQuery),
   ]);
