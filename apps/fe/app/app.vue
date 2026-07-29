@@ -19,6 +19,16 @@ import { createDefaultTransition } from "~/transitions/default";
 // individual page controllers may also read useNavLock()'s `mutating` state.
 useNavLock();
 
+// Refreshes usePageData() before every SPA navigation — the client-side
+// counterpart to plugins/content.server.ts's SSR-only fetch. Without this,
+// usePageData() stays pinned to whatever route was hard-loaded, and every
+// subsequent client-side nav sees stale content (see that composable's file
+// header for the full "clicking a home grid item does nothing" story).
+// Called AFTER useNavLock() — router.beforeEach guards run in registration
+// order, and the nav-lock mutex must claim itself synchronously before this
+// guard's async fetch could otherwise leave a gap for a second click.
+usePageContentSync();
+
 // Built HERE, inside <script setup>, rather than imported as a module-scope
 // singleton — createDefaultTransition() calls useRouter() internally
 // (installRouteTracking()), which requires an ACTIVE Nuxt app/request
