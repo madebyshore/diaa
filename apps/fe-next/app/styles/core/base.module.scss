@@ -76,6 +76,23 @@ main {
   @include breakpoint-mobile {
     min-height: 100svh;
   }
+
+  /* FOUC guard (anim-plan.md §14 rule 3). Default hidden until a controller's
+     onInit — via composables/usePageController.ts's first-load branch, or
+     transitions/default.ts's onBeforeEnter for an SPA navigation — adds
+     `.is-controlled` synchronously, the SAME tick the transition pins its own
+     hidden state. From then on JS/inline opacity (the controller's in()/out()
+     GSAP tweens) fully owns opacity for the rest of the page's life; this
+     class only marks the handoff, it never re-asserts opacity itself.
+     Belt-and-suspenders on first load (.intro already covers the viewport
+     there) — its real job is the brief window on SPA navigation between Vue
+     inserting the entering page's DOM node and onBeforeEnter pinning it
+     hidden, which this rule covers even before that pin lands. */
+  opacity: 0;
+
+  &.is-controlled {
+    opacity: unset;
+  }
 }
 
 /* Nav is inside each page section — moves with the page during transitions. */
