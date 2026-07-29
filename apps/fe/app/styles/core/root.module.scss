@@ -1,0 +1,91 @@
+@use "@/styles/includes" as *;
+
+:root {
+  --target-window-width: #{$target-window-width-mobile};
+  --scale-modifier: #{$scale-modifier-mobile};
+
+  --columns: #{$columns};
+  --columns-sm: #{$columns-sm};
+  --columns-tablet: #{$columns-tablet};
+  --columns-md: #{$columns-md};
+
+  --column-gap: #{$column-gap};
+  --column-gap-sm: #{$column-gap-sm};
+  --column-gap-md: #{$column-gap-md};
+
+  --container-padding: #{$container-padding};
+  --container-padding-sm: #{$container-padding-sm};
+  --container-padding-md: #{$container-padding-md};
+
+  --negative-container-padding: calc(-1 * var(--container-padding));
+  --negative-container-padding-sm: calc(-1 * var(--container-padding-sm));
+  --negative-container-padding-md: calc(-1 * var(--container-padding-md));
+
+  --g-start: #{$g-start};
+  --g-start-sm: #{$g-start-sm};
+
+  /* Default theme colors (override per scope via set-theme-color) */
+  --color-theme: #{$color-black};
+  --bg-theme: #{$color-white};
+
+  /* Resting ("off") color for interactive text — nav links, home
+     filters/modes, rich-text hyperlinks. Hover/active turns them
+     `--color-theme` black. Fixed across themes by design. */
+  --color-inactive: #{$color-inactive};
+
+  /* Global spacing scale — used for paddings, gaps, and rhythm across the
+     site. Anywhere a literal `3rem`, `6rem`, or `9rem` showed up before,
+     the corresponding token should be used now. */
+  --XS: 3rem;
+  --S: 6rem;
+  --M: 9rem;
+  --L: 12rem;
+  --XL: 14.2rem;
+
+  /* Misc. */
+  @include breakpoint(sm) {
+    --target-window-width: #{$target-window-width-tablet};
+    --scale-modifier: #{$scale-modifier-tablet};
+
+    --columns: var(--columns-sm);
+    --container-padding: var(--container-padding-sm);
+    --column-gap: var(--column-gap-sm);
+
+    --g-start: var(--g-start-sm);
+  }
+
+  @include breakpoint(md) {
+    --target-window-width: #{$target-window-width-laptop};
+    --scale-modifier: #{$scale-modifier-laptop};
+
+    --columns: var(--columns-md);
+    --container-padding: var(--container-padding-md);
+    --column-gap: var(--column-gap-md);
+    --header-height: 10.6rem;
+  }
+
+  /* Tablet (769–1024 inclusive): 8-column grid. Declared AFTER the `md`
+     block because the ranges overlap at exactly 1024px — source order lets
+     the tablet value win there, so 1024 still holds the tablet grid and the
+     12-col desktop grid starts at 1025. At or below 768 the mobile base
+     values above apply (6 cols). */
+  @include breakpoint-tablet {
+    --columns: var(--columns-tablet);
+  }
+
+  @include breakpoint(xl) {
+    --target-window-width: #{$target-window-width-desktop};
+    --scale-modifier: #{$scale-modifier-desktop};
+  }
+}
+
+/* Simple attribute-based theme switcher. Toggle `data-theme="dark"` on <html>. */
+[theme="dark"] {
+  --color-theme: #{$color-black};
+  --bg-theme: #{$color-dark-stone};
+}
+
+[theme="light"] {
+  --color-theme: #{$color-black};
+  --bg-theme: #{$color-white};
+}

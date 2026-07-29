@@ -1,0 +1,16 @@
+// z-index Setup
+$-next-z-index: 0;
+
+/* stylelint-disable scss/function-no-unknown */
+@function -get-next-z-index() {
+  $-next-z-index: $-next-z-index + 1 !global;
+
+  @return $-next-z-index;
+}
+
+$z-index-behind-content: -1;
+$z-index-content: 0;
+$z-index-above-content: -get-next-z-index();
+$z-index-footer: -get-next-z-index();
+$z-index-header: -get-next-z-index();
+$z-index-dev-grid: -get-next-z-index();

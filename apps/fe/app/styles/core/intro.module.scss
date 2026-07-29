@@ -1,0 +1,70 @@
+@use "@/styles/includes" as *;
+
+/* Full-viewport intro overlay. A white field with the DIAA mark centered.
+   There is no loading counter — nothing is preloaded — so the intro is a pure
+   brand beat: the mark fades in, holds, then the whole overlay fades out to
+   reveal the page. The choreography lives in Intro.play() (engine/boot/intro.ts). */
+.intro {
+  background-color: $color-white;
+  color: $color-black;
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 3141516;
+
+  /* The phrase and the logotype are both absolutely centred (below) so they
+     overlap in the same spot — play() shows them one at a time, never together.
+     This flex centering is just a harmless fallback for any in-flow child. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* The DIAA brand mark — the logotype SVG. Its own beat in the intro sequence:
+   Intro.play() fades it in (0 → 1), holds, then the overlay fade carries it out.
+   Absolutely centred so it overlaps the phrase in the same spot (the two never
+   show together). Native size 67 × 16.341px = 6.7 × 1.6341rem at root 10px.
+   Fills are `currentColor`, tracking the intro's $color-black. Starts hidden so
+   there is no flash before play() reveals it. */
+.intro__logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  width: 6.7rem;
+  height: 1.6341rem;
+
+  /* Mobile: the Figma mobile spec's smaller mark — 57.336 × 13.984px
+     (5.7336 × 1.3984rem at root 10px), the same 67:16.341 aspect. */
+  @include breakpoint-mobile {
+    width: 5.7336rem;
+    height: 1.3984rem;
+  }
+}
+
+/* The random intro phrase — the FIRST beat, shown before the logotype and faded
+   back out before it appears (its own animation, not stacked beneath the logo).
+   Inherits the base body type (typo-base) from <body>; centred both as a block
+   (absolute + translate, overlapping the logo) and as text. Empty + hidden
+   until the runtime writes the chosen phrase. */
+.intro__text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  margin: 0;
+  text-align: center;
+  text-wrap: balance;
+
+  /* Explicit width: the container padding PLUS one grid column of inset on
+     each side (a `grid-column: 2 / -2` box). An explicit width is needed at
+     all because the absolutely-positioned paragraph otherwise shrink-to-fits
+     against the space RIGHT of its `left: 50%` anchor (half the viewport),
+     wrapping at half width before the translate recentres it. */
+  width: calc(100% - 2 * (var(--container-padding) + #{calc-columns(1)}));
+}

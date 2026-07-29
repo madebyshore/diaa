@@ -1,34 +1,12 @@
 {
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "./dist",
-    "module": "esnext",
-    "target": "esnext",
-    "moduleResolution": "bundler",
-    "types": [],
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "strict": true,
-    "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": false,
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"],
-      "@engine": ["src/engine"],
-      "@engine/*": ["src/engine/*"],
-      "@app": ["src/app"],
-      "@app/*": ["src/app/*"]
-    }
-  },
-  "include": ["src", "scripts", "**/*.ts", "vite.config.ts"],
-  "exclude": ["dist", "node_modules"]
+  // https://nuxt.com/docs/guide/concepts/typescript
+  // Nuxt generates the real project references into .nuxt/ on `nuxt prepare`
+  // (wired to postinstall) / `nuxt dev` / `nuxt typecheck`.
+  "files": [],
+  "references": [
+    { "path": "./.nuxt/tsconfig.app.json" },
+    { "path": "./.nuxt/tsconfig.server.json" },
+    { "path": "./.nuxt/tsconfig.shared.json" },
+    { "path": "./.nuxt/tsconfig.node.json" }
+  ]
 }

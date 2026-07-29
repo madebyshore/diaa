@@ -1,0 +1,89 @@
+@use "@/styles/includes" as *;
+
+/* Image slice — single centered image on the 12-col grid. Span + ratio are
+   set by `--c*` / `--ar-*` modifiers from the resolver. `--full` breaks out of
+   the container padding to a full-bleed 3:2 image. */
+.slice-image {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), 1fr);
+  column-gap: var(--column-gap);
+  padding: 0 var(--container-padding);
+
+  &--full {
+    padding: 0;
+  }
+}
+
+.slice-image__media {
+  margin: 0;
+  overflow: hidden;
+
+  /* Column span. On the 8-col tablet grid the wide sizes (c8/c6) collapse to
+     one column in from each edge; c4 stays a narrower centered block (middle
+     4 of 8); c12 is already grid-agnostic. */
+  &--c8 {
+    grid-column: 3 / span 8;
+
+    @include breakpoint-tablet {
+      grid-column: 2 / -2;
+    }
+  }
+  &--c6 {
+    grid-column: 4 / span 6;
+
+    @include breakpoint-tablet {
+      grid-column: 2 / -2;
+    }
+  }
+  &--c4 {
+    grid-column: 5 / span 4;
+
+    @include breakpoint-tablet {
+      grid-column: 3 / span 4;
+    }
+  }
+  &--c12 {
+    grid-column: 1 / -1;
+  }
+
+  /* Aspect ratio (from the CMS). */
+  &--ar-3x2 {
+    aspect-ratio: 3 / 2;
+  }
+  &--ar-3x4 {
+    aspect-ratio: 3 / 4;
+  }
+  &--ar-2x3 {
+    aspect-ratio: 2 / 3;
+  }
+  &--ar-4x3 {
+    aspect-ratio: 4 / 3;
+  }
+
+  /* Mobile placement is driven by the RATIO, not the c-span: landscape
+     images run full width, portrait images centre on the middle 4 of 6.
+     Declared after the span rules above so these equal-specificity
+     overrides win the cascade (the full-bleed variant below still outranks
+     both, keeping `--full` forced to 1 / -1). */
+  @include breakpoint-mobile {
+    &--ar-3x2,
+    &--ar-4x3 {
+      grid-column: 1 / -1;
+    }
+    &--ar-2x3,
+    &--ar-3x4 {
+      grid-column: 2 / -2;
+    }
+  }
+}
+
+/* Full-bleed: full viewport width, forced 3:2 regardless of the chosen ratio. */
+.slice-image--full .slice-image__media {
+  grid-column: 1 / -1;
+  aspect-ratio: 3 / 2;
+
+  /* Mobile: still full-bleed, but portrait — forced 2:3 instead of 3:2. */
+  @include breakpoint-mobile {
+    aspect-ratio: 2 / 3;
+  }
+}

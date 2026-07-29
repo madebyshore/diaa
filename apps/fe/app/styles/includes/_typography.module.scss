@@ -1,0 +1,188 @@
+@use "./breakpoints.module" as *;
+@use "sass:list";
+
+// HW Beaujon — variable serif. Two optical sizes (Text for body, Display
+// for headlines), each shipping Upright + Italic variable axes. Weight
+// range declared as 100–900 so any `font-weight` interpolates against the
+// VF axis. Serif is the system fallback.
+@font-face {
+  font-family: "HW Beaujon Text";
+  font-style: normal;
+  font-weight: 100 900;
+  src: url("/assets/fonts/HWBeaujonTextVF-Upright.ttf")
+    format("truetype-variations");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HW Beaujon Text";
+  font-style: italic;
+  font-weight: 100 900;
+  src: url("/assets/fonts/HWBeaujonTextVF-Italic.ttf")
+    format("truetype-variations");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HW Beaujon";
+  font-style: normal;
+  font-weight: 100 900;
+  src: url("/assets/fonts/HWBeaujonVF-Upright.ttf")
+    format("truetype-variations");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HW Beaujon";
+  font-style: italic;
+  font-weight: 100 900;
+  src: url("/assets/fonts/HWBeaujonVF-Italic.ttf") format("truetype-variations");
+  font-display: swap;
+}
+
+/* LEGAL DISCLAIMER
+ *
+ * These Fonts are licensed only for use on these domains and their subdomains:
+ * www.studiodiaa.com
+ *
+ * It is illegal to download or use them on other websites.
+ *
+ * While the @font-face statements below may be modified by the client, this
+ * disclaimer may not be removed.
+ *
+ * Optimo webfonts are protected by copyright law and provided under license. To modify, alter, translate, convert, decode or reverse engineer in any manner whatsoever, including converting the Font Software into a different format is strictly prohibited. The webfont files are not to be used for anything other than web font use.
+ *
+ * optimo.ch
+ */
+@font-face {
+  font-family: "Rand";
+  src:
+    url("/assets/fonts/Rand-Regular.woff2") format("woff2"),
+    url("/assets/fonts/Rand-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+$font-body: "HW Beaujon Text", serif;
+$font-display: "HW Beaujon", serif;
+
+// Rand (Optimo) — the project's "serif" slot: drives the rich-text `.serif`
+// decorator and all caption type (2Up / 3Up / slideshow). Rand is a grotesque,
+// so the fallback stack is sans-serif to degrade visually in kind.
+$font-serif: "Rand", sans-serif;
+
+// Compatibility aliases for slice modules ported from the Houston-style
+// slice library — those modules expect `$font-mono` (used as a UI / mono
+// fallback) and `$font-accent` (display headlines). Route both to the
+// HW Beaujon stack so ported slices inherit the project's base face.
+$font-mono: "HW Beaujon Text", serif;
+$font-accent: "HW Beaujon", serif;
+
+// Note: If adding any new font weights in here, make sure to also add
+// respective weights to the 'FONT_URL' in 'layout.txt' file
+
+@mixin -font-weight($fontWeight, $supportedFontWeights) {
+  @if not list.index($supportedFontWeights, $fontWeight) {
+    @error "Invalid font name used '#{$fontWeight}'. Please use one of the supported weights - '#{$supportedFontWeights}'.";
+  }
+
+  @if $fontWeight ==400 {
+    font-weight: 400;
+  } @else if $fontWeight ==500 {
+    font-weight: 500;
+  } @else if $fontWeight ==600 {
+    font-weight: 600;
+  }
+}
+
+/* Base — R7 (FINAL)/Desktop/Body. 23px @ root 10px = 2.3rem,
+   0.23px tracking = 0.023rem. font-family stays $font-body
+   (the loaded "HW Beaujon Text" @font-face), not Figma's "VF" name. */
+@mixin typo-base {
+  font-family: $font-body;
+  font-style: normal;
+  font-weight: 425;
+  font-size: 2.3rem;
+  line-height: 160%;
+  letter-spacing: 0.023rem;
+  font-variant-numeric: lining-nums proportional-nums;
+  font-feature-settings: "liga" on;
+  leading-trim: both;
+  text-edge: cap;
+
+  /* Mobile (<= 768) — Figma Mobile/Body: 20px @ root 10px = 2rem, 0.2px
+     tracking = 0.02rem. Weight (425) and line-height (160%) match desktop;
+     the family stays $font-body — Figma's "HW Beaujon Text VF" is the same
+     loaded face under its variable-font name. */
+  @include breakpoint-mobile {
+    font-size: 2rem;
+    letter-spacing: 0.02rem;
+  }
+}
+
+/* Caption — R7 (FINAL)/Desktop/Caption in Figma. Rand 10px/160% with 0.3px
+   tracking, tabular lining figures, ligatures off. Mobile drops to the
+   R5-R7/Mobile/Caption spec: 8px/140%, 0.24px tracking, proportional figures.
+   `leading-trim`/`text-edge` are the legacy property pair; `text-box` is the
+   shipped shorthand — declared together so whichever the browser supports
+   trims the cap height. Shared by every captioned slice (2Up / 3Up /
+   slideshow). */
+@mixin typo-caption {
+  font-family: $font-serif;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 160%;
+  letter-spacing: 0.3px;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "liga" off;
+  leading-trim: both;
+  text-edge: cap;
+  text-box: cap alphabetic;
+
+  @include breakpoint-mobile {
+    font-size: 8px;
+    line-height: 140%;
+    letter-spacing: 0.24px;
+    font-variant-numeric: lining-nums proportional-nums;
+  }
+}
+
+/* Eyebrow — used by ported slice modules for small uppercase labels. */
+@mixin typo-eyebrow {
+  font-family: $font-body;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 1.6rem;
+  line-height: normal;
+  letter-spacing: 0;
+  text-transform: uppercase;
+
+  em {
+    font-style: italic;
+  }
+}
+
+/* Display */
+@mixin typo-display {
+  font-family: $font-display;
+  font-weight: 350;
+  line-height: 90%;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  text-align: center;
+  font-size: 4.8rem;
+
+  @include breakpoint(sm) {
+    font-size: 7.2rem;
+  }
+
+  @include breakpoint(md) {
+    font-size: 9.6rem;
+  }
+
+  @include breakpoint(lg) {
+    font-size: 12.8rem;
+  }
+}

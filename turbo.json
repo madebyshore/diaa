@@ -12,7 +12,8 @@
       ],
       "outputs": [
         "",
-        "dist/**"
+        "dist/**",
+        ".output/**"
       ]
     },
     "lint": {

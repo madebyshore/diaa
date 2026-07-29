@@ -1,3 +1,7 @@
-/dist
-node_modules
-.cache
+# Root .gitignore already covers node_modules, .env*, .turbo, dist, build,
+# .DS_Store. These are the Nuxt-specific build/dev artifacts it doesn't know
+# about yet.
+.nuxt
+.output
+.nitro
+.data

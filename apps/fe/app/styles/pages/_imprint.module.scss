@@ -1,0 +1,176 @@
+@use "@/styles/includes" as *;
+
+.imprint {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  background: $color-white;
+
+  /* Mobile: anchor to the SMALL viewport — 100vh (large viewport) makes the
+     page overflow the visible screen by the browser-toolbar height, pushing
+     the fixed Close footer behind the toolbar where it can't be tapped. */
+  @include breakpoint-mobile {
+    min-height: 100svh;
+  }
+}
+
+/* `#page` sets default vertical padding and its id selector outranks
+   `.imprint`, so qualify with the id to drop it — the imprint page carries
+   no page-level padding; `.imprint__main` owns the full 100vh panel. */
+#page.imprint {
+  padding: 0;
+}
+
+/* Flex column: the 100vh centered text panel followed by the 100vh outro —
+   two stacked full-viewport panels, mirroring `.detail__container`'s
+   structure minus the cover image and slices. */
+.imprint__container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Title nav — a PASSIVE heading fixed to the top of the viewport, identical
+   to `.detail__nav`: closing lives in the persistent `( Close )` footer
+   (`.imprint__footer`), so the nav takes no pointer events and has no hover
+   swap. `position: fixed` takes it out of flow entirely (reserves no
+   space); its background is transparent so content shows through. */
+.imprint__nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: $z-index-header;
+  display: block;
+  width: 100%;
+  padding: var(--XS) 0;
+  text-align: center;
+  text-box: cap alphabetic;
+  color: inherit;
+  pointer-events: none;
+  background: transparent;
+
+  /* Mobile: same treatment as the detail nav — base --XS padding above,
+     none below. */
+  @include breakpoint-mobile {
+    padding-bottom: 0;
+  }
+}
+
+/* The centered title label. `inline-block` so it establishes its own line
+   box for `text-box: cap alphabetic` to trim to the cap height. */
+.imprint__nav-label {
+  display: inline-block;
+  text-box: cap alphabetic;
+}
+
+/* Main panel: full viewport height, page grid, rich text vertically
+   centered and spanning the center six of twelve columns at md+ ("centered
+   in between the center six columns" from spec); full width below md. */
+.imprint__main {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), 1fr);
+  gap: var(--column-gap);
+  align-items: center;
+  height: 100vh;
+  padding: 0 var(--container-padding);
+
+  /* Mobile: small viewport (see .imprint) so the panel fits the visible
+     screen exactly and the page has nothing to scroll. */
+  @include breakpoint-mobile {
+    height: 100svh;
+  }
+}
+
+.imprint__body {
+  grid-column: 1 / -1;
+  /* The rich text is centered as a composition, not just positionally —
+     matches the page's centered nav and outro. */
+  text-align: center;
+
+  @include breakpoint(md) {
+    grid-column: 4 / span 6;
+  }
+
+  /* Tablet (8 cols): one column in from each edge, matching the detail-page
+     slices. Declared after the `md` block — both queries match at exactly
+     1024, so source order lets the tablet placement win there. */
+  @include breakpoint-tablet {
+    grid-column: 2 / -2;
+  }
+
+  /* bodyHtml is pre-rendered rich text (see scripts/utils/portable-text.ts):
+     <p> blocks, <br> line breaks, <a class="rt-link"> hyperlinks (styled
+     globally off/on grey↔black in core/base.module.scss — internal links
+     resolve through the same GROQ href projection as external ones), and
+     <strong>/<em>/<u>/<code>. Only paragraph spacing needs setting here. */
+  p + p {
+    margin-top: 1em;
+  }
+
+  /* Rich-text font-family toggles emitted by renderPortableText (serif/mono
+     decorators) — scoped locally the same way `.slice-text__body` scopes
+     them in styles/slices/_shared.module.scss, so they don't leak globally. */
+  .serif {
+    font-family: $font-body;
+  }
+
+  .mono {
+    font-family: $font-mono;
+  }
+}
+
+/* Full-viewport outro panel ("dia callout") — identical to
+   `.detail__outro`: centers the DIAA logotype (same mark as the intro). */
+.imprint__outro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+
+  /* Mobile: no outro panel — the fixed Close footer is the page's ending. */
+  @include breakpoint-mobile {
+    display: none;
+  }
+}
+
+/* The DIAA brand mark in the outro — identical to `.detail__outro-logo`.
+   Sized to its native 67 × 16.341px ratio (6.7 × 1.6341rem at root 10px).
+   Fills are `currentColor`, so it tracks the page text color. */
+.imprint__outro-logo {
+  width: 6.7rem;
+  height: 1.6341rem;
+}
+
+/* Close footer — identical to `.detail__footer`. Reuses the home footer's
+   .global-nav--footer type/layout classes; this rule pins it to
+   the bottom of the viewport on EVERY tier — the persistent way home now
+   that the title nav is a passive heading (no hover "( Close )" swap, same
+   model as the detail page). Desktop keeps the base .global-nav even --XS
+   padding over `bottom: 0`; mobile moves the offset to `bottom` (no
+   vertical padding) so the box hugs the content, mirroring the fixed top
+   nav. Qualified with `.imprint` to outrank the .global-nav base. */
+.imprint .imprint__footer {
+  display: flex;
+  position: fixed;
+  top: auto;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: $z-index-header;
+
+  @include breakpoint-mobile {
+    bottom: var(--XS);
+    padding: 0 var(--XS);
+  }
+
+  /* Restore the base .global-nav parens that the --footer variant strips —
+     the label reads `( Close )`, matching the top nav's hover swap. */
+  &::before {
+    content: "(";
+  }
+
+  &::after {
+    content: ")";
+  }
+}
