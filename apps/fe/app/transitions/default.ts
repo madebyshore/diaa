@@ -54,12 +54,6 @@ function installRouteTracking(): void {
 let leaveFinished: Promise<void> = Promise.resolve();
 let resolveLeave: (() => void) | null = null;
 
-/** Nav direction for the CURRENT navigation, captured once by onEnter
- *  (`takeNavDirection()` clears the flag on read) and consumed later by
- *  onAfterEnter's scroll restore — see that hook for why the restore itself
- *  has to happen there, not here. */
-let capturedDirection: "back" | "forward" = "forward";
-
 /**
  * createDefaultTransition() — the Vue <Transition> props object passed to
  * `<NuxtPage :transition="defaultTransition">` in app.vue.
@@ -134,16 +128,58 @@ export function createDefaultTransition(): TransitionProps {
       const controller = getPageController(incomingPath);
       const { $lenis } = useNuxtApp();
 
-      // Captured now (takeNavDirection() clears the flag on read) but not
-      // ACTED on until onAfterEnter, well below — see that hook's comment
-      // for why the restore itself has to happen there.
-      capturedDirection = takeNavDirection();
+      const direction = takeNavDirection();
 
       // Sequential timing: wait for the OLD page's out() to fully resolve
       // before starting the new page's real entrance — reproduces diaa's
       // two-stage beat even though both elements have coexisted in the DOM
       // the whole time.
       await leaveFinished;
+
+      // UNPIN — back to normal document flow, but keep the page invisible
+      // (opacity stays "0") — BEFORE the entrance (`controller.in()`) runs,
+      // not after. This corrects a regression from an earlier version of
+      // this fix, which unpinned in onAfterEnter (i.e. AFTER `in()`
+      // resolved): the page spent its ENTIRE visible entrance fade still
+      // `position:fixed` at its OLD viewport-pinned rect while the
+      // document's REAL (stale, pre-reset) scroll sat underneath it, then
+      // un-pinned and snapped to the correct scroll only at the very end —
+      // "entrance animates from the middle of the page, then jumps to top
+      // once it finishes." Diaa's real ordering (`EmptyTransition.cleanup()`
+      // un-pins BEFORE `PageManager.afterIn()`'s `initCurrentPage()` →
+      // `animateCurrentPageIn()`) unpins-then-scrolls-then-animates — the
+      // entrance ALWAYS plays already at its final, correct scroll, never
+      // mid-page. Position/sizing styles are cleared individually (not a
+      // blanket `removeAttribute("style")`, which would also drop the
+      // `opacity: 0` pin below and flash the page at full opacity before its
+      // own fade starts) — `onAfterEnter` still does the full
+      // `removeAttribute` once `in()` has resolved, for final cleanup.
+      page.style.position = "";
+      page.style.top = "";
+      page.style.left = "";
+      page.style.width = "";
+      page.style.height = "";
+      page.style.zIndex = "";
+      page.style.opacity = "0";
+
+      // resize() + restoreOrResetScroll() run IMMEDIATELY after the unpin
+      // above, with NO `await` in between — same synchronous task, so the
+      // browser never gets a chance to paint the page at the wrong scroll
+      // position for even one frame. `resize()` first, synchronously: Lenis
+      // caches its scrollable `limit` (read from `content.scrollHeight`) and
+      // only recomputes it automatically via a DEBOUNCED ResizeObserver
+      // callback that wouldn't have fired yet at this exact tick — without
+      // forcing a synchronous recalculation here, `scrollTo()`'s own
+      // `clamp(0, target, this.limit)` would clamp against a STALE
+      // (pre-unpin) limit, exactly matching diaa's own
+      // `initCurrentPage()` comment: "Recalculate scroller bounds against
+      // the freshly-initialised page before restoring scroll... so without
+      // this, scrollTo() below would clamp to a stale max." This is now
+      // purely insurance — the page is already back in normal flow with its
+      // real height by the time this runs, unlike the earlier (buggy)
+      // version where it ran while still pinned fixed.
+      $lenis?.resize();
+      restoreOrResetScroll($lenis, incomingPath, direction);
 
       $lenis?.stop();
       await controller?.in(page);
@@ -154,63 +190,14 @@ export function createDefaultTransition(): TransitionProps {
 
     onAfterEnter(el) {
       const page = el as HTMLElement;
+      // Position/sizing styles and scroll were already handled in onEnter,
+      // above, before controller.in() ran — this is now pure residual
+      // cleanup: wipe whatever inline opacity in() left behind (every
+      // controller resolves at inline opacity: 1, never clearing it itself)
+      // so CSS regains ownership via `#page.is-controlled { opacity: unset }`
+      // below, matching diaa's EmptyTransition.cleanup() handing the page
+      // back to normal styling once its entrance settles.
       page.removeAttribute("style");
-
-      // Scroll restore/reset goes HERE — after removeAttribute("style")
-      // has already returned the page to normal document flow — not
-      // earlier. Two failure modes if it ran any sooner, both found by
-      // testing against a real Lenis instance rather than assumed:
-      //
-      // 1. Before `leaveFinished` (the original bug report): the outgoing
-      //    page is still in normal flow, NOT position:fixed, and still
-      //    visibly mid-fade — an instant `lenis.scrollTo(..., {immediate:
-      //    true})` yanks the whole document's scroll position while it's
-      //    fully on screen, reading as "jump to top, THEN fade out"
-      //    instead of "fade out in place."
-      // 2. After `leaveFinished` but still BEFORE this unpin (where an
-      //    earlier version of this fix placed it, inside onEnter): the
-      //    incoming page is still `position:fixed` here (pinned by
-      //    onBeforeEnter, unpinned only by the `removeAttribute` above) —
-      //    a fixed-position element contributes NO normal-flow height, so
-      //    with the outgoing page already gone, the document's measured
-      //    scrollable height can be near-zero at that exact moment. A
-      //    restore to a saved non-zero position got silently clamped back
-      //    to 0 by Lenis's own bounds — confirmed via Playwright: the
-      //    console log showed the correct target being restored, but
-      //    `window.scrollY` never actually reached it.
-      //
-      // This mirrors diaa's real ordering: `EmptyTransition.cleanup()`
-      // un-pins the incoming page BEFORE `PageManager.afterIn()` ever runs
-      // `initCurrentPage()`'s restore-or-reset — the page is back in normal
-      // flow, with real measurable height, by the time scroll is ever
-      // touched. `capturedDirection` was read once, up in onEnter (its
-      // module-scope flag has to be consumed exactly once per nav,
-      // regardless of when the resulting restore actually happens).
-      const { $lenis } = useNuxtApp();
-      // `resize()` FIRST, synchronously — Lenis caches its scrollable
-      // `limit` (read from `content.scrollHeight`) and only recomputes it
-      // automatically via a DEBOUNCED ResizeObserver callback, which would
-      // not have fired yet at this exact tick. With the incoming page having
-      // just come OFF `position:fixed` above, the document's real height
-      // just changed; without forcing a synchronous recalculation first,
-      // `scrollTo()`'s own internal `clamp(0, target, this.limit)` clamps
-      // against the STALE (near-zero, from while this page contributed no
-      // normal-flow height) limit — confirmed via Playwright: the restore's
-      // own debug log showed the correct target, but the clamp silently
-      // dropped it back to 0 before this fix. Exactly matches
-      // `initCurrentPage()`'s own comment: "Recalculate scroller bounds
-      // against the freshly-initialised page before restoring scroll... so
-      // without this, scrollTo() below would clamp to a stale max."
-      $lenis?.resize();
-      restoreOrResetScroll($lenis, incomingPath, capturedDirection);
-
-      // Re-apply .is-controlled after removeAttribute("style") wiped the
-      // class list along with inline styles — matches diaa's
-      // EmptyTransition.cleanup() re-pinning opacity 0 after
-      // removeAttribute() so nothing flashes. Since in() already resolved
-      // opacity to 1 (or the controller cleared its own inline value on
-      // settle), CSS's `#page.is-controlled { opacity: unset }` rule keeps
-      // ownership here rather than re-hiding the page.
       page.classList.add("is-controlled");
 
       const controller = getPageController(incomingPath);
