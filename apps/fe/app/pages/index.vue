@@ -19,22 +19,41 @@ import { createHomeController } from "~/controllers/home";
 
 const pageData = usePageData();
 const siteOptions = useSiteOptions();
+const route = useRoute();
 
 // Phase 5b: full mode/filter/hover/nav-V-fold/bridge choreography — see
 // controllers/home.ts. Replaces Phase 5a's placeholder BaseController now
 // that the real controller exists.
 usePageController(createHomeController());
 
-// Narrow usePageData() to the home variant. Defensive fallback only —
-// loadRouteContent("/") always returns `{template: "home"}`; this guards a
-// malformed/failed fetch, not a real routing case.
+// Snapshot at mount — the correct content for THIS instance, since
+// composables/usePageContentSync.ts's router.beforeEach always writes fresh
+// content BEFORE the route change that triggers this component to mount
+// (see that composable's own header). Used as the fallback below once a
+// LATER, unrelated write lands in the shared `pageData` ref.
+const initialHome = pageData.value?.template === "home" ? pageData.value : null;
+
+// Narrow usePageData() to the home variant, reactively — but ONLY when the
+// live value is actually tagged for THIS route (`data.path === route.path`).
+// `usePageData()` is ONE shared `useState`; `usePageContentSync.ts` has to
+// write the INCOMING route's content to it before the outgoing page
+// unmounts (Vue's mode-less `<Transition>` keeps both pages mounted
+// throughout the swap — see transitions/default.ts's file header), so
+// WITHOUT the path check, navigating home → a Detail slug would land here
+// too: `data.template` would flip to "detail" while home is STILL the
+// visible, animating-out page, this computed would go `null`, `gridItems`/
+// `taxonomies`/`footerLinks` below would all collapse to `[]`, and the
+// ENTIRE GRID (including whatever text-gpu figure the home→detail image
+// bridge was about to clone) would vanish from the DOM instantly — read as
+// "the transition is instant" and "the bridged image doesn't stay" from
+// the user's side. The path check keeps this computed reacting ONLY to
+// writes meant for home (a hard reload, or a live-preview refresh of "/"
+// while already on it), and lets the `initialHome` snapshot above carry the
+// still-mounted, still-fading-out page through any other route's write.
 const home = computed(() => {
   const data = pageData.value;
-  if (data?.template !== "home") {
-    console.debug("[page:home] usePageData() did not resolve a home template");
-    return null;
-  }
-  return data;
+  if (data?.template === "home" && data.path === route.path) return data;
+  return initialHome;
 });
 
 const gridItems = computed(() => home.value?.gridItems ?? []);

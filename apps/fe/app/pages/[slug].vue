@@ -30,6 +30,16 @@
  * captured once at setup would never observe that write, silently making
  * live refresh a no-op for every Detail/Contact/Imprint route. See the
  * `content` computed's own comment below for the full reasoning.
+ *
+ * PATH-GUARDED, not just null/template-guarded — a later fix (see that
+ * comment) tightened this further: `usePageData()` is ONE shared
+ * `useState`, and `composables/usePageContentSync.ts` has to write the
+ * INCOMING route's content into it BEFORE the outgoing page unmounts (Vue's
+ * mode-less `<Transition>` keeps both pages mounted throughout the swap —
+ * see `transitions/default.ts`'s file header). Without a path check, a
+ * still-mounted, still-fading-out `[slug].vue` instance (e.g. navigating
+ * Detail → home, or Detail → a DIFFERENT Detail) would reactively pick up
+ * the OTHER route's freshly-fetched content mid-fade and re-render with it.
  */
 
 import { createDetailController } from "~/controllers/detail";
@@ -37,12 +47,12 @@ import { createRichTextController } from "~/controllers/rich-text-page";
 
 const pageData = usePageData();
 const siteOptions = useSiteOptions();
+const route = useRoute();
 
-// Initial snapshot — used ONLY to type-narrow away the null/"home" cases
-// (a genuine 404 for this component, per the file header) and as the
-// `content` computed's fallback value below. Not read again after this
-// guard; `content.value` is the reactive source of truth for everything
-// else in this component.
+// Initial snapshot — used to type-narrow away the null/"home" cases (a
+// genuine 404 for this component, per the file header) AND as the `content`
+// computed's fallback value below whenever a later `pageData` write isn't
+// tagged for THIS route (see that computed's comment).
 const initialContent = pageData.value;
 if (initialContent === null || initialContent.template === "home") {
   // `initialContent.template === "home"` is unreachable in practice
@@ -60,18 +70,19 @@ if (initialContent === null || initialContent.template === "home") {
   });
 }
 
-// Reactive view of the route's content — see the file header's Phase 6
-// note. Falls back to `initialContent` whenever `pageData.value` is
-// transiently null/home, which never happens in practice post-guard (the
-// route/template a mounted `[slug].vue` instance is showing doesn't change
-// out from under it — only the CONTENT of the same document does via
-// preview refresh), but keeps this a total function without an `as` cast.
-// Template bindings below (`content.template`, `content.title`, ...) don't
-// need `.value` — Vue auto-unwraps a `computed()` referenced by name in
-// `<script setup>` templates, same as a plain `ref()`.
+// Reactive view of the route's content — see the file header's Phase 6 +
+// path-guard notes. Only accepts `pageData.value` as fresher-than-the-
+// snapshot when it's BOTH non-home AND tagged (`data.path`) for this exact
+// route — a hard reload's initial fetch and a same-route live-preview
+// refresh both satisfy that; a navigation-in-flight write for some OTHER
+// route does not, and falls through to `initialContent` instead of
+// corrupting this still-mounted instance's render. Template bindings below
+// (`content.template`, `content.title`, ...) don't need `.value` — Vue
+// auto-unwraps a `computed()` referenced by name in `<script setup>`
+// templates, same as a plain `ref()`.
 const content = computed(() => {
   const data = pageData.value;
-  return data && data.template !== "home" ? data : initialContent;
+  return data && data.template !== "home" && data.path === route.path ? data : initialContent;
 });
 
 const siteTitle = computed(() => siteOptions.value?.siteTitle ?? "");

@@ -155,8 +155,25 @@ export interface HomeGridItem {
   taxonomyId: string;
 }
 
+/** `path` (all three variants below) — the route this content was resolved
+ *  for, stamped on by `loadRouteContent()` in a single choke point (never
+ *  set by the individual `loadHomeContent()`/`loadDetailContent()`/etc.
+ *  sub-loaders, so it's optional at the type level and only ever guaranteed
+ *  present on a `loadRouteContent()` result). Exists so a page component can
+ *  tell "is this `usePageData()` write actually for MY route" before
+ *  treating it as authoritative — see `pages/index.vue`'s `home` computed
+ *  and `pages/[slug].vue`'s `content` computed for why that check matters:
+ *  `usePageData()` is ONE shared `useState`, but `composables/
+ *  usePageContentSync.ts` writes the INCOMING route's content to it BEFORE
+ *  the OUTGOING page unmounts (it has to — the entering component's own
+ *  `<script setup>` needs fresh data the moment it mounts, and Vue's
+ *  mode-less `<Transition>` keeps both pages alive throughout the swap —
+ *  see `transitions/default.ts`'s file header). Without this tag, the
+ *  still-visible outgoing page's OWN reactive computed would see the
+ *  write too and re-render against the WRONG route's data mid-fade. */
 export interface HomeRouteContent {
   template: "home";
+  path?: string;
   gridItems: HomeGridItem[];
   taxonomies: Array<{ id: string; title: string }>;
   footerLinks: FooterLink[];
@@ -164,6 +181,7 @@ export interface HomeRouteContent {
 
 export interface DetailRouteContent {
   template: "detail";
+  path?: string;
   /** Plain title — document-title source (composed with siteTitle at the
    *  SEO-meta layer, Phase 2) and the cover's alt-text source. */
   title: string;
@@ -178,6 +196,7 @@ export interface DetailRouteContent {
 
 export interface RichTextRouteContent {
   template: "contact" | "imprint";
+  path?: string;
   title: string;
   body: PortableTextBlock[] | null;
 }
@@ -402,6 +421,11 @@ async function loadImprintContent(
  * slug → Contact → Imprint. Returns null when nothing matches — the caller
  * (`[slug].vue`) is responsible for 404ing.
  *
+ * Stamps the resolved content with `path: path` — the single choke point for
+ * this (see the `RouteContent` variants' own `path` doc comment for why it
+ * exists) — rather than threading it through every sub-loader below, which
+ * stay ignorant of routing entirely.
+ *
  * `stega` (Phase 6) — see `loadSiteOptions()`'s doc comment; threaded
  * through to whichever sub-loader ends up resolving `path`.
  */
@@ -411,19 +435,22 @@ export async function loadRouteContent(
   config: SanityClientConfig,
   stega?: StegaConfig,
 ): Promise<RouteContent | null> {
-  if (path === "/") return loadHomeContent(perspective, config, stega);
+  if (path === "/") {
+    const home = await loadHomeContent(perspective, config, stega);
+    return { ...home, path };
+  }
 
   const slug = path.replace(/^\/+/, "");
   if (!slug) return null;
 
   const detail = await loadDetailContent(slug, perspective, config, stega);
-  if (detail) return detail;
+  if (detail) return { ...detail, path };
 
   const contact = await loadContactContent(slug, perspective, config, stega);
-  if (contact) return contact;
+  if (contact) return { ...contact, path };
 
   const imprint = await loadImprintContent(slug, perspective, config, stega);
-  if (imprint) return imprint;
+  if (imprint) return { ...imprint, path };
 
   console.debug(`[content] no route matched — path="${path}"`);
   return null;
