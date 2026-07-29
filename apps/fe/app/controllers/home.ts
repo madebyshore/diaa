@@ -479,10 +479,27 @@ export function createHomeController(): PageController {
     if (footer) footer.style.opacity = "";
     applyFilterVisibility(next);
 
-    // Restore scroll across the layout change.
-    const { $lenis } = useNuxtApp();
-    $lenis?.resize();
-    $lenis?.scrollTo(savedScrollY, { immediate: true });
+    // Mobile: reset scroll to top instead of restoring `savedScrollY` — a
+    // new requirement, not a diaa port (`git show main:apps/fe/src/routes/
+    // home/home.ts`'s runFilterSwitch always restores the saved position,
+    // desktop and mobile alike; there is no existing top-reset precedent to
+    // match). Placed HERE, at the fade's faded-out midpoint (pane/footer
+    // opacity 0, right before applyFilterVisibility's item-visibility swap
+    // takes effect), so the jump is invisible and the fade-in below reveals
+    // the newly-filtered list already sitting at the top — never a
+    // visible jump-then-settle. Native `window.scrollTo`, not `$lenis`:
+    // mobile has no Lenis instance at all (`plugins/lenis.client.ts` provides
+    // `null` there), matching composables/useLenisScroll.ts's own native-
+    // scroll fallback convention for mobile. Desktop is unaffected — it
+    // keeps restoring `savedScrollY` via Lenis, same as before.
+    if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) {
+      window.scrollTo(0, 0);
+    } else {
+      // Restore scroll across the layout change.
+      const { $lenis } = useNuxtApp();
+      $lenis?.resize();
+      $lenis?.scrollTo(savedScrollY, { immediate: true });
+    }
 
     // Instant swap — the filter is applied, nothing left to animate.
     if (!homeAnim.switchEnabled) return;
