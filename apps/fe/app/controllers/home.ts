@@ -720,6 +720,21 @@ export function createHomeController(): PageController {
       container = root;
       mutating = useNavLock().mutating;
 
+      // Pin hidden BEFORE `.is-controlled` is added (see
+      // composables/usePageController.ts / transitions/default.ts). Every
+      // other controller (BaseController, detail.ts) sets this in onInit —
+      // home.ts was missing it, which meant CSS's `#page.is-controlled {
+      // opacity: unset }` rule (styles/core/base.module.scss) released the
+      // container to its default opacity (1) the instant `.is-controlled`
+      // was added on first load, well before the boot intro overlay even
+      // started fading — the container sat fully visible UNDER the still-
+      // opaque intro the whole time, so when the intro faded out it read as
+      // a crossfade into an already-revealed page instead of "intro fades
+      // out completely, THEN home fades in." in()'s homeInFade() re-hides
+      // and re-reveals correctly, but only after this pin stops the early,
+      // uncontrolled reveal from ever happening.
+      gsap.set(root, { opacity: 0 });
+
       textPane = root.querySelector<HTMLElement>('[data-mode-pane="text"]');
       imagePane = root.querySelector<HTMLElement>('[data-mode-pane="image"]');
       textGpu = root.querySelector<HTMLElement>(".home__text-gpu");
