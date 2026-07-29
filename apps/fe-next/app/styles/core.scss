@@ -1,0 +1,6 @@
+// Global stylesheet entry point, loaded once via nuxt.config.ts `css: [...]`.
+// Phase 4 ports the full core/ (reset, root, base) + slices.scss barrels from
+// the reference build — this file is a stub so the additionalData injection
+// (`@use "@/styles/includes" as *;`, itself referencing includes.scss below)
+// has something real to resolve against during the Phase 0 scaffold.
+@use "./includes";

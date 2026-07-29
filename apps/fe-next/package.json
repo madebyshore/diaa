@@ -1,0 +1,26 @@
+{
+  "name": "diaa-nuxt",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt generate",
+    "build:ssr": "nuxt build",
+    "preview": "nuxt preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "check-types": "nuxt typecheck",
+    "postinstall": "nuxt prepare"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.16.0",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "nuxt": "^4.5.1",
+    "sass": "^1.98.0",
+    "typescript": "^6.0.2",
+    "vue": "^3.5.38",
+    "vue-router": "^5.1.0",
+    "vue-tsc": "^3.3.8"
+  }
+}

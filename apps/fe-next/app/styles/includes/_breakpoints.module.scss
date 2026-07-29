@@ -1,0 +1,42 @@
+// Breakpoint tokens + mixins, ported verbatim from the current apps/fe
+// (src/styles/includes/_breakpoints.scss) and the reference Nuxt build.
+// Kept as a real (not dummy) module in Phase 0 because it's small and self-
+// contained — everything else in includes.scss is deferred to Phase 4.
+@use "sass:map";
+
+$-breakpoints: (
+  "xs": 420,
+  "sm": 768,
+  "md": 1024,
+  "lg": 1280,
+  "xl": 1440,
+  "xxl": 1920,
+);
+
+// Applies @content above (min-width) the named breakpoint.
+@mixin breakpoint($width: "") {
+  @if map.has-key($-breakpoints, $width) {
+    @media only screen and (min-width: #{map.get($-breakpoints, $width)}px) {
+      @content;
+    }
+  }
+}
+
+// Applies @content below (max-width, exclusive) the named breakpoint.
+@mixin breakpoint-below($width: "") {
+  @if map.has-key($-breakpoints, $width) {
+    @media only screen and (max-width: #{map.get($-breakpoints, $width) - 1}px) {
+      @content;
+    }
+  }
+}
+
+// Exposes the raw pixel values to JS/TS via SCSS modules' :export.
+:export {
+  xs: map.get($-breakpoints, "xs");
+  sm: map.get($-breakpoints, "sm");
+  md: map.get($-breakpoints, "md");
+  lg: map.get($-breakpoints, "lg");
+  xl: map.get($-breakpoints, "xl");
+  xxl: map.get($-breakpoints, "xxl");
+}
