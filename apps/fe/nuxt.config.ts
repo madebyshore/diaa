@@ -139,8 +139,23 @@ export default defineNuxtConfig({
         const paths = await loadAllRoutePaths("published", config);
         for (const path of paths) {
           ctx.routes.add(path);
+
+          // Also bake this route's client-nav content JSON
+          // (server/routes/_content/[slug]/index.json.get.ts,
+          // composables/usePageContentSync.ts) as its own static file, for
+          // the exact same reason the route above is registered explicitly
+          // rather than left to crawl discovery: the static prod build has
+          // no live Nitro server to resolve `/_content/<slug>/index.json`
+          // dynamically at request time, so every path this app can
+          // client-side-navigate to needs its content JSON pre-baked here
+          // too, using the SAME `paths` list (never a separate one to drift
+          // out of sync). `"/"` isn't a valid directory name inside
+          // `_content/` — encoded as the `"__home__"` sentinel, matching
+          // `usePageContentSync.ts`'s `toContentSlug()`.
+          const slug = path === "/" ? "__home__" : path.replace(/^\/+/, "");
+          ctx.routes.add(`/_content/${slug}/index.json`);
         }
-        console.info(`[prerender:routes] registered ${paths.length} content route(s)`);
+        console.info(`[prerender:routes] registered ${paths.length} content route(s) + matching _content JSON`);
       } else {
         console.info("[prerender:routes] previewEnabled — skipping content-route prerendering (served dynamically)");
       }

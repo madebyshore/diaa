@@ -19,12 +19,28 @@ import type { RouteContent } from "~/data/content";
  * mirror-image bug: `index.vue`'s `home` computed saw stale non-"home"
  * content and rendered an empty grid.
  *
- * Fix: a `router.beforeEach` guard that calls `GET /api/page-content`
- * (`server/api/page-content.get.ts` — the one place besides
- * `content.server.ts` allowed to import `data/content.ts`'s Sanity-calling
- * code) for `to.path` and refreshes `usePageData()` with the result BEFORE
- * the entering page component mounts — exactly what a hard reload would have
- * provided.
+ * Fix: a `router.beforeEach` guard that fetches
+ * `GET /_content/<slug>/index.json`
+ * (`server/routes/_content/[slug]/index.json.get.ts` — the one place
+ * besides `content.server.ts` allowed to import `data/content.ts`'s
+ * Sanity-calling code) for `to.path` and refreshes `usePageData()` with the
+ * result BEFORE the entering page component mounts — exactly what a hard
+ * reload would have provided.
+ *
+ * PATH SEGMENT, NOT QUERY STRING — this app's prod deploy is a fully STATIC
+ * `nuxt generate` build with no live Nitro server at all
+ * (`apps/fe/vercel.json`'s `framework: null`). An earlier version of this
+ * fix used a `?path=` query-string API route, which 404s on static hosting:
+ * static file serving can vary by PATH but never by query string, so
+ * `nuxt.config.ts`'s `prerender:routes` hook can bake one static JSON file
+ * per route (`/_content/dog-project/index.json`) but has no way to bake a
+ * response that varies per query value. The `[slug]/index.json` (not
+ * `[slug].json`) file shape is itself a second fix — see that server
+ * route's own file header for why a literal suffix glued onto the dynamic
+ * segment silently broke `getRouterParam()` during an actual prerender
+ * crawl. `toContentSlug()` below computes the exact same path-segment
+ * encoding the server route expects — keep the two in sync if either
+ * changes.
  *
  * Registered from `app.vue`'s `<script setup>`, deliberately called AFTER
  * `useNavLock()`: `router.beforeEach` guards run in REGISTRATION order, and
@@ -32,6 +48,25 @@ import type { RouteContent } from "~/data/content";
  * (blocking a rapid double-click) before this guard's `await`ed fetch could
  * otherwise let a second navigation start unguarded in the gap.
  */
+
+/** Path-segment sentinel for the home route ("/") — a bare `/` can't be a
+ *  directory name inside `_content/`. Matches `data/slices/helpers.ts`'s
+ *  `resolveCta()`, which already uses the same sentinel string for the home
+ *  route elsewhere in this app, and
+ *  `server/routes/_content/[slug]/index.json.get.ts`'s own copy of this
+ *  constant (duplicated rather than shared — one lives in client code, the
+ *  other in a server route file with no common importable module between
+ *  them that isn't itself server-only). */
+const HOME_SLUG_SENTINEL = "__home__";
+
+/** Encodes a route path (`to.path`, e.g. "/", "/dog-project") into the
+ *  `[slug]` route param
+ *  `server/routes/_content/[slug]/index.json.get.ts` expects. */
+function toContentSlug(path: string): string {
+  if (path === "/") return HOME_SLUG_SENTINEL;
+  return path.replace(/^\/+/, "");
+}
+
 let registered = false;
 
 export function usePageContentSync(): void {
@@ -48,9 +83,8 @@ export function usePageContentSync(): void {
     if (from.matched.length === 0) return true;
 
     try {
-      const { data } = await $fetch<{ data: RouteContent | null }>("/api/page-content", {
-        query: { path: to.path },
-      });
+      const slug = toContentSlug(to.path);
+      const { data } = await $fetch<{ data: RouteContent | null }>(`/_content/${slug}/index.json`);
       usePageData().value = data;
       console.debug(
         `[page-content-sync] refreshed for ${to.path} → template="${data?.template ?? "none (404)"}"`,
