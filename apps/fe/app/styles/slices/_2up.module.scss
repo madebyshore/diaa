@@ -77,9 +77,12 @@
     grid-column: 2 / span 3;
   }
 
-  /* Mobile (6 cols): same 2-col pair as variant A. */
+  /* Mobile (6 cols): the pair fills the full grid width — 3 + 3 with no
+     outer margin columns (unlike variant A's inset 2-col pair). The 2-col
+     version left images tiny with cols 1/6 empty, reading as a block of
+     blank space under whatever slice precedes it. */
   @include breakpoint-mobile {
-    grid-column: 2 / span 2;
+    grid-column: 1 / span 3;
   }
 }
 .slice-2up--b .slice-2up__item:nth-child(1) .slice-2up__media {
@@ -93,7 +96,7 @@
   }
 
   @include breakpoint-mobile {
-    grid-column: 4 / span 2;
+    grid-column: 4 / span 3;
   }
 }
 .slice-2up--b .slice-2up__item:nth-child(2) .slice-2up__media {
