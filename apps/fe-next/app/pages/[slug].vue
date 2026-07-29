@@ -24,6 +24,9 @@
  * "still loading" or "home with an empty grid" state.
  */
 
+import { createDetailController } from "~/controllers/detail";
+import { createRichTextController } from "~/controllers/rich-text-page";
+
 const pageData = usePageData();
 const siteOptions = useSiteOptions();
 
@@ -53,6 +56,18 @@ const siteTitle = computed(() => siteOptions.value?.siteTitle ?? "");
 usePageSeo(() => `${siteTitle.value} - ${content.title}`, siteTitle);
 
 console.debug(`[page:slug] rendering — template="${content.template}", title="${content.title}"`);
+
+// Wire the matching controller by template — detail gets its full
+// bridge/mobile-slide/bottom-dwell choreography (controllers/detail.ts),
+// contact/imprint share the rich-text factory (controllers/rich-text-page.ts)
+// keyed by their own BEM block name. `content.template` is narrowed to
+// "detail" | "contact" | "imprint" here (the "home" branch threw a 404
+// above), so this ternary is exhaustive without a fallback case.
+const controller =
+  content.template === "detail"
+    ? createDetailController()
+    : createRichTextController(content.template);
+usePageController(controller);
 </script>
 
 <template>

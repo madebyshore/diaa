@@ -15,8 +15,17 @@
  * `HomeRouteContent` — unlike `[slug].vue`, there is no 404 branch here.
  */
 
+import { BaseController } from "~/controllers/page-controller";
+
 const pageData = usePageData();
 const siteOptions = useSiteOptions();
+
+// Phase 5a wires the default container-fade controller so navigation works
+// end-to-end (onInit/in/out all resolve, the transition can sequence
+// against them). Phase 5b replaces this with controllers/home.ts's full
+// mode/filter/hover/nav-V-fold/bridge choreography — this line is the only
+// change that commit needs to make here.
+usePageController(new BaseController());
 
 // Narrow usePageData() to the home variant. Defensive fallback only —
 // loadRouteContent("/") always returns `{template: "home"}`; this guards a

@@ -111,6 +111,18 @@ class _RafHub {
   }
 
   _raf(): void {
+    // SSR guard: `RafHub` is instantiated eagerly at module scope (see the
+    // singleton export below), and its constructor calls this method
+    // immediately to kick off the tick loop. `requestAnimationFrame` doesn't
+    // exist in Node — without this guard, merely importing `kido/raf` (or
+    // anything that imports it — `kido/resize`, `kido/anima`, `kido/tab`)
+    // from a universal (non-client-only) module throws immediately at
+    // import time during an isomorphic app's server render. No frames can
+    // ever tick without a browser event loop to drive them, so simply never
+    // starting the loop is correct there — `add()`/`remove()` still work
+    // normally (items just accumulate inert until this module is
+    // re-evaluated client-side, where `requestAnimationFrame` is real).
+    if (typeof requestAnimationFrame === "undefined") return;
     requestAnimationFrame(this._tickHandler);
   }
 }

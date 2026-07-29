@@ -18,10 +18,20 @@ class _ResizeHub {
       "_handler",
     ]);
     this.timer = new Delay(() => this._rafTrigger(), 40);
-    window.addEventListener(
-      Sniff.isMobile ? "orientationchange" : "resize",
-      this._handler.bind(this)
-    );
+    // SSR guard: `ResizeHub` is instantiated eagerly at module scope (see
+    // the singleton export below). `window`/`navigator` (via Sniff.isMobile)
+    // don't exist in an isomorphic app's server render — without this
+    // guard, merely importing `kido/resize` from a universal (non-
+    // client-only) module throws immediately at import time. No resize
+    // events can ever fire without a `window` to listen on, so skipping
+    // registration there is harmless — `add()`/`remove()` still work
+    // normally once this module is re-evaluated client-side.
+    if (typeof window !== "undefined") {
+      window.addEventListener(
+        Sniff.isMobile ? "orientationchange" : "resize",
+        this._handler.bind(this)
+      );
+    }
     this.raf = new Raf("resize hub", this._run.bind(this));
   }
 

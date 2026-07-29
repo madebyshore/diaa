@@ -32,10 +32,23 @@ class Visibility {
     this.subs = [];
     this._isVisible = true;
     this._hiddenAt = null;
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") this.onHidden();
-      else this.onVisible();
-    });
+    // SSR guard: `Tab` is instantiated eagerly at module scope (see the
+    // singleton export below), and this module is transitively reachable
+    // from `kido/raf` — which is safe to import from a universal (non-
+    // client-only) module in an isomorphic app like a Nuxt SSR/prerender
+    // render, where there is no `document` global. Without this guard,
+    // merely importing `kido/raf` (or anything that imports it, e.g.
+    // `kido/resize`, `kido/anima`) from server-rendered code throws
+    // immediately at import time. `document` never existing simply means
+    // the tab can never actually go hidden from Node's perspective, so
+    // `isVisible` staying permanently `true` is the correct, harmless
+    // default there.
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") this.onHidden();
+        else this.onVisible();
+      });
+    }
   }
 
   /** Whether the tab is currently visible */
