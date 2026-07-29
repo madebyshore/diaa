@@ -25,7 +25,7 @@ interface RawSliceImage extends RawSlice {
   video?: string | null;
 }
 
-interface ResolvedSliceImage {
+export interface ResolvedSliceImage {
   full: boolean;
   /** Aspect token used for the `--ar-*` class, e.g. "3x2". */
   aspect: string;

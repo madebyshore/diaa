@@ -1,10 +1,12 @@
 <script setup lang="ts">
 /**
- * pages/[slug].vue — every non-home route: Detail, Contact, Imprint. Phase 2
- * DOM-structure port of `apps/fe/src/routes/{*detail.html, contact.html,
- * imprint.html}`. Slice bodies render as `<pre>` placeholders
- * (`resolveSlices()`'s already-resolved data, keyed by `_type`) until Phase
- * 3's `<SliceRenderer>`/`<RichText>` replace them.
+ * pages/[slug].vue — every non-home route: Detail, Contact, Imprint. DOM
+ * structure ported from `apps/fe/src/routes/{*detail.html, contact.html,
+ * imprint.html}`. Slice bodies render via `<SliceRenderer>` (Phase 3), which
+ * dispatches each already-resolved slice (`resolveSlices()`'s output, see
+ * `data/content.ts`) to its Vue component by `_type`. Contact/Imprint bodies
+ * render via `<RichText>` with the old build's paragraph-wrap semantics
+ * (`renderPortableText(body, { wrap: "p" })`).
  *
  * 404 handling: `loadRouteContent(path)` (data/content.ts) returns `null`
  * when nothing matched. That's already an UNAMBIGUOUS 404 signal for every
@@ -51,14 +53,6 @@ const siteTitle = computed(() => siteOptions.value?.siteTitle ?? "");
 usePageSeo(() => `${siteTitle.value} - ${content.title}`, siteTitle);
 
 console.debug(`[page:slug] rendering — template="${content.template}", title="${content.title}"`);
-
-// Bold/italic-only Portable Text render for the Detail nav heading — see
-// `utils/stylized-title.ts` for why this isn't the full `<RichText>`
-// component yet. Only Detail has a stylizedTitle; Contact/Imprint render
-// their plain `title` directly in the template below.
-const titleHtml = computed(() =>
-  content.template === "detail" ? stylizedTitleHtml(content.stylizedTitle, content.title) : "",
-);
 </script>
 
 <template>
@@ -67,7 +61,9 @@ const titleHtml = computed(() =>
     <!-- Passive title heading — closing lives in the persistent ( Close )
          footer below (Phase 5 adds the desktop hover "( Close )" swap). -->
     <div class="detail__nav">
-      <span class="detail__nav-label detail__nav-label--title" v-html="titleHtml" />
+      <span class="detail__nav-label detail__nav-label--title">
+        <RichText inline :blocks="content.stylizedTitle" :fallback="content.title" />
+      </span>
     </div>
     <div class="detail__container">
       <div class="detail__cover">
@@ -83,8 +79,7 @@ const titleHtml = computed(() =>
           />
         </div>
       </div>
-      <!-- Phase 3: <SliceRenderer> replaces these placeholders -->
-      <pre v-for="slice in content.slices" :key="slice._key" class="detail__slice-placeholder">{{ slice._type }}</pre>
+      <SliceRenderer :slices="content.slices" />
       <div class="detail__outro">
         <DiaaWordmark logo-class="detail__outro-logo" />
       </div>
@@ -104,8 +99,9 @@ const titleHtml = computed(() =>
     </div>
     <div class="contact__container">
       <div class="contact__main">
-        <!-- Phase 3: <RichText> replaces this placeholder -->
-        <pre class="contact__body">{{ JSON.stringify(content.body, null, 2) }}</pre>
+        <div class="contact__body">
+          <RichText :blocks="content.body" />
+        </div>
       </div>
       <div class="contact__outro">
         <DiaaWordmark logo-class="contact__outro-logo" />
@@ -123,8 +119,9 @@ const titleHtml = computed(() =>
     </div>
     <div class="imprint__container">
       <div class="imprint__main">
-        <!-- Phase 3: <RichText> replaces this placeholder -->
-        <pre class="imprint__body">{{ JSON.stringify(content.body, null, 2) }}</pre>
+        <div class="imprint__body">
+          <RichText :blocks="content.body" />
+        </div>
       </div>
       <div class="imprint__outro">
         <DiaaWordmark logo-class="imprint__outro-logo" />

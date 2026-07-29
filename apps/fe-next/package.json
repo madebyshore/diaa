@@ -13,6 +13,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@portabletext/vue": "^1.0.14",
     "@sanity/client": "^7.25.0"
   },
   "devDependencies": {

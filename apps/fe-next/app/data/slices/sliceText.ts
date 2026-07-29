@@ -30,7 +30,7 @@ interface RawSliceText extends RawSlice {
   quoteAuthor?: string;
 }
 
-interface ResolvedSliceText {
+export interface ResolvedSliceText {
   variant: string;
   /** Raw body blocks — Phase 3 renders with `<RichText>`, wrapping in quote
    *  marks itself when `variant === "quote"` (see file header). */

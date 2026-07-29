@@ -21,7 +21,7 @@ interface RawSlice2Up extends RawSlice {
   images?: CaptionedImageRaw[] | null;
 }
 
-interface ResolvedSlice2Up {
+export interface ResolvedSlice2Up {
   layout: string;
   bottomAligned: boolean;
   images: CaptionedImage[];

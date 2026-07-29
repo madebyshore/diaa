@@ -19,7 +19,7 @@ interface RawSliceSlideshow extends RawSlice {
   caption?: string | null;
 }
 
-interface ResolvedSliceSlideshow {
+export interface ResolvedSliceSlideshow {
   images: PictureData[];
   total: number;
   caption: string;

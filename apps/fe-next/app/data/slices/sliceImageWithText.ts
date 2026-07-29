@@ -27,7 +27,7 @@ interface RawSliceImageWithText extends RawSlice {
   text?: PortableTextBlock[] | null;
 }
 
-interface ResolvedSliceImageWithText {
+export interface ResolvedSliceImageWithText {
   aspect: string;
   /** Raw title blocks — Phase 3 renders with `<RichText>`. */
   stylizedTitle: PortableTextBlock[] | null;

@@ -77,15 +77,17 @@ console.debug(
           :href="`/${item.slug}`"
           :data-index="item.flatIndex"
           :data-taxonomy="item.taxonomyId"
-          v-html="stylizedTitleHtml(item.stylizedTitle, item.title)"
-        />
+        >
+          <RichText inline :blocks="item.stylizedTitle" :fallback="item.title" />
+        </a>
         <div
           v-else
           class="home__text-item"
           :data-index="item.flatIndex"
           :data-taxonomy="item.taxonomyId"
-          v-html="stylizedTitleHtml(item.stylizedTitle, item.title)"
-        />
+        >
+          <RichText inline :blocks="item.stylizedTitle" :fallback="item.title" />
+        </div>
       </template>
     </div>
 
@@ -114,7 +116,9 @@ console.debug(
         >
           <FigureBase v-bind="item.cover" />
         </div>
-        <span class="home__image-title" aria-hidden="true" v-html="stylizedTitleHtml(item.stylizedTitle, item.title)" />
+        <span class="home__image-title" aria-hidden="true">
+          <RichText inline :blocks="item.stylizedTitle" :fallback="item.title" />
+        </span>
       </div>
     </div>
 
