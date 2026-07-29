@@ -110,6 +110,21 @@ const NAV_FADE_EASE = "none"; // linear — GSAP built-in, matches [0,0,1,1]
 // filter pick, where desktop relies on hover instead.
 const MOBILE_MEDIA_QUERY = "(max-width: 768px)";
 
+// True hover-capability gate for the nav's mouseenter/mouseleave listeners —
+// DELIBERATELY not MOBILE_MEDIA_QUERY (a viewport-WIDTH breakpoint). Matches
+// styles/includes/_helpers.module.scss's `hover()` mixin
+// (`@media (hover: hover) and (pointer: fine)`), the codebase's existing
+// convention for "does this device actually support hover" as opposed to
+// "is the viewport narrow." A touch device firing a stray/delayed
+// `mouseleave` after a tap (a real, observed mobile-browser quirk — some
+// engines simulate a mouseleave shortly after touchend) was collapsing the
+// nav the instant it opened instead of the click-to-open/stays-open/closes-
+// only-on-filter-pick behaviour the mobile nav is required to have; gating
+// the hover listeners on this query is the actual fix (rather than the width
+// query, which a touch device in a WIDE viewport — a touchscreen laptop, an
+// iPad in landscape — would still fail to catch).
+const DESKTOP_HOVER_QUERY = "(hover: hover) and (pointer: fine)";
+
 /** Text ⇄ Image mode. Ported from apps/fe/src/app/context.ts's `HomeMode`. */
 export type HomeMode = "text" | "image";
 /** Taxonomy filter id, or the "all" sentinel. Ported from context.ts's
@@ -781,10 +796,30 @@ export function createHomeController(): PageController {
       // enter/leave — no debounce; the client wants zero detectable delay,
       // and setNavExpanded's generation guard already handles rapid
       // enter/leave thrash.
+      //
+      // Mobile/touch requirement: NO hover effects at all on the nav — tap
+      // opens it, it STAYS open (never auto-collapses from a stray touch
+      // event), and it only closes when a filter is picked (see the filter
+      // button handler below). `navEnterHandler`/`navLeaveHandler` are
+      // gated behind DESKTOP_HOVER_QUERY (real hover capability, not a
+      // viewport-width check) so they're flatly inert on touch — this is
+      // the actual fix for "doesn't stay open": some touch browsers fire a
+      // synthetic/delayed `mouseleave` shortly after a tap, which was
+      // instantly re-collapsing the nav through `navLeaveHandler` the exact
+      // same way a real mouse-out would. Gating the LISTENERS themselves
+      // (rather than trusting touch devices to just never fire these
+      // events, which diaa's own old implementation assumed) removes that
+      // path entirely.
       navEl = root.querySelector<HTMLElement>(".global-nav");
       if (navEl) {
-        navEnterHandler = (): void => setNavExpanded(true);
-        navLeaveHandler = (): void => setNavExpanded(false);
+        navEnterHandler = (): void => {
+          if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) return;
+          setNavExpanded(true);
+        };
+        navLeaveHandler = (): void => {
+          if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) return;
+          setNavExpanded(false);
+        };
         // Click/tap opens the collapsed nav — required on touch devices
         // where hover can't fire. It only ever EXPANDS, and it must IGNORE
         // clicks that originated on the filter/mode buttons: their own
@@ -792,7 +827,8 @@ export function createHomeController(): PageController {
         // since that runs before the click bubbles up here, acting on it
         // would see the just-collapsed state and instantly re-expand the
         // nav. On desktop hover expands first, so this is effectively
-        // touch-only.
+        // touch-only. Already correctly "stays open" on a second tap
+        // (`if (navExpanded) return`) — nothing here ever collapses it.
         navClickHandler = (e: Event): void => {
           const target = e.target as Element | null;
           if (target?.closest(".home__filter, .home__mode")) return;
@@ -824,11 +860,17 @@ export function createHomeController(): PageController {
           const next = (btn.dataset.filter as HomeFilter | undefined) ?? "all";
           if (next === filter.value) return;
           void switchFilter(next);
-          // Mobile: there's no hover to leave, so the nav would sit open
-          // indefinitely after a pick — collapse it as the filter switch
-          // starts. Desktop keeps the hover-driven collapse (the cursor is
-          // still on the nav, and collapsing under it would feel abrupt).
-          if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) setNavExpanded(false);
+          // No-hover devices: there's no hover to leave, so the nav would
+          // sit open indefinitely after a pick — collapse it as the filter
+          // switch starts. Checked against the SAME hover-capability query
+          // navEnterHandler/navLeaveHandler are gated on (not
+          // MOBILE_MEDIA_QUERY's viewport width) — a touch device in a WIDE
+          // viewport (a touchscreen laptop, an iPad in landscape) has no
+          // hover either, and with the width check it would have had no way
+          // to ever close the nav after a pick. Desktop (real hover) keeps
+          // the hover-driven collapse instead — the cursor is still on the
+          // nav, and collapsing under it would feel abrupt.
+          if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) setNavExpanded(false);
         };
         btn.addEventListener("click", handler);
         filterBtnHandlers.push({ btn, handler });
