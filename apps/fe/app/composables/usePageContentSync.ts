@@ -90,9 +90,41 @@ export function usePageContentSync(): void {
         `[page-content-sync] refreshed for ${to.path} → template="${data?.template ?? "none (404)"}"`,
       );
     } catch (err) {
-      // Let the navigation proceed regardless — [slug].vue's own guard 404s
-      // on stale/null content rather than leaving the user stuck mid-nav.
+      // Bug found in the Sanity Studio Presentation tab (preview mode):
+      // letting the SPA navigation proceed regardless (the original
+      // behaviour here) is WRONG when this fetch fails — `usePageData()`
+      // never gets updated, so the entering page mounts against STALE
+      // content from the route being LEFT, `[slug].vue`'s own guard sees
+      // the template mismatch, and the user lands on a real 404 — "routing
+      // to detail pages doesn't work", not a silent no-op.
+      //
+      // Root cause of the failure itself, in preview mode specifically:
+      // this fetch is a same-origin XHR issued from WITHIN whatever
+      // document is currently loaded — when that document is the
+      // Presentation iframe, third-party-cookie policies (Safari ITP,
+      // Firefox ETP, Chrome's phased rollout) can drop `__preview_session`
+      // from a SUBRESOURCE request like this one even with `SameSite=None;
+      // Secure` already set (see `server-preview/utils/preview-auth.ts`'s
+      // `grantSession()`, now also `Partitioned`/CHIPS-tagged as the
+      // complementary fix) — but a full DOCUMENT navigation of that same
+      // iframe is not subject to the same restriction, since browsers treat
+      // top-level-for-that-frame navigations differently from subresource
+      // fetches for cookie-sending purposes. That's the mechanism this
+      // fallback leans on: it doesn't matter whether THIS specific fetch
+      // could see the cookie, only that a real navigation reliably will.
+      //
+      // Falling back to a genuine full-page navigation — through
+      // `content.server.ts`'s SSR path, which resolves the correct
+      // perspective per-request exactly like a hard reload always has —
+      // recovers correctly regardless of why the fetch failed (a
+      // third-party-cookie-blocked XHR in preview mode, or an ordinary
+      // network blip in any mode). `return false` cancels the in-flight SPA
+      // transition so Vue Router never ALSO tries to render the doomed
+      // in-app state while the real navigation is landing.
       console.error("[page-content-sync] fetch failed for", to.path, err);
+      console.warn(`[page-content-sync] falling back to a full page navigation for ${to.fullPath}`);
+      window.location.assign(to.fullPath);
+      return false;
     }
 
     return true;

@@ -82,12 +82,29 @@ export function isAuthorized(event: H3Event): boolean {
 
 /**
  * Grants a new session: mints a fresh `<expiry>.<hmac>` cookie value and
- * sets it as an httpOnly, Secure, SameSite=None cookie (SameSite=None is
- * required because the Sanity Studio's Presentation iframe is cross-origin
- * from this preview deployment — a Lax/Strict cookie would never be sent on
- * the iframed requests). Called ONLY from `/preview/enable` after
- * `validatePreviewUrl()` confirms the request carries a Studio-issued
- * secret.
+ * sets it as an httpOnly, Secure, SameSite=None, Partitioned cookie.
+ * SameSite=None is required because the Sanity Studio's Presentation iframe
+ * is cross-origin from this preview deployment — a Lax/Strict cookie would
+ * never be sent on the iframed requests. `Partitioned` (CHIPS —
+ * https://github.com/privacycg/CHIPS) is the newer, complementary
+ * requirement found while fixing "routing to detail pages doesn't work in
+ * the Presentation tab": SameSite=None alone still leaves this cookie
+ * subject to third-party-cookie blocking (Safari ITP, Firefox ETP, Chrome's
+ * phased rollout) for SUBRESOURCE requests (fetch/XHR) issued from
+ * `composables/usePageContentSync.ts`'s client-side content-sync guard
+ * while it's iframed — a fetch a stricter browser silently drops the cookie
+ * from, 401s, and (before that fix) left the SPA navigation stranded on
+ * stale content. `Partitioned` opts this cookie into CHIPS' per-top-level-
+ * site partitioned storage, which CHIPS-aware browsers exempt from full
+ * third-party blocking — it keeps working specifically for "this cookie,
+ * scoped to the ONE Studio site currently embedding it," without asking for
+ * broad cross-site cookie access. `usePageContentSync.ts`'s fetch-failure
+ * fallback (a real document navigation, not subject to the same
+ * subresource-specific restriction) is the other half of that fix — this
+ * attribute closes the gap so the FAST, no-reload SPA path also keeps
+ * working in CHIPS-supporting browsers, rather than always falling back.
+ * Called ONLY from `/preview/enable` after `validatePreviewUrl()` confirms
+ * the request carries a Studio-issued secret.
  */
 export function grantSession(event: H3Event): void {
   const expiry = Date.now() + PREVIEW_SESSION_LIFETIME_MS;
@@ -96,6 +113,7 @@ export function grantSession(event: H3Event): void {
     httpOnly: true,
     secure: true,
     sameSite: "none",
+    partitioned: true,
     path: "/",
     maxAge: Math.floor(PREVIEW_SESSION_LIFETIME_MS / 1000),
   });
