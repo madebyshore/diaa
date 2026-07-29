@@ -41,13 +41,51 @@ import { useHomeMode } from "~/controllers/home";
  */
 
 /**
- * z-index for the fixed bridge clone. The project z-index scale tops out at
- * a handful of low values (nav, dev-grid) and the transition pins the
- * incoming page at 2, so 100 keeps the held image above the detail content
- * while it cross-fades in. It is pointer-events:none and removed as soon as
- * the cross-fade completes.
+ * Bridge clone z-index — TWO STAGES, not a single flat value. The clone has
+ * to sit at a DIFFERENT stacking layer depending on what's actually visible
+ * behind it at each phase of the transition:
+ *
+ *   1. While home is still fading OUT (bridgeOut() below runs before
+ *      controllers/home.ts's out(), which fades the text pane over ~800ms —
+ *      see transitions/default.ts's onBeforeLeave/onLeave ordering): the
+ *      clone stands in for the ORIGINAL revealed figure, which always sat
+ *      BEHIND the text labels (`.home__text-gpu { z-index: 0 }` vs.
+ *      `.home__text { z-index: 1 }` — styles/pages/_home.module.scss). The
+ *      clone must match that SAME relationship — `BRIDGE_Z_INDEX_HOME`,
+ *      equal to `.home__text-gpu`'s own z-index — or the fading text renders
+ *      UNDERNEATH the solid clone instead of visibly fading away ON TOP of
+ *      it, cutting a solid opaque rectangle through the text instead of
+ *      reading as one continuous image behind it.
+ *   2. Once home is gone and controllers/detail.ts's in() takes the bridge
+ *      (`takeImageBridge()`) to cross-fade the REST of the detail page up
+ *      around it: the clone now needs to sit ABOVE the incoming detail
+ *      page's own content (pinned at `z-index: 2` by transitions/
+ *      default.ts's onBeforeEnter) so the crossfade — and the final
+ *      hard-swap onto `.detail__cover` — reads correctly. `raiseImageBridge()`
+ *      below bumps the SAME element to `BRIDGE_Z_INDEX_DETAIL` (100 — the
+ *      project's z-index scale tops out at a handful of low values for nav/
+ *      dev-grid, so 100 clears the incoming page's z:2 with a wide margin)
+ *      at exactly that moment — called from detail.ts's in(), the instant it
+ *      takes the bridge, before anything else in its own crossfade runs.
+ *
+ * A single flat z-index could satisfy phase 2 alone (a value above 2) but
+ * not phase 1 (which needs the clone BELOW the home text's z:1, not above
+ * it) — hence two stages instead of one constant.
  */
-const BRIDGE_Z_INDEX = 100;
+const BRIDGE_Z_INDEX_HOME = 0;
+const BRIDGE_Z_INDEX_DETAIL = 100;
+
+/**
+ * Raise a held bridge clone from its home-phase stacking (behind the text,
+ * see BRIDGE_Z_INDEX_HOME) to its detail-phase stacking (above the incoming
+ * page, see BRIDGE_Z_INDEX_DETAIL). Called by controllers/detail.ts's in()
+ * the instant it takes the bridge via `takeImageBridge()` — home is fully
+ * faded/gone by then, so this is the right moment to bring the clone forward
+ * for its cross-fade over the detail page's own content.
+ */
+export function raiseImageBridge(bridge: HTMLElement): void {
+  bridge.style.zIndex = String(BRIDGE_Z_INDEX_DETAIL);
+}
 
 /**
  * bridgeOut — dispatched from transitions/default.ts's onBeforeLeave when
@@ -112,7 +150,10 @@ export function bridgeOut(fromEl: HTMLElement, toPath: string): void {
     "overflow:hidden",
     "opacity:1",
     "pointer-events:none",
-    `z-index:${BRIDGE_Z_INDEX}`,
+    // Behind the text (matches .home__text-gpu's own z:0 vs .home__text's
+    // z:1) for the home-out phase — see BRIDGE_Z_INDEX_HOME's doc comment
+    // above. raiseImageBridge() bumps this once detail.ts's in() takes over.
+    `z-index:${BRIDGE_Z_INDEX_HOME}`,
   ].join(";");
 
   // The reveal figure holds either an <img> or (for MP4 covers) a <video>.
@@ -123,7 +164,25 @@ export function bridgeOut(fromEl: HTMLElement, toPath: string): void {
   const media = clone.querySelector<HTMLElement>("img, video");
   if (media) media.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
 
-  document.body.appendChild(clone);
+  // Appended to `main#app` (NuxtPage's own parent), NOT `document.body` —
+  // found necessary while fixing the "image renders over the outgoing text"
+  // report. `app.vue`'s `<main id="app">` has `isolation: isolate`
+  // (styles/core/base.module.scss), which creates its OWN stacking context:
+  // a body-level child (the original design) competes with `#app` as a
+  // WHOLE at the body level, not with anything z-indexed INSIDE it — so
+  // `.home__text`'s `z-index: 1` (scoped inside #app's isolated context)
+  // never actually got compared against the clone's z-index at all, and the
+  // clone (later in DOM order than `#app` at the shared body-level "z:auto"
+  // paint layer) won regardless of BRIDGE_Z_INDEX_HOME's value — confirmed
+  // by walking the ancestor chain's computed styles with Playwright. A child
+  // of `#app` instead shares that SAME isolated stacking context as `.home`
+  // (and, once entered, the incoming detail page) — z-index numbers compare
+  // directly and correctly there. `#app` has no `transform`/`filter`/
+  // `perspective`/`contain` of its own (verified — `isolation` alone does
+  // NOT do this), so the clone's `position: fixed` still resolves against
+  // the viewport, not `#app`'s box; it does still outlive `.home`'s removal
+  // (a sibling of `.home` under `#app`, not a descendant of it).
+  document.getElementById("app")?.appendChild(clone);
 
   // Hide the ORIGINAL reveal figure now that its pixel-identical clone is
   // stacked over the exact same viewport rect. Both stay in the DOM until

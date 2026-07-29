@@ -4,6 +4,7 @@ import { ResizeHub } from "kido/resize";
 import { skipNextHomeBeat } from "~/lib/beat-skip";
 import { takeImageBridge } from "~/lib/image-bridge";
 import { navDirection } from "~/lib/scroll-restore";
+import { raiseImageBridge } from "~/transitions/home-to-detail";
 
 import type { PageController, ScrollEvent } from "~/controllers/page-controller";
 
@@ -406,6 +407,16 @@ export function createDetailController(): PageController {
       // the same position, with no moment of two shadows and no white
       // bleeding through.
       const bridge = takeImageBridge();
+
+      // Bring the clone forward now that home is fully faded/gone: bridgeOut()
+      // (transitions/home-to-detail.ts) created it stacked BEHIND the home
+      // text (matching .home__text-gpu's own z:0 vs .home__text's z:1, so the
+      // fading text reads on top of the still-visible image, not covered by
+      // it) — this is the moment that relationship stops mattering (home is
+      // gone) and a DIFFERENT one starts: the clone needs to sit above THIS
+      // page's own content for the crossfade/hard-swap below. See that
+      // function's doc comment for the full two-phase z-index rationale.
+      if (bridge) raiseImageBridge(bridge);
 
       // Mobile forward entry (coverSettleDelta pending from onInit) runs
       // the two-phase choreography: chrome + centred cover for a beat, then
