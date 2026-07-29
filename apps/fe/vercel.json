@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "pnpm run build",
+  "buildCommand": "if [ \"$NUXT_PUBLIC_PREVIEW_ENABLED\" = \"true\" ]; then pnpm run build:ssr; else pnpm run build; fi",
   "outputDirectory": ".output/public",
   "cleanUrls": true,
   "trailingSlash": false,

@@ -1,24 +1,24 @@
 # Tamahagane 玉鋼
 
-A creative portfolio site built with vanilla TypeScript, WebGPU rendering, and Sanity CMS. Turborepo monorepo.
+A creative portfolio site built with **Nuxt 4**, Sanity CMS, and GSAP + Lenis animation. Turborepo monorepo, pnpm workspace.
+
+This is the ground-up Nuxt rewrite of the original vanilla-TS/WebGPU SPA — the old architecture (custom `Ctrl` router, Mustache prerender, tatara/katachi WebGPU engine) was deleted wholesale at the Phase 7 cutover.
 
 ## Apps
 
 | App | Description | Stack |
 |-----|-------------|-------|
-| `apps/fe` | Frontend website | Vite 5, TypeScript, WebGPU, SCSS, Mustache |
-| `apps/be` | Sanity Content Studio | Sanity v3, React 19 |
-| `apps/editor` | WGSL shader editor | Vite 6, CodeMirror 6, WebGPU |
+| `apps/fe` | Frontend website (`diaa`) | Nuxt 4 (`srcDir: app/`), Vue 3, TypeScript, SCSS modules, GSAP + CustomEase, Lenis, `@sanity/client` (server-only), `@portabletext/vue` |
+| `apps/be` | Sanity Content Studio (`diaa-be`) | Sanity v3, React 19, `presentationTool` for Visual Editing |
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| `packages/kido` | Animation, scroll, and DOM utility library (ESM, tree-shakeable). Anima, Raf, Reveal, Split, Scroller, NativeScroller, ResizeHub, PointerMove, WheelKeys, Svg, Sniff, Ease, utils |
-| `packages/tatara` | WebGPU rendering engine — device, pipeline, renderer (batched textured quads), camera, uniforms, texture, video, post-processing, WebGL fallback |
-| `packages/katachi` | Typed 2D GPU primitives on top of tatara — MSDF text, SDF shapes, noise, plane/text objects, scene graph |
+| `packages/kido` | Utility survivors of the rewrite: `Raf`/`RafHub` (ticks Lenis), `Sniff` (device detection), `ResizeHub`. The rest of the package (Anima, Reveal, Split, Scroller, …) is no longer consumed by `apps/fe` — GSAP + Lenis replaced it |
+| `packages/sanity-deploy` | Sanity Studio plugin — trigger Vercel Deploy Hooks from the Studio |
 
-## Getting Started
+## Getting started
 
 ```bash
 # Install dependencies
@@ -27,218 +27,92 @@ pnpm install
 # Run all apps
 pnpm dev
 
-# Run specific app
-pnpm --filter fe dev        # Frontend (port 3000)
-pnpm --filter tamahagane-be dev  # Sanity Studio
+# Run a specific app
+pnpm --filter diaa dev        # Frontend (Nuxt dev server, port 3000)
+pnpm --filter diaa-be dev     # Sanity Studio (port 3333)
 
 # Build
-pnpm build
+pnpm build                    # all (turbo)
+pnpm --filter diaa build      # nuxt generate — static prod output
+pnpm --filter diaa build:ssr  # nuxt build — SSR output (preview deploy)
 
-# Test
-pnpm test
+# Quality
+pnpm --filter diaa check-types
+pnpm --filter diaa lint
 ```
 
-## Project Structure
+## Project structure
 
 ```
 tamahagane/
 ├── apps/
-│   ├── fe/                                  Frontend website (Vite 8 SPA)
-│   │   ├── scripts/                         Build-time tooling
-│   │   │   ├── routes-plugin.ts             Vite plugin: route HTML generation + tmhgne.json manifest
-│   │   │   ├── sanity-content.ts            Sanity CMS data fetcher (build-time only)
-│   │   │   ├── img-optimize.ts              Post-build image variants (AVIF/WebP/JPEG via sharp)
-│   │   │   ├── init.ts                      Project bootstrap script
-│   │   │   ├── mustache.d.ts                Mustache type declarations
-│   │   │   └── utils/
-│   │   │       ├── queries.ts               Sanity GROQ queries
-│   │   │       ├── image-url.ts             Sanity image URL builder
-│   │   │       └── logger.ts                Build-time logger with sections/timing
-│   │   ├── src/
-│   │   │   ├── main.ts                      Entry — instantiates Application and calls init()
-│   │   │   ├── app/                         Application layer (domain logic)
-│   │   │   │   ├── index.ts                 Application class — the 8-phase boot orchestrator
-│   │   │   │   ├── context.ts               App singleton (global mutable state + types)
-│   │   │   │   ├── cache.ts                 loadPkg(): read inlined tmhgne.json → populate App
-│   │   │   │   ├── page-manager.ts          PageManager singleton — auto-registration + lifecycle + scroll restore
-│   │   │   │   ├── utils.ts                 bootstrap(), resetScrollPosition(), initial route setup
-│   │   │   │   ├── debug.ts                 Structured debug helpers (dbg.page, dbg.ctrl, dbg.bootPhase, …)
-│   │   │   │   ├── controller/              Centralised navigation controller
-│   │   │   │   │   ├── index.ts             Ctrl class + installController() — event delegation, nav lifecycle
-│   │   │   │   │   ├── transition-manager.ts   out/in choreography + TransitionHooks dispatch
-│   │   │   │   │   ├── transition-registry.ts  BaseTransition abstract class + TransitionRegistry
-│   │   │   │   │   ├── transition-fx.ts     DefaultTransition (curtain reveal) + animaToPromise helper
-│   │   │   │   │   └── types.ts             TransitionCallbacks, TransitionHooks, NormalizedUrl
-│   │   │   │   ├── gpu/                     Frontend GPU orchestrator (lazy-loaded chunk)
-│   │   │   │   │   ├── index.ts             GPU class (WebGPU device + scene + render loop)
-│   │   │   │   │   ├── hud.ts               GpuHud debug overlay (Ctrl+F)
-│   │   │   │   │   └── README.md            GPU module notes
-│   │   │   │   ├── primitives/
-│   │   │   │   │   ├── base-page.ts         BasePage (init/in/out/cleanup lifecycle)
-│   │   │   │   │   ├── component.ts         Component (section base class with RAF + resize)
-│   │   │   │   │   └── morph-svg.ts         Morph-SVG primitive (for the /morph route)
-│   │   │   │   └── components/
-│   │   │   │       └── test.ts              Example component
-│   │   │   ├── engine/                      Framework layer — boot subsystem
-│   │   │   │   ├── index.ts                 Re-exports: Intro, Loader
-│   │   │   │   └── boot/
-│   │   │   │       ├── intro.ts             Intro — pure loading animation (no GPU deps)
-│   │   │   │       └── loader.ts            Loader — image → GPUTexture preloader
-│   │   │   ├── routes/                      Co-located route folders — each folder = one route
-│   │   │   │   ├── home/                    home.html + home.ts
-│   │   │   │   ├── about/                   about.html + about.ts
-│   │   │   │   ├── sanity/                  sanity.html + sanity.ts (CMS test page)
-│   │   │   │   ├── morph/                   morph.html + morph.ts (shared-scene GPU demo)
-│   │   │   │   ├── case-study/              *case-study.html + case-study.ts (CMS template)
-│   │   │   │   ├── test-monitor/            Dev test route
-│   │   │   │   ├── test-noise/              Dev test route
-│   │   │   │   ├── test-shapes/             Dev test route
-│   │   │   │   ├── test-text/               Dev test route
-│   │   │   │   └── partials/                Shared Mustache partials
-│   │   │   │       ├── canvas.html          GPU canvas element
-│   │   │   │       ├── grid.html            Dev grid overlay
-│   │   │   │       ├── intro.html           Loading/intro screen
-│   │   │   │       ├── meta.html            <head> metadata
-│   │   │   │       ├── nav.html             Navigation bar
-│   │   │   │       └── picture.html         Responsive <picture> partial (AVIF/WebP/JPEG)
-│   │   │   ├── styles/
-│   │   │   │   ├── core.scss                Global entry (imports core modules)
-│   │   │   │   ├── includes.scss            Shared SCSS partials barrel
-│   │   │   │   ├── pages.scss               Page-specific styles barrel
-│   │   │   │   ├── core/                    reset, base, root, intro
-│   │   │   │   ├── includes/                _breakpoints, _colors, _eases, _typography, _layout, …
-│   │   │   │   └── pages/                   Per-page SCSS modules
-│   │   │   └── types/
-│   │   │       └── modules.d.ts             Module declarations (WGSL, SCSS)
-│   │   ├── public/                          Static assets
-│   │   │   └── assets/
-│   │   │       ├── fonts/                   WOFF2 web fonts
-│   │   │       ├── images/                  Static images (originals; variants generated at build)
-│   │   │       └── videos/                  Video textures
-│   │   ├── docs/                            Architecture docs (boot, controller, routing, page-animations)
-│   │   ├── plop-templates/                  Handlebars scaffolds for new-page / new-transition
-│   │   ├── plopfile.mjs                     Plop generator config
-│   │   ├── __tests__/                       Vitest tests (loader, routing, route-transition)
-│   │   ├── index.html                       Mustache shell template
-│   │   ├── project.config.ts                Site-level config (colors, grid, Sanity project)
-│   │   ├── vite.config.ts                   Vite config + RoutesAndBootPlugin + manual GPU chunk
-│   │   ├── vitest.config.ts
-│   │   ├── tsconfig.json
-│   │   ├── eslint.config.js
-│   │   └── vercel.json                      Vercel deployment config
+│   ├── fe/                        Frontend (Nuxt 4, srcDir: app/)
+│   │   ├── app/
+│   │   │   ├── pages/             index.vue (home), [slug].vue (detail | contact | imprint)
+│   │   │   ├── components/        brand/, intro/, media/, content/, slices/, dev/
+│   │   │   ├── composables/       usePageData, useSiteOptions, usePageController, useNavLock, useBoot, …
+│   │   │   ├── controllers/       imperative page choreography (home.ts, detail.ts, rich-text-page.ts)
+│   │   │   ├── transitions/       default.ts (route transition), home-to-detail.ts (image bridge)
+│   │   │   ├── data/              SERVER-ONLY: Sanity client, GROQ queries, content loaders, slice registry, stega
+│   │   │   ├── plugins/           content.server.ts, lenis.client.ts, ease.client.ts, …
+│   │   │   ├── plugins-preview/   visual-editing.client.ts — preview builds only
+│   │   │   └── styles/            SCSS modules (core/, includes/, pages/, slices/)
+│   │   ├── server/                always-scanned Nitro routes (sitemap.xml, robots.txt)
+│   │   ├── server-preview/        preview-only Nitro routes/middleware (structurally excluded from prod)
+│   │   ├── docs/                  architecture.md, animation.md, visual-editing.md
+│   │   └── vercel.json            shared deploy config — buildCommand branches on NUXT_PUBLIC_PREVIEW_ENABLED
 │   │
-│   ├── be/                                  Sanity Content Studio (v3)
-│   │   ├── schemaTypes/
-│   │   │   ├── documents/
-│   │   │   │   ├── collections/             caseStudy, page (repeatable types)
-│   │   │   │   ├── singletons/              pageHome (one-off documents)
-│   │   │   │   └── site/                    siteNav, siteOptions
-│   │   │   ├── objects/                     externalLink, internalLink, seo, textBlock
-│   │   │   ├── slices/                      gridBuilder, zineBuilder, zinePage
-│   │   │   └── index.js                     Schema type barrel — register new schemas here
-│   │   ├── components/                      Custom Sanity input components
-│   │   ├── plugins/builder/                 Custom builder plugin
-│   │   ├── utils/                           Helper functions, internal link targets
-│   │   ├── desk.js                          Studio desk structure
-│   │   ├── sanity.config.js
-│   │   └── sanity.cli.js
-│   │
-│   └── editor/                              WGSL shader editor
-│       └── src/                             CodeMirror 6 + WebGPU shader preview
+│   └── be/                        Sanity Content Studio (v3)
+│       ├── schemaTypes/           documents/ (collections, singletons, site), objects/, slices/
+│       ├── desk.js                Studio desk structure
+│       ├── sanity.config.js       incl. presentationTool (Visual Editing)
+│       └── vercel.json            Studio deploy config (sanity build → dist, SPA rewrite)
 │
 ├── packages/
-│   ├── kido/                                Animation, scroll, DOM utilities
-│   │   ├── src/
-│   │   │   ├── index.ts                     Barrel export
-│   │   │   ├── anima.ts                     Anima — property animator with easing
-│   │   │   ├── raf.ts                       Raf, RafHub, Delay, Timer
-│   │   │   ├── resize.ts                    ResizeHub — global resize observer
-│   │   │   ├── native-scroller.ts           NativeScroller — damped native scroll, per-route state
-│   │   │   ├── scroller.ts                  Scroller — virtual scroller
-│   │   │   ├── reveal.ts                    Reveal — scroll-triggered zone animations
-│   │   │   ├── split.ts                     Split — text word splitter
-│   │   │   ├── pointer.ts                   PointerMove tracking
-│   │   │   ├── wheel.ts                     WheelKeys
-│   │   │   ├── tab.ts                       Tab visibility detection
-│   │   │   ├── svg.ts                       Svg path/line helpers
-│   │   │   ├── utils.ts                     clamp, lerp, damp, bounds, queryAll, setTheme, Sniff, Ease, …
-│   │   │   └── types.ts
-│   │   ├── tsup.config.ts
-│   │   ├── tsconfig.json
-│   │   └── package.json                     14 subpath exports (kido, kido/anima, kido/reveal, …)
-│   │
-│   ├── tatara/                              WebGPU rendering engine
-│   │   ├── src/
-│   │   │   ├── index.ts                     Barrel (GPURenderer, device, camera, uniforms, …)
-│   │   │   ├── renderer.ts                  GPURenderer — batched textured quads
-│   │   │   ├── device.ts                    GPUDevice initialization
-│   │   │   ├── pipeline.ts                  Render pipeline creation
-│   │   │   ├── geometry.ts                  Vertex buffer management
-│   │   │   ├── texture.ts                   Image texture management
-│   │   │   ├── video.ts                     VideoTexture (video frame upload)
-│   │   │   ├── uniforms.ts                  Uniform buffer management
-│   │   │   ├── camera.ts                    Camera transforms
-│   │   │   ├── layouts.ts                   Bind group layouts
-│   │   │   ├── monitor.ts                   Stats/performance monitor (stats-gl)
-│   │   │   ├── post/                        Post-processing pipeline + effect shaders
-│   │   │   ├── gl/                          WebGL fallback renderer
-│   │   │   ├── shaders/                     Engine shaders
-│   │   │   └── types.ts
-│   │   ├── tsup.config.ts
-│   │   └── package.json
-│   │
-│   └── katachi/                             Typed 2D GPU primitives on top of tatara
-│       ├── src/
-│       │   ├── index.ts                     Barrel
-│       │   ├── scene.ts                     Scene graph primitive
-│       │   ├── plane-object.ts              Plane primitive
-│       │   ├── text-object.ts               MSDF text primitive
-│       │   ├── glyph-points.ts              Font glyph tessellation
-│       │   ├── msdf-layouts.ts              MSDF atlas layouts
-│       │   ├── instancing-helper.ts         Instanced draw helper
-│       │   ├── sdf-shapes/                  SDF shape primitives
-│       │   ├── noise/                       Noise texture generators
-│       │   ├── shaders/                     Primitive shaders
-│       │   └── types.ts
-│       ├── tsup.config.ts
-│       └── package.json
+│   ├── kido/                      Raf, Sniff, ResizeHub utilities
+│   └── sanity-deploy/             Vercel Deploy Hook trigger plugin for the Studio
 │
-├── scripts/                                 Repo-wide scripts
-│   ├── img-optimize.ts
-│   └── msdf-gen.ts                          MSDF atlas generator for katachi
-├── .planning/                               GSD workflow planning docs
-├── CLAUDE.md                                AI assistant instructions (comprehensive)
-├── CHANGELOG.md                             Keep a Changelog format
-├── turbo.json                               Turborepo task config
-├── pnpm-workspace.yaml                      Workspace definition
-├── package.json                             Root package.json
-├── pnpm-lock.yaml
-├── .prettierrc
-├── .npmrc
-└── .gitignore
+├── CLAUDE.md                      AI assistant instructions (comprehensive)
+├── CHANGELOG.md                   Keep a Changelog format
+├── turbo.json                     Turborepo task config
+└── pnpm-workspace.yaml            Workspace definition
 ```
 
 ## Architecture
 
-The frontend is a custom SPA framework (no React/Vue). Key systems:
+- **Server-only data layer** — everything under `apps/fe/app/data/` (Sanity client, queries, loaders, stega) runs only in `.server.ts` plugins, Nitro routes, and the build-time prerender hook. It is never client-bundled; components read server-fetched content from `useState` via `usePageData()`/`useSiteOptions()`.
+- **Page controllers + transitions** — every route's imperative animation goes through a `PageController` factory (`onInit`/`in`/`out`/`onDestroy`, GSAP-driven). Route transitions run mode-less so outgoing and incoming pages coexist, enabling the home→detail image bridge.
+- **Slices** — CMS-authored content blocks (`sliceImage`, `sliceText`, `slice2Up`, …) with a registry contract spanning Sanity schema → GROQ fragment → server-side `resolve()` → Vue component.
+- **Visual Editing** — an SSR preview deployment with Sanity Presentation overlays, gated behind a stateless HMAC session cookie. Preview code is *structurally* excluded from the static prod build (scanDirs + plugin-array gates), not just tree-shaken.
 
-- **WebGPU Renderer** — GPU-rendered texture planes synchronized to DOM positions via `tatara` (engine) and `katachi` (2D primitives). Lazy-loaded as a single chunk, skipped on mobile (`Sniff.isMobile`) to keep first paint fast.
-- **Centralised Navigation Controller** — `Ctrl` in `apps/fe/src/app/controller/` owns the full nav lifecycle: click + popstate delegation, `App.mutating` lock, route state updates, `TransitionManager` choreography, and `TransitionHooks` so GPU (or any other subsystem) participates without the controller knowing about it.
-- **Page Lifecycle** — `BasePage` class with `init()`, `in()`, `out()`, `cleanup()` hooks. Pages are auto-discovered by `PageManager` via `import.meta.glob("../routes/*/*.ts", { eager: true })` — no manual registration.
-- **Content Pipeline** — Sanity CMS fetched at **build time** in `scripts/sanity-content.ts`, rendered via Mustache templates, baked into `tmhgne.json` (inlined in every HTML file as `<script id="__TMHGNE__">` so the SPA boots with zero round-trips).
-- **Texture Preloader** — images uploaded as `GPUTexture` at boot (`src/engine/boot/loader.ts`) with progress tracking driving the intro counter.
+Deep-dive docs: [`apps/fe/docs/architecture.md`](apps/fe/docs/architecture.md), [`apps/fe/docs/animation.md`](apps/fe/docs/animation.md), [`apps/fe/docs/visual-editing.md`](apps/fe/docs/visual-editing.md).
 
-## Environment Variables
+## Deployment — three Vercel projects (Shore team)
+
+| Project | Root | Build | Notes |
+|---|---|---|---|
+| `diaa` | `apps/fe` | `nuxt generate` (static) | Production site. No env vars — always the `published` perspective |
+| `diaa-preview` | `apps/fe` | `nuxt build` (SSR) | Visual Editing preview. `NUXT_PUBLIC_PREVIEW_ENABLED=true` flips the shared `vercel.json` buildCommand to SSR |
+| `diaa-be` | `apps/be` | `sanity build` | Hosted Studio |
+
+Full runbook, env var matrix, and troubleshooting: [`apps/fe/docs/visual-editing.md`](apps/fe/docs/visual-editing.md).
+
+## Environment variables
 
 | Variable | Purpose |
 |----------|---------|
-| `SANITY_PROJECT_ID` | Sanity project identifier |
-| `SANITY_DATASET` | Sanity dataset name |
-| `SANITY_READ_TOKEN` | Sanity read token (optional for public data) |
-| `SITE_URL` | Base URL for sitemap generation |
+| `SANITY_PROJECT_ID` / `SANITY_DATASET` / `SANITY_API_VERSION` | Sanity project (defaults in `apps/fe/app/data/sanity-defaults.ts`) |
+| `SANITY_READ_TOKEN` | Viewer-scoped token — preview deploy only |
+| `SANITY_STUDIO_URL` | Studio URL stega overlays point back to — preview deploy only |
+| `NUXT_PUBLIC_PREVIEW_ENABLED` | Enables preview plugins/routes + the SSR build branch — preview deploy only |
+| `PREVIEW_SESSION_SECRET` | HMAC secret for the preview session cookie (optional — falls back to a hash of the read token) |
+| `NITRO_PRESET` | `vercel` on the preview deploy |
+| `SANITY_STUDIO_PREVIEW_ORIGIN` | (Studio) the preview deploy's URL — what the Presentation tab iframes |
+
+See `apps/fe/.env.example` for the annotated set.
 
 ## Requirements
 
-- Node.js >= 18
-- pnpm 10.20.0+
-- WebGPU-capable browser (Chrome 113+, Edge 113+, Safari 18+)
+- Node.js >= 20.19
+- pnpm >= 10.20
+- Any modern browser

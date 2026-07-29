@@ -79,7 +79,7 @@ Package name `diaa`. Nuxt 4, `srcDir: "app/"`. Stack: Vue 3, TypeScript, SCSS mo
 ```
 apps/fe/
 ├── nuxt.config.ts            # previewEnabled gates plugins[] + nitro.scanDirs; prerender:routes hook
-├── vercel.json                # STATIC PROD deploy config only (framework:null, nuxt generate output)
+├── vercel.json                # shared by BOTH fe Vercel projects — buildCommand branches on NUXT_PUBLIC_PREVIEW_ENABLED (unset → nuxt generate static; true → nuxt build SSR)
 ├── .env.example
 ├── public/assets/fonts/       # ported verbatim, keep the Optimo license comment
 ├── app/
@@ -271,7 +271,7 @@ cd apps/be && npx sanity deploy       # deploy hosted Studio
 | `apps/fe/app/plugins-preview/visual-editing.client.ts` | Sanity overlay runtime (preview builds only) |
 | `apps/fe/server-preview/routes/preview/enable.get.ts` | Preview session grant (HMAC cookie) |
 | `apps/fe/server-preview/middleware/noindex.ts` | Preview auth gate + `X-Robots-Tag: noindex` |
-| `apps/fe/vercel.json` | Static prod deploy config |
+| `apps/fe/vercel.json` | Deploy config shared by the static prod + SSR preview Vercel projects (env-branching buildCommand) |
 | `apps/be/sanity.config.js` | Studio config incl. `presentationTool` |
 | `apps/be/schemaTypes/index.js` | Sanity schema barrel |
 | `packages/kido/src/raf.ts` | `Raf`/`RafHub` — ticks Lenis |

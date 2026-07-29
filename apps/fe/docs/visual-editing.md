@@ -121,25 +121,43 @@ find .output/server -iname "*preview*"
 
 This app deploys as **two separate Vercel projects**:
 
+Both frontend projects share root directory `apps/fe`, which means they share the committed `apps/fe/vercel.json` — and `vercel.json` settings **override the dashboard**, so the preview project cannot simply set a different build command in its dashboard. The committed `buildCommand` therefore branches on the preview flag:
+
+```json
+"buildCommand": "if [ \"$NUXT_PUBLIC_PREVIEW_ENABLED\" = \"true\" ]; then pnpm run build:ssr; else pnpm run build; fi"
+```
+
+Prod (flag unset) runs `nuxt generate` exactly as before; the preview project (flag set in its dashboard env) runs `nuxt build`. With `NITRO_PRESET=vercel`, Nitro emits a Build Output API bundle at `.vercel/output` (serverless function + static assets), which Vercel deploys in place of the static `outputDirectory`.
+
 ### 1. Existing `diaa` project — production (static)
 
-Root directory `apps/fe`. `apps/fe/vercel.json` is committed and covers this project fully: `framework: null` (opts the project out of Vercel's Nuxt SSR-function auto-detection — this deploy must stay pure static), `buildCommand: "pnpm run build"` (== `nuxt generate`), `outputDirectory: ".output/public"`, `cleanUrls: true`, `trailingSlash: false`, and immutable 1-year cache headers on `/_nuxt/(.*)` and `/assets/(.*)`.
+`apps/fe/vercel.json` covers this project fully: `framework: null` (opts the project out of Vercel's Nuxt SSR-function auto-detection — this deploy must stay pure static), the branching `buildCommand` above (resolves to `pnpm run build` == `nuxt generate` because the preview flag is unset), `outputDirectory: ".output/public"`, `cleanUrls: true`, `trailingSlash: false`, and immutable 1-year cache headers on `/_nuxt/(.*)` and `/assets/(.*)`.
 
 **Dashboard checklist:**
 - Confirm Framework Preset is set to "Other" (or otherwise deferring to `vercel.json`'s `framework: null`) — Vercel's Nuxt auto-detection would otherwise override the checked-in build command/output directory.
-- No env vars needed — prod always fetches the `"published"` perspective off the public dataset, `stega: false` hardcoded in `data/client.ts`.
+- No env vars needed — prod always fetches the `"published"` perspective off the public dataset, `stega: false` hardcoded in `data/client.ts`. In particular `NUXT_PUBLIC_PREVIEW_ENABLED` must stay unset here, or the shared `buildCommand` would flip this project to SSR.
 
-### 2. New preview project — SSR (not yet created as of the Phase 7 cutover)
+### 2. `diaa-preview` project — SSR
 
-No `vercel.json` exists for this project in the repo — its settings are dashboard-only.
+Same repo, same root directory `apps/fe`. All configuration is env vars — the build command comes from the shared `vercel.json` branch above.
 
-**Dashboard checklist:**
-- Build command: `nuxt build` (SSR — **not** `generate`).
+**Dashboard checklist (env vars, Production scope):**
+- `NUXT_PUBLIC_PREVIEW_ENABLED=true` — flips the shared `buildCommand` to `nuxt build` *and* gates the preview plugins/scanDirs into the bundle.
 - `NITRO_PRESET=vercel`
-- `NUXT_PUBLIC_PREVIEW_ENABLED=true`
-- `SANITY_READ_TOKEN` — required at build **and** runtime.
+- `SANITY_READ_TOKEN` — required at build **and** runtime (Viewer-scoped).
 - `SANITY_STUDIO_URL` — required; the build hard-fails without it.
 - Deployment Protection: **off**. The app gates preview access itself via the `/preview/enable` HMAC-cookie flow — Vercel's own protection would be redundant and would interfere with Sanity Presentation's iframe.
+
+**First-deploy verification:** unauthenticated `GET /` must return 401 + `X-Robots-Tag: noindex` (not a rendered page), and `/preview/enable` without a secret must 401 — a 404 there means the SSR function didn't deploy (the build fell through to the static branch).
+
+### 3. `diaa-be` project — Sanity Studio
+
+Root directory `apps/be`. `apps/be/vercel.json` is committed and covers the build: `framework: null`, `buildCommand: "pnpm run build"` (== `sanity build`), `outputDirectory: "dist"`, and an SPA rewrite of every path to `/index.html` (the Studio is a client-routed SPA).
+
+**Dashboard checklist:**
+- `SANITY_STUDIO_PREVIEW_ORIGIN` — the `diaa-preview` deploy's URL; baked in at build time (it's what the Presentation tab iframes).
+- Deployment Protection: **off** — editors sign in with their Sanity accounts; Vercel's auth layer would just lock them out.
+- Add the Studio's deployed origin to the Sanity project's **CORS origins (allow credentials)** at sanity.io/manage, or the Studio can't talk to the API.
 
 ### Studio (`apps/be`) side
 
