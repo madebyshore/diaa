@@ -64,11 +64,17 @@
   aspect-ratio: 4 / 3;
 }
 
-/* B — first 4:3 (col 2, span 6); second 3:4 (col 9, span 3); baseline-aligned.
+/* B — first 4:3 (col 2, span 6); second 3:4 (col 9, span 3); bottom-aligned.
    Tablet (8 cols) mirrors variant A's scaled structure with the wide image
-   first: 2 / span 3 + 6 / span 2. */
+   first: 2 / span 3 + 6 / span 2.
+   `end`, NOT `baseline`: the intent was always "align by the media boxes'
+   bottom edges" (captions are absolutely positioned and add no height, so an
+   item's height IS its media box) — and Safari mis-synthesizes baselines for
+   these aspect-ratio boxes (deriving them through the nested img instead of
+   the border box), inflating the grid row to a huge height. `end` produces
+   the identical intended alignment without baseline machinery. */
 .slice-2up--b {
-  align-items: baseline;
+  align-items: end;
 }
 .slice-2up--b .slice-2up__item:nth-child(1) {
   grid-column: 2 / span 6;
@@ -103,11 +109,13 @@
   aspect-ratio: 3 / 4;
 }
 
-/* Bottom Aligned toggle — align the images by their baseline (bottom of the
-   media box) instead of the top. The media boxes have `overflow: hidden`, so
-   their baseline is the bottom edge; captions are absolutely positioned and
-   don't affect it. Placed last so it overrides the base `align-items: start`
-   (and the Vertical layout's `flex-start`) for any Layout variant. */
+/* Bottom Aligned toggle — align the images by the bottom of their media
+   boxes instead of the top. Captions are absolutely positioned and don't
+   affect item height, so `end` is exactly "align the media bottoms" — and
+   unlike `baseline` it doesn't trip Safari's baseline synthesis for
+   aspect-ratio boxes (see the variant-B comment above). Placed last so it
+   overrides the base `align-items: start` (and the Vertical layout's
+   `flex-start`) for any Layout variant. */
 .slice-2up--bottom-aligned {
-  align-items: baseline;
+  align-items: end;
 }

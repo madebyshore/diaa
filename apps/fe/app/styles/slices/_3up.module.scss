@@ -143,11 +143,13 @@
   }
 }
 
-/* Bottom Aligned toggle — align the images by their baseline (bottom of the
-   media box) instead of the top. The media boxes have `overflow: hidden`, so
-   their baseline is the bottom edge; captions are absolutely positioned and
-   don't affect it. Placed last so it overrides the base `align-items: start`
-   for any Layout variant. */
+/* Bottom Aligned toggle — align the images by the bottom of their media
+   boxes instead of the top. Captions are absolutely positioned and don't
+   affect item height, so `end` is exactly "align the media bottoms" — and
+   unlike `baseline` it doesn't trip Safari's baseline synthesis for
+   aspect-ratio boxes, which inflated the grid row to a huge height (see
+   _2up.module.scss's variant-B comment for the full story). Placed last so
+   it overrides the base `align-items: start` for any Layout variant. */
 .slice-3up--bottom-aligned {
-  align-items: baseline;
+  align-items: end;
 }
