@@ -54,3 +54,4 @@ pnpm-debug.log*
 # Misc
 .DS_Store
 *.pem
+.env*
