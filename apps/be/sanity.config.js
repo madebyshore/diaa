@@ -40,6 +40,7 @@ export default defineConfig({
           enable: '/preview/enable',
         },
       },
+      
       resolve: {
         locations: {
           // Home singleton — always "/" (sanity-content.ts pushes it
