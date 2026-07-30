@@ -31,7 +31,24 @@ export function restoreOrResetScroll(
   path: string,
   direction: "back" | "forward",
 ): void {
-  if (!lenis) return;
+  if (!lenis) {
+    // Mobile (native scroll, no Lenis): ALWAYS reset to top. There are no
+    // snapshots to restore on mobile (saveScroll no-ops there), and without
+    // this explicit reset the document silently keeps whatever scroll the
+    // OUTGOING page left behind — the browser only clamps it (asynchronously)
+    // once the old page's DOM is removed, which lands AFTER home's in() has
+    // already computed its scroll-driven reveal (updateScrollReveal) against
+    // the stale position. Symptom: returning home from a detail showed the
+    // wrong centre image until the user's first real scroll re-synced it.
+    // Resetting here — same synchronous task as the unpin in transitions/
+    // default.ts's onEnter, before controller.in() runs — guarantees the
+    // entrance always starts at the top with the FIRST visible item's figure
+    // active. `direction` is deliberately ignored: with no snapshot, top is
+    // the only correct target for back-nav too.
+    window.scrollTo(0, 0);
+    console.debug("[scroll-restore] mobile reset to top", path);
+    return;
+  }
   if (direction === "back") {
     const y = snapshots.get(path);
     if (y != null) {
