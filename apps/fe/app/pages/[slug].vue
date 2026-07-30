@@ -88,8 +88,10 @@ const content = computed(() => {
 const siteTitle = computed(() => siteOptions.value?.siteTitle ?? "");
 // "<siteTitle> - <pageTitle>" — every non-home route composes the document
 // title this way (ported from the old build's title-composition rule, see
-// the Phase-1 CHANGELOG entry's "browser/tab title format" note).
-usePageSeo(() => `${siteTitle.value} - ${content.value.title}`, siteTitle);
+// the Phase-1 CHANGELOG entry's "browser/tab title format" note). The
+// third arg is this route's own SEO overrides (detail/contact/imprint all
+// carry a resolved `seo`; usePageSeo layers them over the Global defaults).
+usePageSeo(() => `${siteTitle.value} - ${content.value.title}`, siteTitle, () => content.value.seo);
 
 console.debug(
   `[page:slug] rendering — template="${content.value.template}", title="${content.value.title}"`,

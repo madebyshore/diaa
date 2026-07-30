@@ -21,6 +21,10 @@ export default {
       name: 'footer',
     },
     {
+      title: 'Meta',
+      name: 'meta',
+    },
+    {
       title: 'SEO',
       name: 'seo',
     },
@@ -53,6 +57,23 @@ export default {
         'Rendered on the home page below the grid, comma-separated. Pick Internal Link to reference another singleton/document, or External Link for an arbitrary URL.',
       of: [{type: 'internalLink'}, {type: 'externalLink'}],
       group: 'footer',
+    }),
+    /* meta */
+    defineField({
+      title: 'Favicon',
+      name: 'favicon',
+      type: 'image',
+      description:
+        'Browser tab icon, also used as the Apple touch icon. Upload a square PNG or SVG, at least 180×180.',
+      group: 'meta',
+    }),
+    defineField({
+      title: 'OG Image',
+      name: 'ogImage',
+      type: 'image',
+      description:
+        'Default social-share image (Open Graph / Twitter) for every page that does not set its own in its SEO tab. 1200×630 recommended.',
+      group: 'meta',
     }),
     /* seo */
     defineField({

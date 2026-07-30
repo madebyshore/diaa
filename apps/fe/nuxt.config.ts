@@ -16,6 +16,7 @@
 // `prerender:routes` hook comment below for why that matters.
 import { fileURLToPath } from "node:url";
 
+import { resolveSiteUrl } from "./server/utils/site-url";
 import { loadAllRoutePaths } from "./app/data/content";
 import type { SanityClientConfig } from "./app/data/client";
 import {
@@ -219,6 +220,15 @@ export default defineNuxtConfig({
       sanityProjectId: process.env.SANITY_PROJECT_ID || SANITY_DEFAULT_PROJECT_ID,
       sanityDataset: process.env.SANITY_DATASET || SANITY_DEFAULT_DATASET,
       sanityApiVersion: process.env.SANITY_API_VERSION || SANITY_DEFAULT_API_VERSION,
+      // Absolute site origin ("https://…", no trailing slash) — feeds every
+      // page's canonical/og:url links (composables/usePageSeo.ts) with the
+      // SAME resolution the sitemap.xml/robots.txt Nitro routes use
+      // (server/utils/site-url.ts: SITE_URL → VERCEL_PROJECT_PRODUCTION_URL
+      // → VERCEL_URL), so <head> and crawler files can never disagree about
+      // the site's base URL. Resolved at BUILD time — correct for the
+      // static prod deploy, whose env is fixed per build; "" locally, where
+      // usePageSeo simply omits the canonical tag.
+      siteUrl: resolveSiteUrl(),
       // Drives the Phase 6 gating: `plugins: previewEnabled ? [...] : []` and
       // `nitro.scanDirs` excluding server-preview/ unless this is true, so a
       // `nuxt generate` prod build structurally cannot ship preview code —

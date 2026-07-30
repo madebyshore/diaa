@@ -182,6 +182,19 @@ const EXCLUDED_RESULT_KEYS: ReadonlySet<string> = new Set([
   "introText",
   "title",
   "name",
+  // SEO/meta fields (composables/usePageSeo.ts). None of these ever render
+  // as visible page text — they land in <head> attribute values, where
+  // stega's zero-width characters would corrupt the emitted markup:
+  // `favicon`/`ogImage` are CDN URLs (a stega-tagged URL 404s in the tab
+  // icon / social scraper); `metaDescription`/`metaKeywords` become <meta>
+  // content attributes (`metaKeywords` is a bare string[] — covered by
+  // lastStringSegment()'s array-index handling, see the blind-spot note
+  // above); `language` becomes the <html lang> attribute.
+  "favicon",
+  "ogImage",
+  "metaDescription",
+  "metaKeywords",
+  "language",
 ]);
 
 /**

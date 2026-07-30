@@ -13,6 +13,7 @@ export default defineType({
   icon: BiEnvelope,
   groups: [
     {title: 'General', name: 'general', default: true},
+    {title: 'SEO', name: 'seo'},
   ],
   fields: [
     defineField({
@@ -40,6 +41,13 @@ export default defineType({
       description:
         'Rendered centered on the page. Shift+Enter for line breaks; links can be external URLs or internal page references.',
       group: 'general',
+    }),
+    defineField({
+      title: 'SEO',
+      name: 'seo',
+      type: 'seo',
+      description: 'Per-page meta description, keywords, and OG image — overrides the Global defaults.',
+      group: 'seo',
     }),
   ],
   preview: {

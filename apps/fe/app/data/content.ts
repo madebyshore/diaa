@@ -59,6 +59,15 @@ const DEFAULT_INTRO_PHRASE = "Design, interiors, architecture, atmosphere";
 
 // ── Raw Sanity payload shapes (loose — mirrors the old sanity-content.ts) ──
 
+/** Raw per-document `seo` object, projected by `queries.ts`'s shared
+ *  `seoProjection` (metaDescription/metaKeywords verbatim, ogImage already
+ *  resolved to its CDN URL). */
+interface RawSeo {
+  metaDescription?: string | null;
+  metaKeywords?: string[] | null;
+  ogImage?: string | null;
+}
+
 interface DetailRef {
   _id: string;
   title?: string;
@@ -74,6 +83,8 @@ interface DetailRef {
   coverVideo?: string | null;
   coverSize?: string | null;
   taxonomy?: { _id: string; title?: string } | null;
+  /** Per-page SEO overrides — only present on `detailBySlugQuery`. */
+  seo?: RawSeo | null;
   /** Authored slices — only present on `detailBySlugQuery`. */
   slices?: import("./slices/types").RawSlice[] | null;
 }
@@ -86,6 +97,7 @@ interface TaxonomyDoc {
 interface PageHomeDoc {
   _id: string;
   title?: string;
+  seo?: RawSeo | null;
   taxonomies?: TaxonomyDoc[] | null;
   grid?: DetailRef[] | null;
 }
@@ -101,7 +113,10 @@ interface SiteOptionsDoc {
   name?: string;
   introText?: string[] | null;
   language?: string;
-  seo?: unknown;
+  /** Meta-tab favicon/OG defaults, projected to raw CDN URLs. */
+  favicon?: string | null;
+  ogImage?: string | null;
+  seo?: RawSeo | null;
   footerLinks?: FooterLinkRaw[] | null;
 }
 
@@ -113,10 +128,35 @@ interface RichTextPageDoc {
   _id: string;
   title?: string;
   slug?: string | null;
+  seo?: RawSeo | null;
   body?: PortableTextBlock[] | null;
 }
 
 // ── Public shapes ───────────────────────────────────────────────────────
+
+/**
+ * Resolved per-document SEO data — normalized from the shared `seo` object
+ * every schema type carries. Consumed by `composables/usePageSeo.ts`, which
+ * layers a page's own values over the Global document's defaults.
+ */
+export interface SeoData {
+  metaDescription: string;
+  metaKeywords: string[];
+  /** Raw CDN URL of the OG image, or null when unset. */
+  ogImage: string | null;
+}
+
+/** Normalize a raw `seo` object (possibly absent) into a fully-populated
+ *  `SeoData` so consumers never null-check individual fields. */
+function resolveSeo(raw: RawSeo | null | undefined): SeoData {
+  return {
+    metaDescription: raw?.metaDescription?.trim() ?? "",
+    metaKeywords: (raw?.metaKeywords ?? []).filter(
+      (k): k is string => typeof k === "string" && k.trim().length > 0,
+    ),
+    ogImage: raw?.ogImage ?? null,
+  };
+}
 
 export interface FooterLink {
   title: string;
@@ -131,7 +171,16 @@ export interface SiteOptionsContent {
    *  Falls back to `[DEFAULT_INTRO_PHRASE]` when the CMS has none. */
   introPhrases: string[];
   footerLinks: FooterLink[];
-  seo: unknown;
+  /** ISO 639-1 language code from the Global SEO tab ("en" fallback) —
+   *  feeds `<html lang>`. */
+  language: string;
+  /** Global Meta-tab favicon (raw CDN URL), or null when unset. */
+  favicon: string | null;
+  /** Global Meta-tab default OG image (raw CDN URL), or null when unset.
+   *  Per-page `seo.ogImage` values override it in `usePageSeo`. */
+  ogImage: string | null;
+  /** Global SEO defaults — the fallback layer under each page's own seo. */
+  seo: SeoData;
 }
 
 /** One flattened home-grid placement. */
@@ -174,6 +223,8 @@ export interface HomeGridItem {
 export interface HomeRouteContent {
   template: "home";
   path?: string;
+  /** The Home singleton's own SEO overrides (Global fills the gaps). */
+  seo: SeoData;
   gridItems: HomeGridItem[];
   taxonomies: Array<{ id: string; title: string }>;
   footerLinks: FooterLink[];
@@ -187,6 +238,8 @@ export interface DetailRouteContent {
   title: string;
   stylizedTitle: PortableTextBlock[] | null;
   cover: MediaData & { coverSize: string };
+  /** This Detail's own SEO overrides (Global fills the gaps). */
+  seo: SeoData;
   /** Resolved slices, in authored order — see `resolveSlices()` in
    *  `data/slices/registry.ts`. Each entry is `{ _type, _key, data }`, where
    *  `data` is that slice's own `resolve()` output; Phase 3's
@@ -198,6 +251,8 @@ export interface RichTextRouteContent {
   template: "contact" | "imprint";
   path?: string;
   title: string;
+  /** The singleton's own SEO overrides (Global fills the gaps). */
+  seo: SeoData;
   body: PortableTextBlock[] | null;
 }
 
@@ -295,7 +350,10 @@ export async function loadSiteOptions(
     siteTitle: siteOptions?.name ?? "",
     introPhrases: introPhrases.length ? introPhrases : [DEFAULT_INTRO_PHRASE],
     footerLinks,
-    seo: siteOptions?.seo,
+    language: siteOptions?.language?.trim() || "en",
+    favicon: siteOptions?.favicon ?? null,
+    ogImage: siteOptions?.ogImage ?? null,
+    seo: resolveSeo(siteOptions?.seo),
   };
 }
 
@@ -353,7 +411,7 @@ async function loadHomeContent(
     `[content] home resolved — gridItems=${gridItems.length}, taxonomies=${taxonomies.length}`,
   );
 
-  return { template: "home", gridItems, taxonomies, footerLinks };
+  return { template: "home", seo: resolveSeo(pageHome?.seo), gridItems, taxonomies, footerLinks };
 }
 
 /** Slice-resolver context for detail pages. Matches the old pipeline's
@@ -387,6 +445,7 @@ async function loadDetailContent(
     // 3000w source, same coverSize-driven aspect) — index 0 so it gets
     // fetchpriority="high" as the page's LCP.
     cover: { ...coverMedia(detail, detail.title ?? "", 0), coverSize: normalizeCoverSize(detail.coverSize) },
+    seo: resolveSeo(detail.seo),
     slices: resolveSlices(detail.slices, DETAIL_SLICE_CONTEXT),
   };
 }
@@ -406,6 +465,7 @@ async function loadContactContent(
   return {
     template: "contact",
     title: pageContact?.title ?? "Contact",
+    seo: resolveSeo(pageContact?.seo),
     body: pageContact?.body ?? null,
   };
 }
@@ -425,6 +485,7 @@ async function loadImprintContent(
   return {
     template: "imprint",
     title: pageImprint?.title ?? "Imprint",
+    seo: resolveSeo(pageImprint?.seo),
     body: pageImprint?.body ?? null,
   };
 }

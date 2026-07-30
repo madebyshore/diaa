@@ -15,14 +15,31 @@
 
 import { sliceRegistry } from "./slices/registry";
 
-/** Global / site options singleton. Verbatim port of the old `siteOptionsQuery`. */
+/**
+ * Shared `seo` object projection — every document type carries the same
+ * `seo` object (schemaTypes/objects/seo.js: metaDescription, metaKeywords,
+ * ogImage). The ogImage alias resolves to the raw CDN URL so consumers
+ * never touch a Sanity asset reference. Spliced into the site-options,
+ * home, detail, contact, and imprint queries below.
+ */
+const seoProjection = `seo {
+      metaDescription,
+      metaKeywords,
+      "ogImage": ogImage.asset->url
+    }`;
+
+/** Global / site options singleton. Verbatim port of the old
+ *  `siteOptionsQuery`, plus the Meta-tab favicon/ogImage fields and the
+ *  typed seo projection. */
 export const siteOptionsQuery = `
   *[_type == "siteOptions"][0] {
     _id,
     name,
     introText,
     language,
-    seo,
+    "favicon": favicon.asset->url,
+    "ogImage": ogImage.asset->url,
+    ${seoProjection},
     footerLinks[] {
       _type,
       _type == "externalLink" => {
@@ -81,6 +98,7 @@ export const pageHomeQuery = `
   *[_type == "pageHome"][0] {
     _id,
     title,
+    ${seoProjection},
     "taxonomies": taxonomies[]->{
       _id,
       title
@@ -147,6 +165,7 @@ export const detailBySlugQuery = `
     coverSize,
     allowRouting,
     stylizedTitle,
+    ${seoProjection},
     "taxonomy": taxonomy->{_id, title},
     ${slicesProjection}
   }`;
@@ -192,6 +211,7 @@ export const pageContactQuery = `
     _id,
     title,
     "slug": slug.current,
+    ${seoProjection},
     ${richBodyProjection}
   }`;
 
@@ -201,5 +221,6 @@ export const pageImprintQuery = `
     _id,
     title,
     "slug": slug.current,
+    ${seoProjection},
     ${richBodyProjection}
   }`;

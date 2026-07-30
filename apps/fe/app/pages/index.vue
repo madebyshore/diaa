@@ -63,8 +63,10 @@ const footerLinks = computed(() => home.value?.footerLinks ?? []);
 const siteTitle = computed(() => siteOptions.value?.siteTitle ?? "");
 // Old shell rendered a bare `{{siteTitle}}` for EVERY page's <title> at
 // build time; the SPA never rewrote it for home specifically. Ported as-is —
-// only [slug].vue composes "<siteTitle> - <pageTitle>".
-usePageSeo(siteTitle, siteTitle);
+// only [slug].vue composes "<siteTitle> - <pageTitle>". The third arg is
+// the Home singleton's own SEO overrides (usePageSeo layers them over the
+// Global document's defaults).
+usePageSeo(siteTitle, siteTitle, () => home.value?.seo ?? null);
 
 console.debug(
   `[page:home] rendering — gridItems=${gridItems.value.length}, taxonomies=${taxonomies.value.length}, footerLinks=${footerLinks.value.length}`,
