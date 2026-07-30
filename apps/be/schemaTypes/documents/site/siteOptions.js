@@ -60,11 +60,19 @@ export default {
     }),
     /* meta */
     defineField({
-      title: 'Favicon',
+      title: 'Favicon (Light Mode)',
       name: 'favicon',
       type: 'image',
       description:
-        'Browser tab icon, also used as the Apple touch icon. Upload a square PNG or SVG, at least 180×180.',
+        'Browser tab icon shown when the visitor uses a light color scheme — also the default when no dark-mode favicon is set, and always the Apple touch icon. Upload a square PNG or SVG, at least 180×180.',
+      group: 'meta',
+    }),
+    defineField({
+      title: 'Favicon (Dark Mode)',
+      name: 'faviconDark',
+      type: 'image',
+      description:
+        'Browser tab icon shown when the visitor uses a dark color scheme. Optional — the light-mode favicon is used for everyone when this is empty. Upload a square PNG or SVG, at least 180×180.',
       group: 'meta',
     }),
     defineField({

@@ -38,6 +38,7 @@ export const siteOptionsQuery = `
     introText,
     language,
     "favicon": favicon.asset->url,
+    "faviconDark": faviconDark.asset->url,
     "ogImage": ogImage.asset->url,
     ${seoProjection},
     footerLinks[] {

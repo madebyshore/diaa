@@ -115,6 +115,7 @@ interface SiteOptionsDoc {
   language?: string;
   /** Meta-tab favicon/OG defaults, projected to raw CDN URLs. */
   favicon?: string | null;
+  faviconDark?: string | null;
   ogImage?: string | null;
   seo?: RawSeo | null;
   footerLinks?: FooterLinkRaw[] | null;
@@ -174,8 +175,14 @@ export interface SiteOptionsContent {
   /** ISO 639-1 language code from the Global SEO tab ("en" fallback) —
    *  feeds `<html lang>`. */
   language: string;
-  /** Global Meta-tab favicon (raw CDN URL), or null when unset. */
+  /** Global Meta-tab light-mode favicon (raw CDN URL), or null when unset.
+   *  Also the default icon when no dark-mode variant exists, and always the
+   *  Apple touch icon (iOS ignores `media` on icon links). */
   favicon: string | null;
+  /** Global Meta-tab dark-mode favicon (raw CDN URL), or null when unset —
+   *  emitted with a `(prefers-color-scheme: dark)` media query in
+   *  `usePageSeo`. */
+  faviconDark: string | null;
   /** Global Meta-tab default OG image (raw CDN URL), or null when unset.
    *  Per-page `seo.ogImage` values override it in `usePageSeo`. */
   ogImage: string | null;
@@ -352,6 +359,7 @@ export async function loadSiteOptions(
     footerLinks,
     language: siteOptions?.language?.trim() || "en",
     favicon: siteOptions?.favicon ?? null,
+    faviconDark: siteOptions?.faviconDark ?? null,
     ogImage: siteOptions?.ogImage ?? null,
     seo: resolveSeo(siteOptions?.seo),
   };

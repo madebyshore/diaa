@@ -104,23 +104,52 @@ export function usePageSeo(
       const k = keywords();
       return k ? [{ name: "keywords", content: k }] : [];
     },
-    // CMS favicon (Global → Meta tab): one icon link + the Apple touch icon
-    // from the same asset — replaces the old partial's eight links to
+    // CMS favicons (Global → Meta tab): light + optional dark variant, plus
+    // the Apple touch icon — replaces the old partial's eight links to
     // `public/` files that never existed (each one a guaranteed 404).
+    //
+    // Scheme handling: when BOTH variants exist, each icon link carries a
+    // `(prefers-color-scheme: …)` media query so Chrome/Firefox swap the tab
+    // icon live with the OS theme (Safari ignores `media` on icon links and
+    // just takes the last match — acceptable degradation, not a bug to fix
+    // here). When only ONE variant exists it's emitted unconditionally, so a
+    // dark-only upload still beats the /favicon.ico fallback. The Apple
+    // touch icon never gets a media query — iOS reads exactly one and
+    // ignores the attribute — so it pins to light, falling back to dark.
+    //
     // `/favicon.ico` stays as the no-CMS-value fallback purely because
     // browsers request it unprompted anyway. Returned as a literal so
     // unhead's contextual link typing applies (an intermediate
     // `Record<string, string>[]` annotation fails to typecheck).
     link: () => {
       const href = canonical();
-      const favicon = siteOptions.value?.favicon;
+      const light = siteOptions.value?.favicon;
+      const dark = siteOptions.value?.faviconDark;
+      const touchIcon = light || dark;
       return [
         ...(href ? [{ rel: "canonical" as const, href }] : []),
-        ...(favicon
+        ...(light
           ? [
-              { rel: "icon" as const, href: favicon, type: faviconMime(favicon) },
-              { rel: "apple-touch-icon" as const, href: favicon },
+              {
+                rel: "icon" as const,
+                href: light,
+                type: faviconMime(light),
+                ...(dark ? { media: "(prefers-color-scheme: light)" } : {}),
+              },
             ]
+          : []),
+        ...(dark
+          ? [
+              {
+                rel: "icon" as const,
+                href: dark,
+                type: faviconMime(dark),
+                ...(light ? { media: "(prefers-color-scheme: dark)" } : {}),
+              },
+            ]
+          : []),
+        ...(touchIcon
+          ? [{ rel: "apple-touch-icon" as const, href: touchIcon }]
           : [{ rel: "icon" as const, href: "/favicon.ico", sizes: "any" }]),
       ];
     },
