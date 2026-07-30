@@ -273,10 +273,28 @@ export function requireStudioUrl(studioUrl: string | undefined): string {
  * should already have passed through `requireStudioUrl()` — this function
  * doesn't re-validate it, to keep the hard-fail point a single, obvious call
  * site per caller rather than duplicated defensive checks.
+ *
+ * CLICK-TO-EDIT IS DELIBERATELY DISABLED (2026-07): `enabled: false` below
+ * switches off the zero-width stega encoding entirely, which removes
+ * Presentation's click-to-edit overlays — with no encoded markers in the
+ * rendered text, `@sanity/visual-editing`'s overlay controller finds no
+ * targets to draw. Everything else about preview survives unchanged: the
+ * drafts perspective, the live refresh-on-save flow, and the iframe
+ * navigation sync all run through `enableVisualEditing()`'s channel
+ * (plugins-preview/visual-editing.client.ts), none of which depend on stega.
+ * This is the single construction point for the drafts StegaConfig, so
+ * flipping this one flag governs all three drafts fetch paths
+ * (plugins/content.server.ts, server-preview/routes/preview/refresh.post.ts,
+ * server/routes/_content/[slug]/index.json.get.ts).
+ *
+ * To re-enable overlays: set `enabled: true` — the exclusion filter and its
+ * documentation above are kept fully intact for exactly that eventuality,
+ * and MUST be kept current (absolute rule #3) as long as this flag can be
+ * flipped back.
  */
 export function buildPreviewStega(studioUrl: string): StegaConfig {
   return {
-    enabled: true,
+    enabled: false,
     studioUrl,
     filter: buildStegaFilter(),
   };

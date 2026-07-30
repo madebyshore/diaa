@@ -42,6 +42,8 @@ A real bug fixed while wiring this: `app/pages/[slug].vue` originally destructur
 
 ## Stega — the exclusion list is a living document
 
+> **Click-to-edit overlays are currently DISABLED (2026-07).** `buildPreviewStega()` sets `enabled: false`, so drafts responses carry no zero-width stega markers and Presentation draws no click-to-edit overlays. The rest of preview is unaffected — drafts perspective, live refresh-on-save, and iframe navigation sync all run through `enableVisualEditing()`'s channel, which doesn't depend on stega. To bring overlays back, flip that one flag to `true`; everything below (the exclusion list, the array-index blind spot, the intro-hang mechanism) describes what the encoding does *when enabled* and must stay current for that eventuality.
+
 `app/data/stega.ts`'s `buildPreviewStega(studioUrl)` is ported near-verbatim from the proven `preview`-branch implementation (fixed at commit `dcbf37c`). `@sanity/client`'s stega encoder walks every string leaf in a GROQ result and, when enabled, invisibly embeds zero-width metadata so Presentation can map rendered text back to its Studio field. That's exactly right for visible copy — but actively harmful for a string that ends up as a route key, filename, URL, or HTML attribute.
 
 **`EXCLUDED_RESULT_KEYS`** — matched against the *last string segment* of each value's `resultPath`:
