@@ -1,16 +1,20 @@
 /**
  * Image slice resolver. A single centered image whose column span derives
- * from aspect orientation + size, with the aspect ratio coming straight from
- * the CMS. `full` overrides everything: a full-bleed 3:2 image at 100vw.
+ * from aspect + size, with the aspect ratio coming straight from the CMS.
+ * `full` overrides everything: a full-bleed 3:2 image at 100vw.
  *
  * Column spans (12-col grid):
- *   landscape (3:2 / 4:3): large → 8, mid → 6
- *   portrait  (3:4 / 2:3): large → 6, mid → 4
- *   full:                  the whole width (no container padding)
+ *   4:3 → large → 8, small → 6
+ *   3:4 → one fixed size → 4
+ *   full → the whole width (no container padding)
  *
- * Ported verbatim from `apps/fe/scripts/slices/sliceImage.ts` — no
- * pre-rendered HTML fields exist here to rename, so this file has no
- * data-shape changes beyond the shared `SliceDefinition` (no `template`).
+ * Mobile placement follows the span (see styles/slices/_image.module.scss):
+ * c4 and c6 centre on the middle 4 of the 6-col grid, c8 runs full width.
+ *
+ * The CMS dropdown was narrowed to 3:4 / 4:3 with sizes Small / Large
+ * (4:3 only) — legacy stored values from the wider option set are normalized
+ * here (3:2 → 4:3, 2:3 → 3:4, "mid" size → the small span) so previously
+ * published documents keep rendering without a content migration.
  */
 
 import { mediaFromUrls } from "./helpers";
@@ -27,7 +31,7 @@ interface RawSliceImage extends RawSlice {
 
 export interface ResolvedSliceImage {
   full: boolean;
-  /** Aspect token used for the `--ar-*` class, e.g. "3x2". */
+  /** Aspect token used for the `--ar-*` class, e.g. "4x3". */
   aspect: string;
   /** Column span used for the `--c*` class (8 / 6 / 4, or 12 when full). */
   cols: number;
@@ -46,18 +50,18 @@ const sliceImage: SliceDefinition<RawSliceImage, ResolvedSliceImage> = {
   `,
   resolve: (raw) => {
     const full = !!raw.full;
-    const aspect = full ? "3x2" : (raw.aspect ?? "3x2");
-    const size = raw.size ?? "mid";
-    const landscape = aspect === "3x2" || aspect === "4x3";
-    const cols = full
-      ? 12
-      : landscape
-        ? size === "lg"
-          ? 8
-          : 6
-        : size === "lg"
-          ? 6
-          : 4;
+    // Normalize retired aspect values to their nearest surviving orientation
+    // so old documents render instead of falling through the CSS classes.
+    const storedAspect =
+      raw.aspect === "3x2"
+        ? "4x3"
+        : raw.aspect === "2x3"
+          ? "3x4"
+          : (raw.aspect ?? "3x4");
+    const aspect = full ? "3x2" : storedAspect;
+    // Size only differentiates 4:3 — "lg" spans 8, anything else ("sm", plus
+    // the retired "mid") spans 6. 3:4 has exactly one size: the centre 4.
+    const cols = full ? 12 : aspect === "4x3" ? (raw.size === "lg" ? 8 : 6) : 4;
     // All detail-page images are served at the site-wide 3000w source width
     // regardless of column span — layout size is a CSS concern only.
     return {

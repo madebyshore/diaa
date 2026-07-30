@@ -5,15 +5,25 @@ import {aspectField, sizeField} from '../../utils/fields.js'
 // Hidden when `full` is on — a full-screen image ignores Aspect/Size.
 const hiddenWhenFull = ({parent}) => parent?.full === true
 
+// Size only applies to 4:3 — 3:4 renders at a single fixed size — and never
+// in full mode, so the dropdown hides everywhere else.
+const hiddenUnlessFourByThree = ({parent}) => parent?.full === true || parent?.aspect !== '4x3'
+
 // Required only when NOT full (the field is hidden in full mode, so requiring a
 // value the editor can't see would be a publish trap).
 const requiredUnlessFull = (Rule) =>
   Rule.custom((value, context) => (context?.parent?.full || value ? true : 'Required'))
 
-// Image slice — a single positioned image. Aspect controls the ratio; Size
-// controls how large it sits in the layout. Small is omitted: a lone image only
-// renders at Mid or Large. Toggle `full` for a full-screen image, which hides
-// the Aspect/Size controls.
+// Size is only visible (and therefore only required) for a non-full 4:3 image —
+// same hidden-field-can't-be-required reasoning as requiredUnlessFull.
+const requiredWhenFourByThree = (Rule) =>
+  Rule.custom((value, context) =>
+    context?.parent?.full || context?.parent?.aspect !== '4x3' || value ? true : 'Required',
+  )
+
+// Image slice — a single positioned image. Aspect is 3:4 or 4:3 only; Size
+// (Small / Large) exists only for 4:3 — a 3:4 image has one fixed layout size.
+// Toggle `full` for a full-screen 3:2 image, which hides both controls.
 export default defineType({
   name: 'sliceImage',
   title: 'Image',
@@ -24,11 +34,23 @@ export default defineType({
       title: 'Full',
       name: 'full',
       type: 'boolean',
-      description: 'Toggle this for a full screen image.',
+      description: 'Toggle this for a full screen image (3:2).',
       initialValue: false,
     }),
-    aspectField({hidden: hiddenWhenFull, validation: requiredUnlessFull}),
-    sizeField({includeSmall: false, hidden: hiddenWhenFull, validation: requiredUnlessFull}),
+    aspectField({allowed: ['3x4', '4x3'], hidden: hiddenWhenFull, validation: requiredUnlessFull}),
+    sizeField({
+      description: 'Only for 4:3 images — 3:4 renders at a single fixed size.',
+      options: {
+        list: [
+          {title: 'Small', value: 'sm'},
+          {title: 'Large', value: 'lg'},
+        ],
+        layout: 'dropdown',
+      },
+      initialValue: 'sm',
+      hidden: hiddenUnlessFourByThree,
+      validation: requiredWhenFourByThree,
+    }),
     defineField({
       title: 'Image',
       name: 'image',
@@ -60,9 +82,15 @@ export default defineType({
   preview: {
     select: {media: 'image', aspect: 'aspect', size: 'size', full: 'full'},
     prepare({media, aspect, size, full}) {
+      // Size is only meaningful for 4:3 — don't echo a stale/hidden value on 3:4.
+      const subtitle = full
+        ? 'Full screen'
+        : aspect === '4x3'
+          ? [aspect, size].filter(Boolean).join(' · ')
+          : aspect
       return {
         title: 'Image',
-        subtitle: full ? 'Full screen' : [aspect, size].filter(Boolean).join(' · '),
+        subtitle,
         media,
       }
     },

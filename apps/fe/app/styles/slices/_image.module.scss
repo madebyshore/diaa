@@ -2,7 +2,13 @@
 
 /* Image slice — single centered image on the 12-col grid. Span + ratio are
    set by `--c*` / `--ar-*` modifiers from the resolver. `--full` breaks out of
-   the container padding to a full-bleed 3:2 image. */
+   the container padding to a full-bleed 3:2 image.
+
+   Layout matrix (resolver: data/slices/sliceImage.ts):
+     3:4            → c4 — centre 4 of 12; mobile centre 4 of 6
+     4:3 Small      → c6 — centre 6 of 12; mobile centre 4 of 6
+     4:3 Large      → c8 — centre 8 of 12; mobile full width
+     Full           → c12 — full bleed, forced 3:2 */
 .slice-image {
   display: grid;
   grid-template-columns: repeat(var(--columns), 1fr);
@@ -46,33 +52,30 @@
     grid-column: 1 / -1;
   }
 
-  /* Aspect ratio (from the CMS). */
+  /* Aspect ratio (from the CMS). 3x2 survives only for the full-bleed
+     variant's resolver output — the dropdown no longer offers it. */
   &--ar-3x2 {
     aspect-ratio: 3 / 2;
   }
   &--ar-3x4 {
     aspect-ratio: 3 / 4;
   }
-  &--ar-2x3 {
-    aspect-ratio: 2 / 3;
-  }
   &--ar-4x3 {
     aspect-ratio: 4 / 3;
   }
 
-  /* Mobile placement is driven by the RATIO, not the c-span: landscape
-     images run full width, portrait images centre on the middle 4 of 6.
-     Declared after the span rules above so these equal-specificity
-     overrides win the cascade (the full-bleed variant below still outranks
-     both, keeping `--full` forced to 1 / -1). */
+  /* Mobile placement follows the SPAN (not the ratio, as it used to): 3:4
+     (c4) and 4:3 Small (c6) centre on the middle 4 of the 6-col grid, 4:3
+     Large (c8) runs full width. Declared after the span rules above so these
+     equal-specificity overrides win the cascade (the full-bleed variant below
+     still outranks both, keeping `--full` forced to 1 / -1). */
   @include breakpoint-mobile {
-    &--ar-3x2,
-    &--ar-4x3 {
-      grid-column: 1 / -1;
-    }
-    &--ar-2x3,
-    &--ar-3x4 {
+    &--c4,
+    &--c6 {
       grid-column: 2 / -2;
+    }
+    &--c8 {
+      grid-column: 1 / -1;
     }
   }
 }
