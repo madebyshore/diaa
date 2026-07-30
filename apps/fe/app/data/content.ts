@@ -228,6 +228,20 @@ function coverMedia(d: DetailRef, alt: string, index: number): MediaData {
   };
 }
 
+/**
+ * Normalize a stored coverSize to the current option set: `3x4` (single
+ * size), `4x3-sm`, `4x3-lg`. The Studio dropdown once offered 3:4 in
+ * Small/Large too — those legacy values fold into the unified `3x4` here so
+ * published documents keep rendering (the CSS variant classes only exist for
+ * the normalized tokens). Unknown/missing values fall back to `4x3-sm`,
+ * matching the loaders' historical default.
+ */
+function normalizeCoverSize(raw: string | null | undefined): string {
+  if (raw === "3x4" || raw === "3x4-sm" || raw === "3x4-lg") return "3x4";
+  if (raw === "4x3-lg") return "4x3-lg";
+  return "4x3-sm";
+}
+
 /** A Detail counts as a grid slot / routable page when it has either a cover
  *  image OR a cover video (MP4) — video-only Details are valid, the image is
  *  just the optional poster/fallback. Ported verbatim from the old
@@ -328,7 +342,7 @@ async function loadHomeContent(
         title: d.title ?? "",
         stylizedTitle: d.stylizedTitle ?? null,
         cover: coverMedia(d, d.title ?? "", flatIndex),
-        coverSize: d.coverSize ?? "4x3-sm",
+        coverSize: normalizeCoverSize(d.coverSize),
         taxonomyId: d.taxonomy?._id ?? "",
       });
       flatIndex++;
@@ -372,7 +386,7 @@ async function loadDetailContent(
     // Detail cover is sized to match the home text-mode reveal image (same
     // 3000w source, same coverSize-driven aspect) — index 0 so it gets
     // fetchpriority="high" as the page's LCP.
-    cover: { ...coverMedia(detail, detail.title ?? "", 0), coverSize: detail.coverSize ?? "4x3-sm" },
+    cover: { ...coverMedia(detail, detail.title ?? "", 0), coverSize: normalizeCoverSize(detail.coverSize) },
     slices: resolveSlices(detail.slices, DETAIL_SLICE_CONTEXT),
   };
 }

@@ -159,18 +159,18 @@
 .detail__cover:has(.detail__cover-inner--4x3-lg) {
   --hero-h: calc(0.4374 * var(--centre-8));
 }
-.detail__cover:has(.detail__cover-inner--3x4-sm),
-.detail__cover:has(.detail__cover-inner--3x4-lg) {
+.detail__cover:has(.detail__cover-inner--3x4) {
   --hero-h: calc(0.5835 * var(--centre-8));
 }
 
-/* Mobile hero heights — the home mobile figures split sm/lg into distinct
-   widths (from the 375 design), so unlike desktop each variant needs its own
-   height: width fraction × the aspect ratio, as a fraction of centre-8
-   (= 100vw on mobile). Same values as `.home__text-gpu-figure`'s mobile
-   sizes, keeping the home→detail bridge pixel-matched.
-     4:3 sm 69.3333% × 3/4 = 0.52      4:3 lg 84% × 3/4 = 0.63
-     3:4 sm 53.0667% × 4/3 = 0.707556  3:4 lg 69.6% × 4/3 = 0.928
+/* Mobile hero heights — the home mobile figures use distinct widths (from
+   the 375 design), so unlike desktop each variant needs its own height:
+   width fraction × the aspect ratio, as a fraction of centre-8 (= 100vw on
+   mobile). Same values as `.home__text-gpu-figure`'s mobile sizes, keeping
+   the home→detail bridge pixel-matched. 3:4 has a single size (the former
+   Large — the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`).
+     4:3 sm 69.3333% × 3/4 = 0.52   4:3 lg 84% × 3/4 = 0.63
+     3:4 69.6% × 4/3 = 0.928
    Declared after the desktop pairs so these equal-specificity overrides win. */
 @include breakpoint-mobile {
   .detail__cover:has(.detail__cover-inner--4x3-sm) {
@@ -179,10 +179,7 @@
   .detail__cover:has(.detail__cover-inner--4x3-lg) {
     --hero-h: calc(0.63 * var(--centre-8));
   }
-  .detail__cover:has(.detail__cover-inner--3x4-sm) {
-    --hero-h: calc(0.707556 * var(--centre-8));
-  }
-  .detail__cover:has(.detail__cover-inner--3x4-lg) {
+  .detail__cover:has(.detail__cover-inner--3x4) {
     --hero-h: calc(0.928 * var(--centre-8));
   }
 }
@@ -234,20 +231,20 @@
 }
 
 /* Figure width as a % of centre-8 — same values as `.home__text-gpu-figure`
-   (sm and lg share %, only the aspect differs). */
+   (both 4:3 sizes share %, only the aspect differs; 3:4 has a single size —
+   the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). */
 .detail__cover-inner--4x3-sm ._g,
 .detail__cover-inner--4x3-lg ._g {
   width: 58.35%;
 }
 
-.detail__cover-inner--3x4-sm ._g,
-.detail__cover-inner--3x4-lg ._g {
+.detail__cover-inner--3x4 ._g {
   width: 43.74%;
 }
 
 /* Mobile figure widths — the home mobile percentages (375-design widths /
-   375), split per sm/lg. Paired with the mobile --hero-h fractions above so
-   width × aspect = height and the crop matches home exactly. */
+   375). Paired with the mobile --hero-h fractions above so width × aspect =
+   height and the crop matches home exactly. */
 @include breakpoint-mobile {
   .detail__cover-inner--4x3-sm ._g {
     width: 69.3333%;
@@ -255,10 +252,7 @@
   .detail__cover-inner--4x3-lg ._g {
     width: 84%;
   }
-  .detail__cover-inner--3x4-sm ._g {
-    width: 53.0667%;
-  }
-  .detail__cover-inner--3x4-lg ._g {
+  .detail__cover-inner--3x4 ._g {
     width: 69.6%;
   }
 }

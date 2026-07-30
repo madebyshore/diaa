@@ -107,11 +107,13 @@ export default defineType({
       type: 'string',
       description: 'Aspect ratio and size of the cover image on the home grid.',
       options: {
+        // Mirrors the Image slice's matrix: 3:4 has a single size, 4:3 comes
+        // in Small / Large. Legacy `3x4-sm`/`3x4-lg` documents are normalized
+        // to `3x4` by the frontend loader (data/content.ts).
         list: [
+          {title: '3:4', value: '3x4'},
           {title: '4:3 Small', value: '4x3-sm'},
           {title: '4:3 Large', value: '4x3-lg'},
-          {title: '3:4 Small', value: '3x4-sm'},
-          {title: '3:4 Large', value: '3x4-lg'},
         ],
         layout: 'dropdown',
       },

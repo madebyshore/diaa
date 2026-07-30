@@ -393,7 +393,9 @@
   }
 
   /* Sizes are % of the 1:1 inner container (≈910×910px at 1440 breakpoint).
-     Same percentages for sm and lg — only aspect differs.
+     Same percentages for both 4:3 sizes — only aspect differs. 3:4 has a
+     single size (the CMS dropdown unified the old Small/Large pair; the
+     loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`).
        4:3 → 531×398 → 58.35% × 43.74%
        3:4 → 398×531 → 43.74% × 58.35%
   */
@@ -402,8 +404,7 @@
     width: 58.35%;
     height: 43.74%;
   }
-  &--3x4-sm,
-  &--3x4-lg {
+  &--3x4 {
     width: 43.74%;
     height: 58.35%;
   }
@@ -412,7 +413,7 @@
      full-bleed inner (width px / 375); heights follow from the aspect
      ratio instead of a % pair:
        4:3 sm 260 → 69.3333%    4:3 lg 315 → 84%
-       3:4 sm 199 → 53.0667%    3:4 lg 261 → 69.6%
+       3:4 (former lg) 261 → 69.6%
   */
   @include breakpoint-mobile {
     /* The revealed centre image doubles as a tap target for the detail
@@ -430,8 +431,7 @@
       height: auto;
       aspect-ratio: 4 / 3;
     }
-    &--3x4-sm,
-    &--3x4-lg {
+    &--3x4 {
       height: auto;
       aspect-ratio: 3 / 4;
     }
@@ -441,10 +441,7 @@
     &--4x3-lg {
       width: 84%;
     }
-    &--3x4-sm {
-      width: 53.0667%;
-    }
-    &--3x4-lg {
+    &--3x4 {
       width: 69.6%;
     }
   }
@@ -554,9 +551,9 @@
      Derived from the editorial reference:
        4:3 sm 189×142 → 58.7% × 44.1%
        4:3 lg 281×211 → 87.3% × 65.5%
-       3:4 sm 142×189 → 44.1% × 58.7%
-       3:4 lg 211×281 → 65.5% × 87.3%
-     Percentages keep the proportions responsive across breakpoints. */
+       3:4 (former lg) 211×281 → 65.5% × 87.3%
+     Percentages keep the proportions responsive across breakpoints. 3:4 has
+     a single size — the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`. */
   &--4x3-sm {
     width: 58.7%;
     height: 44.1%;
@@ -565,11 +562,7 @@
     width: 87.3%;
     height: 65.5%;
   }
-  &--3x4-sm {
-    width: 44.1%;
-    height: 58.7%;
-  }
-  &--3x4-lg {
+  &--3x4 {
     width: 65.5%;
     height: 87.3%;
   }
