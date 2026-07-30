@@ -361,6 +361,15 @@
 }
 
 .home__text-gpu-figure {
+  /* One 12-col track width, from the same responsive tokens the Image slice's
+     grid uses — lets the 4:3 sizes below equal the slice's rendered spans
+     exactly at every viewport (a fixed % would only hold at the 1440 design).
+     Matches `.detail__cover`'s --col-w formula, keeping the bridge matched. */
+  --col-w: calc(
+    (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
+      var(--columns)
+  );
+
   position: absolute;
   top: 50%;
   left: 50%;
@@ -392,29 +401,35 @@
     display: block;
   }
 
-  /* Sizes are % of the 1:1 inner container (≈910×910px at 1440 breakpoint).
-     Same percentages for both 4:3 sizes — only aspect differs. 3:4 has a
-     single size (the CMS dropdown unified the old Small/Large pair; the
-     loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`).
-       4:3 → 531×398 → 58.35% × 43.74%
-       3:4 → 398×531 → 43.74% × 58.35%
-  */
-  &--4x3-sm,
+  /* 4:3 sizes mirror the Image slice's rendered spans exactly, via the same
+     token math (not a fixed %):
+       4:3 Small → the slice's centre-6 span (6 tracks + 5 gaps; 675px at 1440)
+       4:3 Large → the slice's centre-8 span — the full inner box (910 at 1440)
+     On tablet (8 cols) the slice collapses BOTH 4:3 spans to 2/-2 — exactly
+     the inner box — and the Small calc resolves to that width by itself
+     (6 tracks + 5 gaps of the 8-col grid = the inner's 2/-2 span), so no
+     tablet override is needed. 3:4 keeps its own single design size as a %
+     of the 1:1 inner (398×531 at 1440; the loader normalizes legacy
+     `3x4-sm`/`3x4-lg` to `3x4`). */
+  &--4x3-sm {
+    width: calc(6 * var(--col-w) + 5 * var(--column-gap));
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
   &--4x3-lg {
-    width: 58.35%;
-    height: 43.74%;
+    width: 100%;
+    height: 75%;
   }
   &--3x4 {
     width: 43.74%;
     height: 58.35%;
   }
 
-  /* Mobile sizes — widths from the 375 design, converted to % of the
-     full-bleed inner (width px / 375); heights follow from the aspect
-     ratio instead of a % pair:
-       4:3 sm 260 → 69.3333%    4:3 lg 315 → 84%
-       3:4 (former lg) 261 → 69.6%
-  */
+  /* Mobile sizes — the 4:3 pair keeps tracking the Image slice's mobile
+     spans: Small = centre 4 of the 6-col grid, Large = full width inside
+     the container padding (the slice's 1/-1 inside its padded grid). The
+     inner is the full viewport here, so Large subtracts the padding
+     explicitly. 3:4 keeps its 375-design width (261 / 375 = 69.6%). */
   @include breakpoint-mobile {
     /* The revealed centre image doubles as a tap target for the detail
        page (home.ts navigates via the matching label's anchor). Only the
@@ -436,10 +451,10 @@
       aspect-ratio: 3 / 4;
     }
     &--4x3-sm {
-      width: 69.3333%;
+      width: calc(4 * var(--col-w) + 3 * var(--column-gap));
     }
     &--4x3-lg {
-      width: 84%;
+      width: calc(100% - 2 * var(--container-padding));
     }
     &--3x4 {
       width: 69.6%;
