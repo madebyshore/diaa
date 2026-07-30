@@ -7,8 +7,9 @@
  * the ported transition system onto <NuxtPage>, and kicks off the boot
  * sequence once mounted.
  *
- * Dev grid/GUI components (Ctrl+G / Ctrl+F) are out of scope for 5a — they
- * land with the home controller in Phase 5b.
+ * Dev overlays: the Ctrl+F tuning panel is mounted by the home controller
+ * (controllers/home.ts onInit); the Ctrl+G column grid (<DevGrid>) is
+ * mounted HERE, dev-only, as a sibling of <main> so it overlays every route.
  */
 import { createDefaultTransition } from "~/transitions/default";
 
@@ -38,6 +39,12 @@ usePageContentSync();
 // live for the NUXT_E1001 crash this caused.
 const defaultTransition = createDefaultTransition();
 
+// Build-time constant — Vite replaces `import.meta.dev` with a literal, so
+// the <DevGrid> branch (and its auto-imported chunk) is dropped entirely
+// from production builds, matching how HomeAnimGui is dev-gated in
+// controllers/home.ts.
+const isDev = import.meta.dev;
+
 onMounted(() => {
   console.debug("[boot] app.vue mounted — starting boot sequence");
   void runBoot();
@@ -48,6 +55,7 @@ onMounted(() => {
   <div id="w">
     <IntroOverlay />
     <IntroBeat />
+    <DevGrid v-if="isDev" />
     <main id="app">
       <NuxtPage :transition="defaultTransition" :page-key="(r) => r.fullPath" />
     </main>
