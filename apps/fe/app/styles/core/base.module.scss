@@ -27,6 +27,13 @@ html {
 body {
   margin: 0;
   @include typo-base;
+
+  /* Widow avoidance — the smarter line-breaking algorithm avoids a lone
+     word on a text block's last line. Inherited, so this one declaration
+     covers all copy (titles, rich text, captions); the intro overlay's own
+     `text-wrap: balance` (core/intro.module.scss) still overrides where
+     set. Progressive enhancement: ignored by browsers without support. */
+  text-wrap: pretty;
 }
 
 body::-webkit-scrollbar {
