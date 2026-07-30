@@ -1,20 +1,19 @@
 import {defineField, defineType} from 'sanity'
 import {BiImageAlt} from 'react-icons/bi'
-import {aspectField, sizeField, stylizedTitleField} from '../../utils/fields.js'
+import {aspectField, stylizedTitleField} from '../../utils/fields.js'
 
-// Image with Text slice — an image paired with a titled rich-text block. Unlike
-// the bare Image slice this keeps the Small size option.
+// Image with Text slice — an image paired with a titled rich-text block.
+// No Size field: each aspect has exactly one layout size.
 export default defineType({
   name: 'sliceImageWithText',
   title: 'Image with Text',
   type: 'object',
   icon: BiImageAlt,
   fields: [
-    // 3:2, 4:3, and 3:4 are supported by this slice's layout. The landscape
-    // ratios (3:2, 4:3) span the center 6 columns; 3:4 is centered with a
-    // column-derived fixed height.
-    aspectField({allowed: ['3x2', '4x3', '3x4'], initialValue: '3x2'}),
-    sizeField({includeSmall: true}),
+    // 4:3 and 3:4 are supported by this slice's layout. 4:3 spans the center
+    // 4 columns; 3:4 is centered with a fixed design height (a percentage of
+    // the centre-8 box, like the detail cover).
+    aspectField({allowed: ['4x3', '3x4'], initialValue: '4x3'}),
     defineField({
       title: 'Image',
       name: 'image',

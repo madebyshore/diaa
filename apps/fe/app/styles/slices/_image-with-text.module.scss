@@ -1,9 +1,26 @@
 @use "@/styles/includes" as *;
 
 /* Image-with-Text — centered title, image, rich-text body stacked with S gaps.
-   3:2 spans the center 4 columns; 3:4 is centered with a fixed height of 4
-   column-widths. */
+   4:3 spans the center 4 columns (height from the aspect ratio); 3:4 is
+   centered with a fixed design height expressed as a percentage of the
+   centre-8 box (see .slice-image-with-text__media--ar-3x4). */
 .slice-image-with-text {
+  /* Centre-8 reference box, mirroring `.detail__cover`'s math exactly: 1fr =
+     (content - 11 gaps) / 12, and centre-8 (cols 3→10) = 8 tracks + 7 gaps.
+     Built from the responsive grid tokens so the 3:4 height percentage below
+     scales with the viewport instead of sitting at a fixed rem. */
+  --col-w: calc(
+    (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
+      var(--columns)
+  );
+  --centre-8: calc(8 * var(--col-w) + 7 * var(--column-gap));
+
+  /* Tablet (8 cols): same 2/-2 reference shape the cover uses — 6 tracks +
+     5 gaps — so the 3:4 height keeps its proportion on the tablet grid. */
+  @include breakpoint-tablet {
+    --centre-8: calc(6 * var(--col-w) + 5 * var(--column-gap));
+  }
+
   display: grid;
   grid-template-columns: repeat(var(--columns), 1fr);
   column-gap: var(--column-gap);
@@ -38,37 +55,28 @@
     grid-column: 3 / span 4;
   }
 
-  /* Landscape ratios (3:2, 4:3): center 6 columns wide, height driven purely
-     by the aspect ratio. Tablet (8 cols) keeps the same center-6 shape via
-     one column in from each edge. */
-  &--ar-3x2,
-  &--ar-4x3 {
-    grid-column: 4 / span 6;
-
-    @include breakpoint-tablet {
-      grid-column: 2 / -2;
-    }
-  }
-  &--ar-3x2 {
-    aspect-ratio: 3 / 2;
-  }
+  /* 4:3 — center 4 columns (the base placement above), height driven purely
+     by the aspect ratio. */
   &--ar-4x3 {
     aspect-ratio: 4 / 3;
   }
+
+  /* 3:4 — centered, fixed design height of 46rem (460px at the 1440 design)
+     expressed as a percentage of the centre-8 box, exactly like the detail
+     cover's `--hero-h` fractions: 460 / 910 (centre-8 at 1440) = 50.55%.
+     Width follows from the aspect ratio. */
   &--ar-3x4 {
     grid-column: 1 / -1;
     justify-self: center;
-    height: calc-columns(4);
+    height: calc(0.5055 * var(--centre-8));
     aspect-ratio: 3 / 4;
   }
 
-  /* Mobile: mirror the plain image slice's ratio-driven placement —
-     landscape runs full width, portrait centres on the middle 4 of 6.
-     The 3:4 variant drops its column-derived fixed height (it was sized
-     against the desktop 12-col tracks); the aspect ratio sizes it from
-     its own tracks like every other mobile image. */
+  /* Mobile: 4:3 runs full width; 3:4 centres on the middle 4 of 6 and drops
+     the centre-8-derived fixed height (it was sized against the desktop
+     reference box) — the aspect ratio sizes it from its own tracks like
+     every other mobile image. */
   @include breakpoint-mobile {
-    &--ar-3x2,
     &--ar-4x3 {
       grid-column: 1 / -1;
     }

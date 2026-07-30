@@ -1,8 +1,10 @@
 /**
  * Image-with-Text slice resolver. Three stacked rows — centered title, image,
- * rich-text body. Aspect is constrained by the schema to the landscape ratios
- * 3:2 / 4:3 (span the center 6 columns, height set by the aspect ratio) or
- * 3:4 (centered, height = 4 column-widths).
+ * rich-text body. Aspect is constrained by the schema to 4:3 (spans the
+ * center 4 columns, height set by the aspect ratio) or 3:4 (centered, fixed
+ * design height of 46rem expressed as a percentage of the centre-8 box —
+ * see styles/slices/_image-with-text.module.scss). There is no Size field:
+ * each aspect has exactly one layout size.
  *
  * Ported from `apps/fe/scripts/slices/sliceImageWithText.ts`. Renamed
  * contract (Phase 3 consumer): the old `titleHtml`/`textHtml` pre-rendered
@@ -52,11 +54,10 @@ const sliceImageWithText: SliceDefinition<
     ${richTextQuery("text")}
   `,
   resolve: (raw) => {
-    // Normalize to the schema-allowed set; anything unexpected falls back to
-    // the 3:2 default.
-    const aspect = ["3x2", "4x3", "3x4"].includes(raw.aspect ?? "")
-      ? (raw.aspect as string)
-      : "3x2";
+    // Normalize to the schema-allowed set (4:3 / 3:4). The retired landscape
+    // 3:2 (and anything else unexpected) folds into 4:3 so previously
+    // published documents keep rendering without a content migration.
+    const aspect = raw.aspect === "3x4" ? "3x4" : "4x3";
     // Plain-text flatten of the stylized title blocks — still needed as the
     // image alt attribute (this is text extraction, not HTML rendering, so
     // it stays in the data layer rather than moving to Phase 3).

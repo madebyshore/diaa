@@ -1,10 +1,12 @@
 @use "@/styles/includes" as *;
 
-/* Image Slideshow — a 3:2 viewport spanning the center 8 columns with a
-   click-to-advance carousel. Every image is rendered stacked inside the
-   viewport; only `.is-active` is shown and clicking the viewport swaps which
-   one is active (instant replace, no slide). A `current / total  caption`
-   line sits under the image, aligned to its left edge. */
+/* Image Slideshow — a 4:3 viewport with a click-to-advance carousel, laid out
+   exactly like the Image slice's 4:3 Small variant: center 6 of 12 on
+   desktop, one column in from each edge on tablet, center 4 of 6 on mobile.
+   Every image is rendered stacked inside the viewport; only `.is-active` is
+   shown and clicking the viewport swaps which one is active (instant
+   replace, no slide). A `current / total  caption` line sits under the
+   image, aligned to its left edge. */
 .slice-slideshow {
   display: grid;
   grid-template-columns: repeat(var(--columns), 1fr);
@@ -18,17 +20,17 @@
 .slice-slideshow__viewport {
   display: grid;
   grid-template-areas: "stack";
-  grid-column: 3 / span 8;
-  aspect-ratio: 3 / 2;
+  grid-column: 4 / span 6;
+  aspect-ratio: 4 / 3;
 
   /* Tablet (8 cols): one column in from each edge. */
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
 
-  /* Mobile: full width. */
+  /* Mobile (6 cols): center 4, matching the Image slice's 4:3 Small. */
   @include breakpoint-mobile {
-    grid-column: 1 / -1;
+    grid-column: 2 / -2;
   }
   overflow: hidden;
   cursor: pointer;
@@ -53,7 +55,7 @@
 /* Caption row — second grid row, aligned to the image's left edge. Matches the
    shared `.slice-caption` type (Rand caption spec via typo-caption). */
 .slice-slideshow__caption {
-  grid-column: 3 / span 8;
+  grid-column: 4 / span 6;
   margin: 1.5rem 0 0;
 
   /* Tablet (8 cols): track the viewport's 2 / -2 placement so the caption
@@ -62,9 +64,9 @@
     grid-column: 2 / -2;
   }
 
-  /* Mobile: track the viewport's full width. */
+  /* Mobile: track the viewport's center-4 placement. */
   @include breakpoint-mobile {
-    grid-column: 1 / -1;
+    grid-column: 2 / -2;
   }
   @include typo-caption;
 }
