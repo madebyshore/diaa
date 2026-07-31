@@ -77,16 +77,19 @@ export function mediaFromUrls(
   alt: string,
   index: number,
   width = 3000,
+  lqip?: string | null,
 ): MediaData | null {
-  const pic = pictureFromUrl(imageUrl, alt, index, width);
+  const pic = pictureFromUrl(imageUrl, alt, index, width, undefined, lqip);
   if (!pic) return null;
   return { ...pic, hasVideo: !!videoUrl, video: videoUrl ?? "" };
 }
 
 /** Raw shape of one `imageWithCaption` array item as projected by the slice
- *  queries: `{ "url": image.asset->url, caption }`. */
+ *  queries: `{ "url": image.asset->url, "lqip": image.asset->metadata.lqip,
+ *  caption }`. */
 export interface CaptionedImageRaw {
   url?: string | null;
+  lqip?: string | null;
   caption?: PortableTextBlock[] | null;
 }
 
@@ -112,7 +115,7 @@ export function resolveCaptionedImages(
   width = 3000,
 ): CaptionedImage[] {
   return (images ?? []).map((im, i) => ({
-    image: pictureFromUrl(im.url, "", i, width),
+    image: pictureFromUrl(im.url, "", i, width, undefined, im.lqip),
     caption: im.caption ?? null,
     hasCaption: hasPortableTextContent(im.caption),
   }));

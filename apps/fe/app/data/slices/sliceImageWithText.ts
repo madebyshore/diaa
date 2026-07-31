@@ -24,6 +24,8 @@ interface RawSliceImageWithText extends RawSlice {
    *  as the Detail document's stylizedTitle. */
   stylizedTitle?: PortableTextBlock[] | null;
   image?: string | null;
+  /** Base64 blur placeholder, projected from `image.asset->metadata.lqip`. */
+  lqip?: string | null;
   /** Raw MP4 asset URL, projected from `video.asset->url`. */
   video?: string | null;
   text?: PortableTextBlock[] | null;
@@ -50,6 +52,7 @@ const sliceImageWithText: SliceDefinition<
     aspect,
     stylizedTitle,
     "image": image.asset->url,
+    "lqip": image.asset->metadata.lqip,
     "video": video.asset->url,
     ${richTextQuery("text")}
   `,
@@ -71,7 +74,7 @@ const sliceImageWithText: SliceDefinition<
       aspect,
       stylizedTitle: raw.stylizedTitle ?? null,
       hasTitle: hasPortableTextContent(raw.stylizedTitle),
-      image: mediaFromUrls(raw.image, raw.video, titleText, 0, 3000),
+      image: mediaFromUrls(raw.image, raw.video, titleText, 0, 3000, raw.lqip),
       text: raw.text ?? null,
       hasText: hasPortableTextContent(raw.text),
     };

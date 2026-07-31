@@ -15,7 +15,7 @@ import { pictureFromUrl } from "../image-url";
 import type { PictureData, RawSlice, SliceDefinition } from "./types";
 
 interface RawSliceSlideshow extends RawSlice {
-  images?: Array<{ url?: string | null }> | null;
+  images?: Array<{ url?: string | null; lqip?: string | null }> | null;
   caption?: string | null;
 }
 
@@ -32,14 +32,14 @@ const sliceImageSlideshow: SliceDefinition<
 > = {
   name: "sliceImageSlideshow",
   query: `
-    images[]{ "url": asset->url },
+    images[]{ "url": asset->url, "lqip": asset->metadata.lqip },
     caption
   `,
   resolve: (raw) => {
     // 3:2 viewport → 3000×2000 intrinsic hint; index 0 becomes the LCP-priority
     // image and renders active so SSR shows the first slide.
     const images = (raw.images ?? [])
-      .map((im, i) => pictureFromUrl(im.url, "", i, 3000, 2000))
+      .map((im, i) => pictureFromUrl(im.url, "", i, 3000, 2000, im.lqip))
       .filter((p): p is PictureData => p !== null);
     const caption = (raw.caption ?? "").trim();
     return {

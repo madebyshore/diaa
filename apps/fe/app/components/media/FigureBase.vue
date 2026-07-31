@@ -36,6 +36,11 @@ interface Props {
   eager?: boolean;
   hasVideo?: boolean;
   video?: string;
+  /** Sanity LQIP (base64 data URI, ~20px wide) — painted as a cover-fit
+   *  background on the media element so a blurred placeholder shows the
+   *  instant the box lays out, and the opaque full-res pixels simply cover
+   *  it once loaded. Zero extra requests, no load-event JS needed. */
+  lqip?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -43,7 +48,23 @@ const props = withDefaults(defineProps<Props>(), {
   eager: false,
   hasVideo: false,
   video: "",
+  lqip: "",
 });
+
+/**
+ * Inline background style carrying the LQIP placeholder. Inline (not a
+ * class) because the data URI is per-image; undefined when no LQIP was
+ * projected so the element renders exactly as before this feature.
+ */
+const lqipStyle = computed(() =>
+  props.lqip
+    ? {
+        backgroundImage: `url(${props.lqip})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : undefined,
+);
 </script>
 
 <template>
@@ -59,6 +80,7 @@ const props = withDefaults(defineProps<Props>(), {
       :poster="props.src || undefined"
       :width="props.width"
       :height="props.height"
+      :style="lqipStyle"
     />
     <img
       v-else
@@ -68,6 +90,7 @@ const props = withDefaults(defineProps<Props>(), {
       :loading="!props.eager && !props.isFirst ? 'lazy' : undefined"
       :width="props.width"
       :height="props.height"
+      :style="lqipStyle"
     />
   </figure>
 </template>

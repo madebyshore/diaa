@@ -80,6 +80,9 @@ interface DetailRef {
   allowRouting?: boolean | null;
   slug?: string | null;
   coverImage?: string | null;
+  /** Base64 blur placeholder (`coverImage.asset->metadata.lqip`) — rendered
+   *  behind the cover while the full image loads (see FigureBase). */
+  coverLqip?: string | null;
   coverVideo?: string | null;
   coverSize?: string | null;
   taxonomy?: { _id: string; title?: string } | null;
@@ -281,8 +284,8 @@ export type RouteContent =
  */
 function coverMedia(d: DetailRef, alt: string, index: number): MediaData {
   const pic = d.coverImage
-    ? sanityPicture(d.coverImage, alt, index)
-    : { src: "", alt, width: 3000, height: 4000, isFirst: index === 0 };
+    ? sanityPicture(d.coverImage, alt, index, 3000, d.coverLqip)
+    : { src: "", alt, width: 3000, height: 4000, isFirst: index === 0, lqip: "" };
   return {
     ...pic,
     hasVideo: !!d.coverVideo,

@@ -28,6 +28,8 @@ interface RawSliceImage extends RawSlice {
   aspect?: string;
   full?: boolean;
   image?: string | null;
+  /** Base64 blur placeholder, projected from `image.asset->metadata.lqip`. */
+  lqip?: string | null;
   /** Raw MP4 asset URL, projected from `video.asset->url`. */
   video?: string | null;
 }
@@ -48,6 +50,7 @@ const sliceImage: SliceDefinition<RawSliceImage, ResolvedSliceImage> = {
     aspect,
     full,
     "image": image.asset->url,
+    "lqip": image.asset->metadata.lqip,
     "video": video.asset->url
   `,
   resolve: (raw) => {
@@ -70,7 +73,7 @@ const sliceImage: SliceDefinition<RawSliceImage, ResolvedSliceImage> = {
       full,
       aspect,
       cols,
-      image: mediaFromUrls(raw.image, raw.video, "", 0, 3000),
+      image: mediaFromUrls(raw.image, raw.video, "", 0, 3000, raw.lqip),
     };
   },
 };

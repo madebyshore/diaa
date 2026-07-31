@@ -111,6 +111,7 @@ export const pageHomeQuery = `
       allowRouting,
       "slug": slug.current,
       "coverImage": coverImage.asset->url,
+      "coverLqip": coverImage.asset->metadata.lqip,
       "coverVideo": coverVideo.asset->url,
       coverSize,
       "taxonomy": taxonomy->{_id, title}
@@ -130,6 +131,7 @@ export const allDetailsQuery = `
     title,
     "slug": slug.current,
     "coverImage": coverImage.asset->url,
+    "coverLqip": coverImage.asset->metadata.lqip,
     "coverVideo": coverVideo.asset->url,
     coverSize,
     "taxonomy": taxonomy->{_id, title},
@@ -162,6 +164,7 @@ export const detailBySlugQuery = `
     title,
     "slug": slug.current,
     "coverImage": coverImage.asset->url,
+    "coverLqip": coverImage.asset->metadata.lqip,
     "coverVideo": coverVideo.asset->url,
     coverSize,
     allowRouting,

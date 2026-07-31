@@ -118,6 +118,17 @@
  *                  `data/image-url.ts`'s `sanityPicture()`, which also
  *                  splits on "?".
  *   coverVideo   — same query/field family as `coverImage` above.
+ *   coverLqip    — `coverImage.asset->metadata.lqip` (data/queries.ts), a
+ *                  base64 data-URI blur placeholder rendered as an inline
+ *                  `background-image` style by FigureBase.vue. Stega
+ *                  characters inside a data URI corrupt the base64 payload
+ *                  (broken/blank placeholder), and the value is never
+ *                  visible text.
+ *   lqip         — the slice-level alias for the same
+ *                  `asset->metadata.lqip` projection (sliceImage.ts,
+ *                  sliceImageWithText.ts, slice2Up/3Up/slideshow image
+ *                  arrays). Same data-URI-in-style-attribute concern as
+ *                  `coverLqip`.
  *   url          — the array-item alias used by sliceImageSlideshow.ts
  *                  (`images[]{ "url": asset->url }`), slice2Up.ts and
  *                  slice3Up.ts (`images[]{ "url": image.asset->url,
@@ -178,6 +189,8 @@ const EXCLUDED_RESULT_KEYS: ReadonlySet<string> = new Set([
   "video",
   "coverImage",
   "coverVideo",
+  "coverLqip",
+  "lqip",
   "url",
   "introText",
   "title",

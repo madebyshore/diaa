@@ -32,7 +32,7 @@ const slice2Up: SliceDefinition<RawSlice2Up, ResolvedSlice2Up> = {
   query: `
     layout,
     bottomAligned,
-    images[]{ "url": image.asset->url, caption }
+    images[]{ "url": image.asset->url, "lqip": image.asset->metadata.lqip, caption }
   `,
   resolve: (raw) => ({
     layout: raw.layout ?? "vertical",

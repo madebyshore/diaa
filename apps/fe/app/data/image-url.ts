@@ -33,6 +33,11 @@ export interface PictureData {
   /** True for the first image in its list — old templates used this to set
    *  `fetchpriority="high"` / eager-load the page's likely LCP image. */
   isFirst: boolean;
+  /** Sanity's LQIP (`asset->metadata.lqip`) — a ~20px-wide base64 data URI
+   *  rendered as a blur-up placeholder behind the real image while it loads
+   *  (FigureBase applies it as a background-image). Inline data, zero extra
+   *  requests. Empty string when the query didn't project it. */
+  lqip: string;
 }
 
 /** `PictureData` plus the optional cover/slice video fields. When `hasVideo`
@@ -55,6 +60,7 @@ export function sanityPicture(
   alt: string,
   index: number,
   w = 3000,
+  lqip?: string | null,
 ): PictureData {
   const baseUrl = sanityUrl.split("?")[0];
   return {
@@ -63,6 +69,7 @@ export function sanityPicture(
     width: w,
     height: Math.round((w * 4) / 3),
     isFirst: index === 0,
+    lqip: lqip ?? "",
   };
 }
 
@@ -80,6 +87,7 @@ export function pictureFromUrl(
   index: number,
   width = 3000,
   height = 4000,
+  lqip?: string | null,
 ): PictureData | null {
   if (!url) return null;
   const baseUrl = url.split("?")[0] ?? url;
@@ -89,5 +97,6 @@ export function pictureFromUrl(
     width,
     height,
     isFirst: index === 0,
+    lqip: lqip ?? "",
   };
 }
