@@ -1,8 +1,10 @@
 @use "@/styles/includes" as *;
 
 /* Image Slideshow — a 4:3 viewport with a click-to-advance carousel, laid out
-   exactly like the Image slice's 4:3 Small variant: center 6 of 12 on
-   desktop, one column in from each edge on tablet, center 4 of 6 on mobile.
+   exactly like the Image slice's 4:3: center 6 of 12 on desktop (the former
+   "Small" span), all columns inside the container padding on tablet/mobile
+   (the former "Large" treatment — the breakpoint, not a CMS value, picks
+   the size, same as every other 4:3 surface).
    Every image is rendered stacked inside the viewport; only `.is-active` is
    shown and clicking the viewport swaps which one is active (instant
    replace, no slide). A `current / total  caption` line sits under the
@@ -23,14 +25,13 @@
   grid-column: 4 / span 6;
   aspect-ratio: 4 / 3;
 
-  /* Tablet (8 cols): one column in from each edge. */
+  /* Tablet + mobile: all columns inside the container padding, matching the
+     Image slice's 4:3 span at these tiers. */
   @include breakpoint-tablet {
-    grid-column: 2 / -2;
+    grid-column: 1 / -1;
   }
-
-  /* Mobile (6 cols): center 4, matching the Image slice's 4:3 Small. */
   @include breakpoint-mobile {
-    grid-column: 2 / -2;
+    grid-column: 1 / -1;
   }
   overflow: hidden;
   cursor: pointer;
@@ -58,15 +59,13 @@
   grid-column: 4 / span 6;
   margin: 1.5rem 0 0;
 
-  /* Tablet (8 cols): track the viewport's 2 / -2 placement so the caption
-     stays aligned to the image's left edge. */
+  /* Tablet + mobile: track the viewport's full-width placement so the
+     caption stays aligned to the image's left edge. */
   @include breakpoint-tablet {
-    grid-column: 2 / -2;
+    grid-column: 1 / -1;
   }
-
-  /* Mobile: track the viewport's center-4 placement. */
   @include breakpoint-mobile {
-    grid-column: 2 / -2;
+    grid-column: 1 / -1;
   }
   @include typo-caption;
 }

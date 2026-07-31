@@ -54,23 +54,3 @@ export const stylizedTitleField = (overrides = {}) =>
     ],
     ...overrides,
   })
-
-// Returns the shared Size dropdown field. `Small` is included by default but can
-// be omitted on slices that only render at Mid or Large (`includeSmall: false`).
-export const sizeField = ({includeSmall = true, ...overrides} = {}) =>
-  defineField({
-    title: 'Size',
-    name: 'size',
-    type: 'string',
-    options: {
-      list: [
-        {title: 'Large', value: 'lg'},
-        {title: 'Mid', value: 'mid'},
-        ...(includeSmall ? [{title: 'Small', value: 'sm'}] : []),
-      ],
-      layout: 'dropdown',
-    },
-    initialValue: 'mid',
-    validation: (Rule) => Rule.required(),
-    ...overrides,
-  })

@@ -156,33 +156,39 @@
    the inner's existing variant class via :has() so no template change is
    needed; the parent needs --hero-h to size its own top padding and the
    inner's height.
-     4:3 Small → centre-6 span width × 3/4 (the calc self-resolves to the
-                 full centre-8 box on tablet, where the slice collapses to
-                 2/-2 — same as the home figure, no tablet override needed)
-     4:3 Large → centre-8 width × 3/4
-     3:4       → single design size, 58.35% of centre-8 */
-.detail__cover:has(.detail__cover-inner--4x3-sm) {
-  --hero-h: calc(0.75 * (6 * var(--col-w) + 5 * var(--column-gap)));
-}
+
+   4:3 has ONE height per breakpoint tier — the CMS Small/Large only
+   differentiates the home image-mode grid, so both variant classes share
+   every rule here (the template still emits `--4x3-sm`/`--4x3-lg` from
+   coverSize):
+     desktop → centre-6 span width × 3/4 (the former "Small")
+     tablet  → full padded width × 3/4 (the former "Large" treatment — see
+               the tablet block below)
+     3:4     → single design size, 58.35% of centre-8 */
+.detail__cover:has(.detail__cover-inner--4x3-sm),
 .detail__cover:has(.detail__cover-inner--4x3-lg) {
-  --hero-h: calc(0.75 * var(--centre-8));
+  --hero-h: calc(0.75 * (6 * var(--col-w) + 5 * var(--column-gap)));
+
+  /* Tablet: full width inside the container padding, matching the home
+     reveal figure's tablet size so the bridge stays pixel-identical. Wider
+     than the 2/-2 inner — the figure overhangs it, uncontained (see ._g). */
+  @include breakpoint-tablet {
+    --hero-h: calc(0.75 * (100vw - 2 * var(--container-padding)));
+  }
 }
 .detail__cover:has(.detail__cover-inner--3x4) {
   --hero-h: calc(0.5835 * var(--centre-8));
 }
 
-/* Mobile hero heights — width × 3/4 for the 4:3 pair, tracking the Image
-   slice's mobile spans (Small = centre 4 of the 6-col grid, Large = the
-   full 6-col span inside the container padding; centre-8 is 100vw here, so
-   Large subtracts the padding explicitly). Same widths as
-   `.home__text-gpu-figure`'s mobile sizes, keeping the home→detail bridge
-   pixel-matched. 3:4 keeps its single 375-design size (69.6% × 4/3 = 0.928;
-   the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`).
+/* Mobile hero heights — both 4:3 variants use the full-width span (the
+   former "Large"; centre-8 is 100vw here, so the padding is subtracted
+   explicitly). Same width as `.home__text-gpu-figure`'s mobile size,
+   keeping the home→detail bridge pixel-matched. 3:4 keeps its single
+   375-design size (69.6% × 4/3 = 0.928; the loader normalizes legacy
+   `3x4-sm`/`3x4-lg` to `3x4`).
    Declared after the desktop rules so these equal-specificity overrides win. */
 @include breakpoint-mobile {
-  .detail__cover:has(.detail__cover-inner--4x3-sm) {
-    --hero-h: calc(0.75 * (4 * var(--col-w) + 3 * var(--column-gap)));
-  }
+  .detail__cover:has(.detail__cover-inner--4x3-sm),
   .detail__cover:has(.detail__cover-inner--4x3-lg) {
     --hero-h: calc(0.75 * (var(--centre-8) - 2 * var(--container-padding)));
   }
@@ -238,31 +244,31 @@
 }
 
 /* Figure widths — same values as `.home__text-gpu-figure`, mirroring the
-   Image slice's spans: Small = centre-6 (the calc resolves to the full inner
-   on tablet, like the hero-height rule above), Large = the full centre-8
-   inner. 3:4 keeps its single design size (43.74% of centre-8; the loader
-   normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). */
-.detail__cover-inner--4x3-sm ._g {
-  width: calc(6 * var(--col-w) + 5 * var(--column-gap));
-}
-
+   Image slice's spans. Both 4:3 variant classes share one width per tier
+   (Small/Large only matters to the home image-mode grid): desktop = the
+   centre-6 span, tablet = the full padded viewport width (overhanging the
+   2/-2 inner — ._g is absolutely centred and nothing between it and the
+   viewport clips horizontally). 3:4 keeps its single design size (43.74%
+   of centre-8; the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). */
+.detail__cover-inner--4x3-sm ._g,
 .detail__cover-inner--4x3-lg ._g {
-  width: 100%;
+  width: calc(6 * var(--col-w) + 5 * var(--column-gap));
+
+  @include breakpoint-tablet {
+    width: calc(100vw - 2 * var(--container-padding));
+  }
 }
 
 .detail__cover-inner--3x4 ._g {
   width: 43.74%;
 }
 
-/* Mobile figure widths — the Image slice's mobile spans for the 4:3 pair
-   (Small = centre 4 of 6, Large = full width inside the container padding;
-   the inner is full-bleed 100vw here), the 375-design % for 3:4. Paired
-   with the mobile --hero-h fractions above so width × aspect = height and
-   the crop matches home exactly. */
+/* Mobile figure widths — both 4:3 variants at full width inside the
+   container padding (the inner is full-bleed 100vw here), the 375-design %
+   for 3:4. Paired with the mobile --hero-h fractions above so
+   width × aspect = height and the crop matches home exactly. */
 @include breakpoint-mobile {
-  .detail__cover-inner--4x3-sm ._g {
-    width: calc(4 * var(--col-w) + 3 * var(--column-gap));
-  }
+  .detail__cover-inner--4x3-sm ._g,
   .detail__cover-inner--4x3-lg ._g {
     width: calc(100% - 2 * var(--container-padding));
   }
