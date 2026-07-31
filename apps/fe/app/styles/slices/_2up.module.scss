@@ -18,16 +18,63 @@
   overflow: hidden;
 }
 
-/* Vertical — both 3:4, centered, fixed 14.8rem gap, height = 4 column-widths. */
+/* Vertical — both 3:4, centered, fixed 14.8rem gap, height = 4 column-widths.
+   That geometry is DESKTOP-ONLY: the fixed gap + fixed height overflow small
+   viewports (the second image ran off-screen), so tablet and mobile return
+   to the base grid and place the pair side by side, 3 columns each. */
 .slice-2up--vertical {
   display: flex;
   justify-content: center;
   align-items: flex-start;
   gap: 14.8rem;
+
+  /* Tablet (8 cols) + mobile (6 cols): back to the shared grid. `gap` must
+     be restored explicitly — the 14.8rem shorthand above clobbered the base
+     rule's column-gap token. */
+  @include breakpoint-tablet {
+    display: grid;
+    gap: var(--column-gap);
+  }
+  @include breakpoint-mobile {
+    display: grid;
+    gap: var(--column-gap);
+  }
 }
 .slice-2up--vertical .slice-2up__media {
   height: calc-columns(4);
   aspect-ratio: 3 / 4;
+
+  /* Small tiers: width-driven inside the grid cell (the fixed desktop
+     height would overflow); the 3:4 ratio derives the height. */
+  @include breakpoint-tablet {
+    width: 100%;
+    height: auto;
+  }
+  @include breakpoint-mobile {
+    width: 100%;
+    height: auto;
+  }
+}
+
+/* Side-by-side pair, 3 columns each: adjacent with one-column outer margins
+   on the 8-col tablet grid, the full width of the 6-col mobile grid (same
+   full-bleed 3+3 pattern as variant B's mobile placement). Desktop is
+   untouched — the flex layout above ignores grid-column entirely. */
+.slice-2up--vertical .slice-2up__item:nth-child(1) {
+  @include breakpoint-tablet {
+    grid-column: 2 / span 3;
+  }
+  @include breakpoint-mobile {
+    grid-column: 1 / span 3;
+  }
+}
+.slice-2up--vertical .slice-2up__item:nth-child(2) {
+  @include breakpoint-tablet {
+    grid-column: 5 / span 3;
+  }
+  @include breakpoint-mobile {
+    grid-column: 4 / span 3;
+  }
 }
 
 /* A — first 3:4 (col 2, span 3); second 4:3 (col 6, span 6).
