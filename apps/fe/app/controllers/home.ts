@@ -513,10 +513,10 @@ export function createHomeController(): PageController {
     // opacity 0, right before applyFilterVisibility's item-visibility swap
     // takes effect), so the jump is invisible and the fade-in below reveals
     // the newly-filtered list already sitting at the top — never a
-    // visible jump-then-settle. Native `window.scrollTo`, not `$lenis`:
-    // mobile has no Lenis instance at all (`plugins/lenis.client.ts` provides
-    // `null` there), matching composables/useLenisScroll.ts's own native-
-    // scroll fallback convention for mobile. Desktop is unaffected — it
+    // visible jump-then-settle. Native `window.scrollTo` remains correct now
+    // that mobile runs Lenis (syncTouch — plugins/lenis.client.ts): Lenis
+    // observes external native scrolls via its own scroll listener and
+    // re-syncs its internal position from them. Desktop is unaffected — it
     // keeps restoring `savedScrollY` via Lenis, same as before.
     if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) {
       window.scrollTo(0, 0);

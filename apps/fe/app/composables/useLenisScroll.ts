@@ -1,10 +1,14 @@
 import type { ScrollEvent } from "~/controllers/page-controller";
 
 /**
- * composables/useLenisScroll.ts — subscribe to $lenis scroll events (or a
- * native-scroll fallback on mobile, where $lenis is null), auto-cleaned-up
- * on unmount. Bridges to the PageController.onScroll shape ({current,
- * target, max}) every controller expects.
+ * composables/useLenisScroll.ts — subscribe to $lenis scroll events,
+ * auto-cleaned-up on unmount. Bridges to the PageController.onScroll shape
+ * ({current, target, max}) every controller expects.
+ *
+ * Since the syncTouch change, mobile runs Lenis too (plugins/lenis.client.ts)
+ * so the $lenis branch is the live path everywhere; the native-scroll
+ * fallback below is dormant, kept for the case where mobile Lenis is ever
+ * disabled again.
  *
  * NOT auto-subscribed on mount — transitions/default.ts's onAfterEnter calls
  * `subscribeOnScroll(controller)` (a plain function export below) explicitly,
@@ -33,8 +37,9 @@ export function subscribeOnScroll(cb: (e: ScrollEvent) => void): () => void {
     $lenis.on("scroll", handler);
     off = () => $lenis.off("scroll", handler);
   } else {
-    // Mobile: no Lenis — bridge native scroll directly (matching how
-    // NativeScroller mirrors native scroll for onScroll subscribers there).
+    // Dormant fallback (mobile now runs Lenis — see the header note): bridge
+    // native scroll directly, matching how NativeScroller mirrored native
+    // scroll for onScroll subscribers in the original diaa mobile build.
     const onScroll = () => {
       cb({
         current: window.scrollY,

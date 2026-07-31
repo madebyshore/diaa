@@ -13,9 +13,10 @@ import type Lenis from "lenis";
  */
 const snapshots = new Map<string, number>();
 
-/** Save the current Lenis scroll position for `path`. No-ops when Lenis is
- *  null (mobile — native scroll isn't snapshotted/restored, matching diaa's
- *  own behavior where NativeScroller mirrors but doesn't drive mobile scroll). */
+/** Save the current Lenis scroll position for `path`. Since the syncTouch
+ *  change, mobile runs Lenis too (plugins/lenis.client.ts), so mobile scroll
+ *  IS snapshotted + restored on back-nav exactly like desktop; the null
+ *  guard is a dormant fallback for a Lenis-less configuration. */
 export function saveScroll(path: string, lenis: Lenis | null): void {
   if (lenis) snapshots.set(path, lenis.scroll);
 }
@@ -32,6 +33,8 @@ export function restoreOrResetScroll(
   direction: "back" | "forward",
 ): void {
   if (!lenis) {
+    // DORMANT since mobile runs Lenis (see saveScroll's note) — kept for a
+    // Lenis-less configuration. Original rationale:
     // Mobile (native scroll, no Lenis): ALWAYS reset to top. There are no
     // snapshots to restore on mobile (saveScroll no-ops there), and without
     // this explicit reset the document silently keeps whatever scroll the
