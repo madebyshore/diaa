@@ -1,3 +1,4 @@
+import {createElement, Fragment} from 'react'
 import {defineConfig} from 'sanity'
 import {structureTool} from 'sanity/structure'
 import {presentationTool, defineLocations} from 'sanity/presentation'
@@ -101,5 +102,36 @@ export default defineConfig({
 
   schema: {
     types: schemaTypes,
+  },
+
+  studio: {
+    components: {
+      // Layout wrapper whose only job is injecting one CSS rule: hide the
+      // Edit/Preview mode toggle in Presentation's preview toolbar so editors
+      // can't accidentally turn click-to-edit overlays off (the toggle starts
+      // on, and with no control rendered it stays on). There is no supported
+      // plugin option for this — the toggle is hardcoded in Presentation's
+      // header — so we remove it via CSS. `display: none` also drops it from
+      // tab order, closing the keyboard-focus path a pointer-events freeze
+      // would leave open. The selector keys off the toggle's unique
+      // pill-shaped label wrapper (inline `border-radius: 999px` on a
+      // `label[data-ui="Card"]`): a bare `[data-ui="Switch"]` would also
+      // hide every boolean field's switch in the document form pane, which
+      // uses the same primitive. Internal DOM, not public API — re-verify
+      // the selector after Studio upgrades. Note the Alt/Option
+      // momentary-disable shortcut still works (fine: it springs back on
+      // release).
+      layout: (props) =>
+        createElement(
+          Fragment,
+          null,
+          createElement(
+            'style',
+            null,
+            'label[data-ui="Card"][style*="999px"]:has([data-ui="Switch"]) { display: none; }',
+          ),
+          props.renderDefault(props),
+        ),
+    },
   },
 })
