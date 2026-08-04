@@ -128,7 +128,29 @@ export function createDefaultTransition(): TransitionProps {
       const controller = getPageController(incomingPath);
       const { $lenis } = useNuxtApp();
 
-      const direction = takeNavDirection();
+      let direction = takeNavDirection();
+
+      // Close-button scroll parity on touch tiers (client request): leaving a
+      // [slug] page for home via the "( Close )" footer is a FORWARD nav (an
+      // anchor click, no popstate), so it would reset home to the top — but
+      // on mobile/tablet the user expects Close to behave like the browser
+      // back button and return them to wherever they left the home scroll.
+      // Upgrading the direction here (rather than inside scroll-restore.ts)
+      // keeps the tier gate next to the only call site that knows the
+      // route names. ≤1024px matches the SCSS mobile+tablet tiers exactly
+      // (the 12-col desktop grid starts at 1025 — see core/root.module.scss);
+      // desktop keeps the original Close-resets-to-top behaviour. A direct
+      // detail load with no home snapshot is safe: restoreOrResetScroll's
+      // "back" branch falls through to top when no snapshot exists.
+      if (
+        direction === "forward" &&
+        outgoingName === "slug" &&
+        incomingName === "index" &&
+        window.matchMedia("(max-width: 1024px)").matches
+      ) {
+        direction = "back";
+        console.debug("[scroll-restore] slug→home on touch tier — treating Close as back");
+      }
 
       // Sequential timing: wait for the OLD page's out() to fully resolve
       // before starting the new page's real entrance — reproduces diaa's
