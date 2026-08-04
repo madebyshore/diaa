@@ -52,12 +52,38 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 /**
+ * True once the full-res media has decoded — at that point the LQIP
+ * background is dead weight (and visibly bleeds through wherever the media
+ * is animated below full opacity, e.g. the home grid's image mode), so we
+ * drop the inline style entirely instead of leaving it painted underneath.
+ */
+const mediaLoaded = ref(false);
+
+const mediaEl = ref<HTMLImageElement | HTMLVideoElement | null>(null);
+
+/**
+ * The `load` event can fire before hydration attaches our listener when the
+ * image comes straight from cache — check the element's own completed state
+ * on mount so a cache hit still clears the placeholder.
+ */
+onMounted(() => {
+  const el = mediaEl.value;
+  if (!el) return;
+  if (el instanceof HTMLImageElement && el.complete && el.naturalWidth > 0) {
+    mediaLoaded.value = true;
+  } else if (el instanceof HTMLVideoElement && el.readyState >= 2) {
+    mediaLoaded.value = true;
+  }
+});
+
+/**
  * Inline background style carrying the LQIP placeholder. Inline (not a
  * class) because the data URI is per-image; undefined when no LQIP was
- * projected so the element renders exactly as before this feature.
+ * projected (so the element renders exactly as before this feature) and
+ * again once the real media has loaded and the placeholder is obsolete.
  */
 const lqipStyle = computed(() =>
-  props.lqip
+  props.lqip && !mediaLoaded.value
     ? {
         backgroundImage: `url(${props.lqip})`,
         backgroundSize: "cover",
@@ -71,6 +97,7 @@ const lqipStyle = computed(() =>
   <figure class="_g">
     <video
       v-if="props.hasVideo"
+      ref="mediaEl"
       class="_g-video"
       :src="props.video"
       autoplay
@@ -81,9 +108,11 @@ const lqipStyle = computed(() =>
       :width="props.width"
       :height="props.height"
       :style="lqipStyle"
+      @loadeddata="mediaLoaded = true"
     />
     <img
       v-else
+      ref="mediaEl"
       :src="props.src"
       :alt="props.alt"
       :fetchpriority="props.isFirst ? 'high' : undefined"
@@ -91,6 +120,7 @@ const lqipStyle = computed(() =>
       :width="props.width"
       :height="props.height"
       :style="lqipStyle"
+      @load="mediaLoaded = true"
     />
   </figure>
 </template>
