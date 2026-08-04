@@ -34,7 +34,25 @@ export default defineNuxtPlugin(() => {
     // (`router.afterEach` — after the route resolves, not before a
     // transition even starts) so Presentation only ever hears about
     // navigations that actually landed.
+    //
+    // ALSO reports the CURRENT route once, immediately on subscribe:
+    // Presentation's own idea of the preview URL starts as whatever it
+    // loaded into the iframe — the `/preview/enable?...` grant link — and
+    // `afterEach` only fires for navigations AFTER that, so without this
+    // initial report the Studio URL bar stays stuck on `/preview/enable`
+    // until the editor's first in-app click. That stale URL is what
+    // `resolve.mainDocuments` (apps/be/sanity.config.js) matches routes
+    // against, so the "Documents on this page" sidebar showed "No matching
+    // documents" on first load of every route. `type: "replace"` (not
+    // "push") — this corrects the current entry rather than growing
+    // Presentation's history; behind `router.isReady()` so the report
+    // carries the settled post-redirect route, not a mid-resolution one.
     subscribe(navigate: HistoryAdapterNavigate): () => void {
+      void router.isReady().then(() => {
+        const url = router.currentRoute.value.fullPath;
+        console.debug(`[preview] reporting initial location — url="${url}"`);
+        navigate({ type: "replace", url });
+      });
       return router.afterEach((to) => {
         navigate({ type: "push", url: to.fullPath });
       });
