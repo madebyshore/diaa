@@ -1,7 +1,7 @@
 import {createElement, Fragment} from 'react'
 import {defineConfig} from 'sanity'
 import {structureTool} from 'sanity/structure'
-import {presentationTool, defineLocations} from 'sanity/presentation'
+import {presentationTool, defineLocations, defineDocuments} from 'sanity/presentation'
 import {visionTool} from '@sanity/vision'
 import {schemaTypes} from './schemaTypes'
 import {media} from 'sanity-plugin-media'
@@ -89,13 +89,38 @@ export default defineConfig({
             }),
           }),
         },
-        // No `mainDocuments`: detail/pageContact/pageImprint all resolve to
-        // single-segment root paths (`/${slug}`) from freeform slugs, so a
-        // route pattern can't disambiguate which document type produced a
-        // given path without also fetching and comparing against live slugs —
-        // that lookup is exactly what `locations` above already provides in
-        // the other direction. Add it later if the Presentation "main
-        // document" panel proves worth the extra query.
+        // Main documents: resolves the primary document for the URL in the
+        // Presentation iframe, populating the "Documents on this page"
+        // sidebar. Needed because the front end ships NO stega encoding
+        // (apps/fe/app/data/stega.ts has `enabled: false`) — with no
+        // zero-width markers in the DOM, the visual-editing runtime detects
+        // zero documents, so without this the sidebar reads "No matching
+        // documents" on every route. The single-segment `/:slug` pattern
+        // can't disambiguate document type on its own, so ONE filter mirrors
+        // the front end's route resolution exactly (loadRouteContent in
+        // apps/fe/app/data/content.ts): detail requires a slug match AND
+        // `allowRouting !== false` (GROQ: missing → null != false → true,
+        // same as the JS check); contact/imprint match their authored slug,
+        // falling back to "contact"/"imprint" when unauthored — the same
+        // `?? "contact"` / `?? "imprint"` coalesce content.ts applies. Edge:
+        // a detail slugged "contact"/"imprint" beside an unauthored
+        // singleton matches both here with no guaranteed order, while the
+        // front end deterministically prefers detail — acceptable, since
+        // that slug collision is already a broken authoring state.
+        mainDocuments: defineDocuments([
+          {
+            route: '/',
+            type: 'pageHome',
+          },
+          {
+            route: '/:slug',
+            filter: `
+              (_type == "detail" && slug.current == $slug && allowRouting != false) ||
+              (_type == "pageContact" && coalesce(slug.current, "contact") == $slug) ||
+              (_type == "pageImprint" && coalesce(slug.current, "imprint") == $slug)
+            `,
+          },
+        ]),
       },
     }),
   ],
