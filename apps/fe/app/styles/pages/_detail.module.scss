@@ -161,10 +161,13 @@
    differentiates the home image-mode grid, so both variant classes share
    every rule here (the template still emits `--4x3-sm`/`--4x3-lg` from
    coverSize):
-     desktop → centre-6 span width × 3/4 (the former "Small")
-     tablet  → full padded width × 3/4 (the former "Large" treatment — see
+     desktop → centre-6 span width × 3/4 (the slice's c6 span)
+     tablet  → full padded width × 3/4 (the slice's 1/-1 tablet span — see
                the tablet block below)
-     3:4     → single design size, 58.35% of centre-8 */
+     3:4     → the slice's c4 span width (4 tracks + 3 gaps) × 4/3, via ONE
+               tier-agnostic formula — --col-w recomputes from the
+               responsive --columns tokens, so the same calc matches the
+               slice's centre-4 span on 12, 8, and 6 columns alike */
 .detail__cover:has(.detail__cover-inner--4x3-sm),
 .detail__cover:has(.detail__cover-inner--4x3-lg) {
   --hero-h: calc(0.75 * (6 * var(--col-w) + 5 * var(--column-gap)));
@@ -177,23 +180,20 @@
   }
 }
 .detail__cover:has(.detail__cover-inner--3x4) {
-  --hero-h: calc(0.5835 * var(--centre-8));
+  --hero-h: calc(4 / 3 * (4 * var(--col-w) + 3 * var(--column-gap)));
 }
 
 /* Mobile hero heights — both 4:3 variants use the full-width span (the
-   former "Large"; centre-8 is 100vw here, so the padding is subtracted
-   explicitly). Same width as `.home__text-gpu-figure`'s mobile size,
-   keeping the home→detail bridge pixel-matched. 3:4 keeps its single
-   375-design size (69.6% × 4/3 = 0.928; the loader normalizes legacy
-   `3x4-sm`/`3x4-lg` to `3x4`).
-   Declared after the desktop rules so these equal-specificity overrides win. */
+   slice's 1/-1 mobile span; centre-8 is 100vw here, so the padding is
+   subtracted explicitly). Same width as `.home__text-gpu-figure`'s mobile
+   size, keeping the home→detail bridge pixel-matched. 3:4 needs no
+   override — its track formula above already resolves against the 6-col
+   mobile grid (the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`).
+   Declared after the desktop rules so this equal-specificity override wins. */
 @include breakpoint-mobile {
   .detail__cover:has(.detail__cover-inner--4x3-sm),
   .detail__cover:has(.detail__cover-inner--4x3-lg) {
     --hero-h: calc(0.75 * (var(--centre-8) - 2 * var(--container-padding)));
-  }
-  .detail__cover:has(.detail__cover-inner--3x4) {
-    --hero-h: calc(0.928 * var(--centre-8));
   }
 }
 
@@ -248,8 +248,9 @@
    (Small/Large only matters to the home image-mode grid): desktop = the
    centre-6 span, tablet = the full padded viewport width (overhanging the
    2/-2 inner — ._g is absolutely centred and nothing between it and the
-   viewport clips horizontally). 3:4 keeps its single design size (43.74%
-   of centre-8; the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). */
+   viewport clips horizontally). 3:4 is the slice's c4 span — 4 tracks +
+   3 gaps via one tier-agnostic formula, exactly like the home reveal
+   figure (the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). */
 .detail__cover-inner--4x3-sm ._g,
 .detail__cover-inner--4x3-lg ._g {
   width: calc(6 * var(--col-w) + 5 * var(--column-gap));
@@ -260,20 +261,18 @@
 }
 
 .detail__cover-inner--3x4 ._g {
-  width: 43.74%;
+  width: calc(4 * var(--col-w) + 3 * var(--column-gap));
 }
 
 /* Mobile figure widths — both 4:3 variants at full width inside the
-   container padding (the inner is full-bleed 100vw here), the 375-design %
-   for 3:4. Paired with the mobile --hero-h fractions above so
-   width × aspect = height and the crop matches home exactly. */
+   container padding (the inner is full-bleed 100vw here). Paired with the
+   mobile --hero-h fraction above so width × aspect = height and the crop
+   matches home exactly. 3:4 needs no override — its track formula
+   self-adjusts to the 6-col mobile grid. */
 @include breakpoint-mobile {
   .detail__cover-inner--4x3-sm ._g,
   .detail__cover-inner--4x3-lg ._g {
     width: calc(100% - 2 * var(--container-padding));
-  }
-  .detail__cover-inner--3x4 ._g {
-    width: 69.6%;
   }
 }
 

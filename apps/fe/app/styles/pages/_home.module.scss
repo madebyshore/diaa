@@ -361,8 +361,8 @@
 }
 
 .home__text-gpu-figure {
-  /* One 12-col track width, from the same responsive tokens the Image slice's
-     grid uses — lets the 4:3 sizes below equal the slice's rendered spans
+  /* One grid-track width, from the same responsive tokens the Image slice's
+     grid uses — lets BOTH ratio sizes below equal the slice's rendered spans
      exactly at every viewport (a fixed % would only hold at the 1440 design).
      Matches `.detail__cover`'s --col-w formula, keeping the bridge matched. */
   --col-w: calc(
@@ -401,17 +401,26 @@
     display: block;
   }
 
-  /* 4:3 has ONE rendered size per breakpoint tier, regardless of the CMS
+  /* BOTH ratios now render the Image slice's exact spans (the same rects
+     `.slice-image__media--c6`/`--c4` occupy on the page grid), built from
+     the responsive grid tokens rather than fixed design percentages — the
+     figures are absolutely centred, and the slice spans are symmetric
+     around the page centre at every tier (c6 = 4/span 6 of 12, c4 =
+     5/span 4 of 12, 3/span 4 of 8, 2/-2 of 6), so centred + span-width is
+     pixel-identical to true grid placement.
+
+     4:3 has ONE rendered size per breakpoint tier, regardless of the CMS
      Cover Size — Small vs Large only differentiates the image-mode grid.
      Both variant classes therefore share every rule (the template still
      emits `--4x3-sm`/`--4x3-lg` from coverSize, so both must be styled):
-       desktop       → the Image slice's centre-6 span (the former "Small";
-                       6 tracks + 5 gaps; 675px at 1440), via the same token
-                       math the slice uses (not a fixed %)
-       tablet/mobile → full width inside the container padding (the former
-                       "Large" treatment), matching the slice's 1/-1 span
-     3:4 keeps its own single design size as a % of the 1:1 inner (398×531
-     at 1440; the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). */
+       desktop       → the slice's centre-6 span (6 tracks + 5 gaps)
+       tablet/mobile → full width inside the container padding (the slice's
+                       1/-1 tablet/mobile span)
+     3:4 is the slice's c4 span — 4 tracks + 3 gaps — via ONE formula for
+     every tier: --col-w recomputes from the responsive --columns tokens, so
+     the same calc yields centre-4-of-12 (desktop), 3/span 4 of 8 (tablet),
+     and 2/-2 of 6 (mobile) automatically. (The loader normalizes legacy
+     `3x4-sm`/`3x4-lg` to `3x4`.) */
   &--4x3-sm,
   &--4x3-lg {
     width: calc(6 * var(--col-w) + 5 * var(--column-gap));
@@ -428,14 +437,15 @@
     }
   }
   &--3x4 {
-    width: 43.74%;
-    height: 58.35%;
+    width: calc(4 * var(--col-w) + 3 * var(--column-gap));
+    height: auto;
+    aspect-ratio: 3 / 4;
   }
 
-  /* Mobile sizes — both 4:3 variants render the full-width span (the former
-     "Large"): the inner is the full viewport here, so the padding is
-     subtracted explicitly. 3:4 keeps its 375-design width
-     (261 / 375 = 69.6%). */
+  /* Mobile sizes — both 4:3 variants render the full-width span (the slice's
+     1/-1 mobile span): the inner is the full viewport here, so the padding
+     is subtracted explicitly. 3:4 needs no override — its track formula
+     above already resolves to the slice's centre-4-of-6 mobile span. */
   @include breakpoint-mobile {
     /* The revealed centre image doubles as a tap target for the detail
        page (home.ts navigates via the matching label's anchor). Only the
@@ -452,11 +462,6 @@
       height: auto;
       aspect-ratio: 4 / 3;
       width: calc(100% - 2 * var(--container-padding));
-    }
-    &--3x4 {
-      height: auto;
-      aspect-ratio: 3 / 4;
-      width: 69.6%;
     }
   }
 }
