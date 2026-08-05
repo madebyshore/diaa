@@ -216,19 +216,21 @@
     padding-block: var(--S);
   }
 
-  /* Mobile: one label per screen — the item box stays its natural
-     --home-item-h (a normal tap target, see .home__text-item) and the gap
-     makes item + gap fit exactly one small viewport (100svh − item), so
-     consecutive labels sit a whole screen apart centre-to-centre: no two
-     entries read on screen at once, and the next always enters from below
-     the footer as the active one leaves past the nav. svh (not a
-     chrome-dependent unit) keeps the rhythm stable when the browser
-     toolbar minimises mid-scroll — a gap measured off the visible
-     viewport would reveal the next entry early once the toolbar hides.
-     The edge padding (50svh − half an item) keeps the begin/end-on-the-
-     midline contract: the first label centres on load, the last at full
-     scroll. (Declared after the max-height rule above so this shorthand
-     wins its padding-block.) */
+  /* Mobile: the item box stays its natural --home-item-h (a normal tap
+     target, see .home__text-item) and the gap is HALF the old
+     screen-per-entry rhythm — (100svh − item) / 2 instead of 100svh − item —
+     so consecutive labels sit roughly half a screen apart centre-to-centre
+     and two entries can read on screen at once. The image handoff no longer
+     needs the one-per-screen spacing: home.ts's updateScrollReveal swaps at
+     the reveal container's edges (next label touches the container's bottom
+     scrolling down, previous touches its top scrolling up), not at the
+     midline crossover the old rhythm guaranteed. svh (not a chrome-dependent
+     unit) keeps the rhythm stable when the browser toolbar minimises
+     mid-scroll — a gap measured off the visible viewport would shift the
+     entries once the toolbar hides. The edge padding (50svh − half an item)
+     keeps the begin/end-on-the-midline contract: the first label centres on
+     load, the last at full scroll. (Declared after the max-height rule above
+     so this shorthand wins its padding-block.) */
   @include breakpoint-mobile {
     --home-item-h: 8rem;
     flex-flow: column nowrap;
@@ -237,7 +239,7 @@
        block and pull the first item off the midline. */
     justify-content: flex-start;
     align-items: center;
-    gap: calc(100svh - var(--home-item-h));
+    gap: calc((100svh - var(--home-item-h)) / 2);
     padding: calc(50svh - var(--home-item-h) / 2) var(--container-padding);
     /* The pane sits above the image overlay (z-index 1 vs 0), so by
        default it swallows every tap. Letting taps fall through the pane —

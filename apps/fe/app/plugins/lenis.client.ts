@@ -1,40 +1,31 @@
 /**
  * plugins/lenis.client.ts — Lenis smooth-scroll instance, ticked by kido's
  * Raf hub, replacing diaa's kido NativeScroller (apps/fe/src/app/index.ts
- * boot phase 3). Provides `$lenis` to the whole app — on DESKTOP and, since
- * the syncTouch change, on MOBILE too.
+ * boot phase 3). Provides `$lenis` to the whole app, on desktop AND mobile.
  *
- * MOBILE NOW RUNS LENIS (a deliberate departure from the original diaa
- * behavior, which left mobile on pure native momentum scroll): `syncTouch`
- * makes Lenis intercept touchmove and drive the scroll itself, which is the
- * only way a speed multiplier can exist on touch — native scrolling has no
- * speed knob. `MOBILE_TOUCH_MULTIPLIER` scales finger travel; raise/lower it
- * to taste. Trade-off accepted: the platform's native momentum/rubber-band
- * feel is replaced by Lenis's synthetic touch inertia.
- *
- * Ripple effects of `$lenis` being non-null on mobile (all verified against
- * the consumers, all desirable):
- *   - useNavLock/useBoot's `$lenis?.stop()/start()` now actually freeze
- *     mobile scrolling during transitions and the intro (previously native
- *     scroll stayed live underneath).
- *   - lib/scroll-restore.ts now snapshots + restores mobile scroll on
- *     back-nav exactly like desktop (its window.scrollTo(0,0) mobile-reset
- *     branch and useLenisScroll's native-scroll fallback become dormant —
- *     kept as fallbacks should mobile Lenis ever be disabled again).
- *   - controllers/home.ts's filter-switch mobile top-reset uses native
- *     `window.scrollTo`, which Lenis observes via its own native scroll
- *     listener and re-syncs from — still correct under syncTouch.
+ * MOBILE TOUCH IS NATIVE AGAIN (the syncTouch + touchMultiplier experiment
+ * is reverted): without `syncTouch`, Lenis ignores touchmove entirely and
+ * the browser's own momentum/rubber-band scrolling drives the page — 1:1
+ * finger travel, no speed multiplier, the original diaa feel. The instance
+ * is still created on mobile (NOT reverted to the old `$lenis = null`)
+ * because it costs nothing — Lenis passively mirrors native scroll via its
+ * own scroll listener and emits `scroll` events for subscribers — and two
+ * consumers depend on it existing:
+ *   - lib/scroll-restore.ts snapshots `lenis.scroll` and restores via
+ *     `lenis.scrollTo(..., {immediate: true})`, which is what makes the
+ *     Close-as-back home-scroll restore on mobile/tablet work
+ *     (transitions/default.ts's slug→home direction upgrade).
+ *   - composables/useLenisScroll.ts subscribes controllers' onScroll through
+ *     `$lenis.on("scroll")` — native scrolls are re-emitted by Lenis, so the
+ *     mobile scroll-driven home reveal keeps ticking.
+ * Trade-off of dropping syncTouch: `$lenis?.stop()/start()` (nav lock, boot)
+ * no longer freezes mobile touch scrolling during transitions/the intro —
+ * native scroll can't be stopped without intercepting touch. That is the
+ * original pre-syncTouch behaviour, shipped and accepted.
  */
 import { Sniff } from "kido/utils";
 import { Raf } from "kido/raf";
 import Lenis from "lenis";
-
-/**
- * Touch scroll speed multiplier for the syncTouch path — 1 is finger-exact,
- * >1 scrolls further than the finger travels. Applied on mobile only (the
- * desktop instance never sets syncTouch, so wheel behavior is untouched).
- */
-const MOBILE_TOUCH_MULTIPLIER = 1.5;
 
 export default defineNuxtPlugin((nuxtApp) => {
   // Disable browser scroll restoration before any route change so back/
@@ -46,28 +37,16 @@ export default defineNuxtPlugin((nuxtApp) => {
   // (native-scroller.ts `this._damping = config.damping ?? 0.09`), but
   // diaa's actual boot call (apps/fe/src/app/index.ts) constructs it with
   // `damping: 0.1` explicitly — the REAL shipped desktop feel is 0.1, not
-  // 0.09. Use 0.1 here for true parity. Mobile keeps the same lerp for the
-  // rare wheel/trackpad input; touch goes through syncTouch's own
-  // `syncTouchLerp` catch-up (Lenis default), not this lerp.
-  const lenis = markRaw(
-    new Lenis(
-      Sniff.isMobile
-        ? {
-            autoRaf: false,
-            lerp: 0.1,
-            syncTouch: true,
-            touchMultiplier: MOBILE_TOUCH_MULTIPLIER,
-          }
-        : { autoRaf: false, lerp: 0.1 },
-    ),
-  );
+  // 0.09. Use 0.1 here for true parity. On mobile this lerp only touches the
+  // rare wheel/trackpad input; touch never enters Lenis (no syncTouch).
+  const lenis = markRaw(new Lenis({ autoRaf: false, lerp: 0.1 }));
 
   const scroller = new Raf("scroller", (elapsed: number) => lenis.raf(elapsed));
   scroller.run();
 
   console.debug(
     Sniff.isMobile
-      ? `[lenis] mobile Lenis instance created, syncTouch on, touchMultiplier=${MOBILE_TOUCH_MULTIPLIER}`
+      ? "[lenis] mobile Lenis instance created (passive mirror — native touch scroll, no syncTouch)"
       : "[lenis] desktop Lenis instance created, lerp=0.1, ticked via kido Raf",
   );
   nuxtApp.provide("lenis", lenis);

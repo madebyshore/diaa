@@ -13,10 +13,10 @@ import type Lenis from "lenis";
  */
 const snapshots = new Map<string, number>();
 
-/** Save the current Lenis scroll position for `path`. Since the syncTouch
- *  change, mobile runs Lenis too (plugins/lenis.client.ts), so mobile scroll
- *  IS snapshotted + restored on back-nav exactly like desktop; the null
- *  guard is a dormant fallback for a Lenis-less configuration. */
+/** Save the current Lenis scroll position for `path`. Mobile runs Lenis too
+ *  (a passive mirror of native touch scroll — plugins/lenis.client.ts), so
+ *  mobile scroll IS snapshotted + restored on back-nav exactly like desktop;
+ *  the null guard is a dormant fallback for a Lenis-less configuration. */
 export function saveScroll(path: string, lenis: Lenis | null): void {
   if (lenis) snapshots.set(path, lenis.scroll);
 }

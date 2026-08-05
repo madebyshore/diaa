@@ -194,6 +194,10 @@ export function createHomeController(): PageController {
   let textPane: HTMLElement | null = null;
   let imagePane: HTMLElement | null = null;
   let textGpu: HTMLElement | null = null;
+  /** The `.home__text-gpu-inner` 1:1 box every reveal figure centres in —
+   *  the "image container" whose top/bottom edges are the mobile scroll
+   *  reveal's swap thresholds (see updateScrollReveal). */
+  let textGpuInner: HTMLElement | null = null;
   let footer: HTMLElement | null = null;
   let modeButtons: HTMLButtonElement[] = [];
   let filterButtons: HTMLButtonElement[] = [];
@@ -205,6 +209,11 @@ export function createHomeController(): PageController {
   /** Index of the figure the mobile scroll reveal currently holds active,
    *  -1 when none. Desktop keeps hover-driven reveals and ignores this. */
   let scrollRevealIndex = -1;
+  /** Scroll position the last updateScrollReveal call saw — comparing
+   *  against it is what tells the reveal whether the user is scrolling down
+   *  (swap when the next label hits the container's BOTTOM edge) or back up
+   *  (swap when the previous label hits the TOP edge). */
+  let lastRevealScrollY = 0;
 
   // Handler references, stored so cleanup can removeEventListener the exact
   // same closure it added (source stored these as parallel arrays/pairs —
@@ -320,18 +329,25 @@ export function createHomeController(): PageController {
 
   /**
    * Mobile scroll-driven image reveal — the touch counterpart of the desktop
-   * hover reveal. Entries sit one small-viewport apart centre-to-centre
-   * (item + gap = 100svh, see .home__text), so the entry the user is on is
-   * the visible (unfiltered) item whose CENTRE is nearest the viewport
-   * midline. The handoff fires at the halfway point between two entries —
-   * the instant the outgoing label is leaving past the top as the next
-   * enters from below the footer, never while both are readable — and the
-   * image swaps at that crossover. Exactly one figure holds `.is-active` at
-   * a time (the same class the hover path and the home→detail bridge use),
-   * so the CSS fade and the transition clone work unchanged. No-ops on
-   * desktop widths; `force` skips the mutating/mode-switch freeze for
-   * init/filter-time re-syncs, where there is no bridge clone or hover state
-   * to protect.
+   * hover reveal. The swap thresholds are the EDGES OF THE IMAGE CONTAINER
+   * (`.home__text-gpu-inner`, the viewport-centred 1:1 box every reveal
+   * figure sits in), not the viewport midline: scrolling DOWN, the next
+   * entry's label rises from below the footer and the image swaps the
+   * instant that label's top edge touches the container's bottom edge;
+   * scrolling back UP, the previous label descends from above and the swap
+   * fires when its bottom edge touches the container's top edge. Direction
+   * is derived by comparing window.scrollY against the previous call
+   * (`lastRevealScrollY`); the down-rule doubles as the direction-less
+   * geometry for `force`d re-syncs. The two rules agree everywhere except
+   * the hand-off zones at the container edges, where the direction picks the
+   * entry that is entering — exactly the asymmetry requested. Exactly one
+   * figure holds `.is-active` at a time (the same class the hover path and
+   * the home→detail bridge use), so the CSS fade and the transition clone
+   * work unchanged. No-ops on desktop widths and in image mode (the overlay
+   * is `hidden` there — zero rects, nothing to measure; runModeSwitch forces
+   * a re-sync when text mode returns); `force` skips the mutating/
+   * mode-switch freeze for init/filter-time re-syncs, where there is no
+   * bridge clone or hover state to protect.
    *
    * Called `force`d from THREE places: onInit (via applyFilter, against
    * whatever scroll happens to be at mount time — before this page's own
@@ -348,18 +364,52 @@ export function createHomeController(): PageController {
     if (!window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
     if (!force && (mutating?.value || modeSwitching)) return;
 
-    const mid = window.innerHeight / 2;
+    // Image mode hides the whole overlay (`hidden` → display: none), so the
+    // container rect collapses to zero and there are no edges to measure
+    // against — keep the current state; runModeSwitch forces a re-sync the
+    // moment text mode (and the container's real geometry) returns.
+    if (!textGpuInner) return;
+    const band = textGpuInner.getBoundingClientRect();
+    if (band.height === 0) return;
+
+    const scrollY = window.scrollY;
+    // Ties (and force calls, which have no meaningful "previous" position —
+    // init, filter swaps, in()'s entrance re-sync) take the down-rule.
+    const goingUp = !force && scrollY < lastRevealScrollY;
+    lastRevealScrollY = scrollY;
+
     let active = -1;
-    let best = Infinity;
-    for (let i = 0; i < textItems.length; i++) {
-      if (isFilteredOut(i)) continue;
-      const rect = textItems[i]!.getBoundingClientRect();
-      const dist = Math.abs(rect.top + rect.height / 2 - mid);
-      // Items are in document order, so distance to the midline strictly
-      // shrinks then grows — once it grows, the nearest one is behind us.
-      if (dist > best) break;
-      best = dist;
-      active = i;
+    if (!goingUp) {
+      // Scrolling down: labels rise. Active = the LAST visible item whose
+      // top edge has reached the container's bottom edge — the current
+      // entry keeps the reveal until the next label touches the container.
+      let firstVisible = -1;
+      for (let i = 0; i < textItems.length; i++) {
+        if (isFilteredOut(i)) continue;
+        if (firstVisible < 0) firstVisible = i;
+        // Items are in document order (tops strictly increase), so the
+        // first miss ends the scan.
+        if (textItems[i]!.getBoundingClientRect().top > band.bottom) break;
+        active = i;
+      }
+      // Top rubber-band overscroll can push even the first label below the
+      // container's bottom edge — clamp to the first visible entry.
+      if (active < 0) active = firstVisible;
+    } else {
+      // Scrolling up: labels descend. Active = the FIRST visible item whose
+      // bottom edge is still at/below the container's top edge — the
+      // previous entry takes the reveal the instant it enters from above.
+      let lastVisible = -1;
+      for (let i = 0; i < textItems.length; i++) {
+        if (isFilteredOut(i)) continue;
+        lastVisible = i;
+        if (textItems[i]!.getBoundingClientRect().bottom >= band.top) {
+          active = i;
+          break;
+        }
+      }
+      // Bottom rubber-band overscroll mirror — clamp to the last entry.
+      if (active < 0) active = lastVisible;
     }
 
     if (active === scrollRevealIndex) return;
@@ -513,8 +563,8 @@ export function createHomeController(): PageController {
     // opacity 0, right before applyFilterVisibility's item-visibility swap
     // takes effect), so the jump is invisible and the fade-in below reveals
     // the newly-filtered list already sitting at the top — never a
-    // visible jump-then-settle. Native `window.scrollTo` remains correct now
-    // that mobile runs Lenis (syncTouch — plugins/lenis.client.ts): Lenis
+    // visible jump-then-settle. Native `window.scrollTo` remains correct
+    // with mobile's passive Lenis instance (plugins/lenis.client.ts): Lenis
     // observes external native scrolls via its own scroll listener and
     // re-syncs its internal position from them. Desktop is unaffected — it
     // keeps restoring `savedScrollY` via Lenis, same as before.
@@ -609,6 +659,14 @@ export function createHomeController(): PageController {
     const { $lenis } = useNuxtApp();
     $lenis?.resize();
     $lenis?.scrollTo(savedScrollY, { immediate: true });
+
+    // Mobile: re-sync the scroll reveal against the restored scroll — while
+    // the overlay was `hidden` (image mode) updateScrollReveal early-returns
+    // on the zero-height container rect, so entering text mode must
+    // recompute here, after the DOM swap and scroll restore, while the pane
+    // is still faded out. Forced: modeSwitching is true for the whole swap.
+    // Harmless no-op when switching INTO image mode (overlay just hid).
+    updateScrollReveal(true);
 
     // Instant swap — the mode is applied, nothing left to animate.
     if (!homeAnim.switchEnabled) return;
@@ -781,6 +839,7 @@ export function createHomeController(): PageController {
       textPane = root.querySelector<HTMLElement>('[data-mode-pane="text"]');
       imagePane = root.querySelector<HTMLElement>('[data-mode-pane="image"]');
       textGpu = root.querySelector<HTMLElement>(".home__text-gpu");
+      textGpuInner = root.querySelector<HTMLElement>(".home__text-gpu-inner");
       footer = root.querySelector<HTMLElement>(".global-nav--footer");
       textItems = Array.from(root.querySelectorAll<HTMLElement>(".home__text-item"));
       imageItems = Array.from(root.querySelectorAll<HTMLElement>(".home__image-item"));
@@ -1013,7 +1072,7 @@ export function createHomeController(): PageController {
       // transitions/default.ts's onBeforeEnter — which fires well before
       // onEnter's scroll reset/restore (restoreOrResetScroll, called
       // synchronously right before this in() is invoked) — so it computed
-      // the nearest-midline item against whatever scroll the OUTGOING page
+      // the active entry against whatever scroll the OUTGOING page
       // happened to be at, not this page's actual entrance scroll (0 on
       // forward nav, the snapshot on back-nav). The result: the wrong
       // figure held `.is-active` and stayed wrong until the user's first
@@ -1229,9 +1288,11 @@ export function createHomeController(): PageController {
       textPane = null;
       imagePane = null;
       textGpu = null;
+      textGpuInner = null;
       footer = null;
       container = null;
       scrollRevealIndex = -1;
+      lastRevealScrollY = 0;
       modeButtons = [];
       filterButtons = [];
       navEl = null;

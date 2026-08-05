@@ -5,10 +5,11 @@ import type { ScrollEvent } from "~/controllers/page-controller";
  * auto-cleaned-up on unmount. Bridges to the PageController.onScroll shape
  * ({current, target, max}) every controller expects.
  *
- * Since the syncTouch change, mobile runs Lenis too (plugins/lenis.client.ts)
- * so the $lenis branch is the live path everywhere; the native-scroll
- * fallback below is dormant, kept for the case where mobile Lenis is ever
- * disabled again.
+ * Mobile runs Lenis too — as a passive mirror of native touch scroll, no
+ * syncTouch (plugins/lenis.client.ts): Lenis re-emits native scrolls as its
+ * own "scroll" events, so the $lenis branch is the live path everywhere; the
+ * native-scroll fallback below is dormant, kept for the case where mobile
+ * Lenis is ever disabled again.
  *
  * NOT auto-subscribed on mount — transitions/default.ts's onAfterEnter calls
  * `subscribeOnScroll(controller)` (a plain function export below) explicitly,
