@@ -120,10 +120,12 @@
    each image and rely on that gap for clearance. Declared AFTER the tablet
    block so this flow wins where the two ranges overlap (432–768). */
 @include breakpoint-mobile {
+  /* Row spacing on the ≤768 two-row flow is 4rem; phone (≤431) drops back
+     to the 3rem column-gap rhythm via the below-xs block. */
   .slice-3up--a,
   .slice-3up--b,
   .slice-3up--c {
-    row-gap: var(--column-gap);
+    row-gap: 4rem;
   }
 
   .slice-3up--a .slice-3up__item:nth-child(2),
@@ -149,9 +151,15 @@
 }
 
 /* Phone (≤431, 6 cols): the flanking pair re-derives as 3+3 halves of the
-   6-col grid. The middle image's 2/-2 is grid-agnostic and needs no
-   override. */
+   6-col grid, and the row spacing returns to the 3rem column-gap rhythm.
+   The middle image's 2/-2 is grid-agnostic and needs no override. */
 @include breakpoint-below(xs) {
+  .slice-3up--a,
+  .slice-3up--b,
+  .slice-3up--c {
+    row-gap: var(--column-gap);
+  }
+
   .slice-3up--a .slice-3up__item:nth-child(1),
   .slice-3up--b .slice-3up__item:nth-child(1),
   .slice-3up--c .slice-3up__item:nth-child(1) {
