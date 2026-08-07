@@ -1,10 +1,12 @@
 @use "@/styles/includes" as *;
 
-/* Image Slideshow — a 4:3 viewport with a click-to-advance carousel, laid out
-   exactly like the Image slice's 4:3: center 6 of 12 on desktop (the former
-   "Small" span), all columns inside the container padding on tablet/mobile
-   (the former "Large" treatment — the breakpoint, not a CMS value, picks
-   the size, same as every other 4:3 surface).
+/* Image Slideshow — a 4:3 viewport with a click-to-advance carousel, laid
+   out exactly like the Image slice's 4:3 (the shared hero tiers — keep in
+   sync with `.slice-image__media--c6` / the --hero-span tier table):
+   centre 6 of 12 at lg+, centre 8 of 12 at md–lg, centre 6 of 8 (2/-2) on
+   the tablet tier, all columns inside the container padding on mobile —
+   the breakpoint, not a CMS value, picks the size, same as every other
+   4:3 surface.
    Every image is rendered stacked inside the viewport; only `.is-active` is
    shown and clicking the viewport swaps which one is active (instant
    replace, no slide). A `current / total  caption` line sits under the
@@ -22,13 +24,20 @@
 .slice-slideshow__viewport {
   display: grid;
   grid-template-areas: "stack";
+  /* Per-tier spans matching the Image slice's c6: base 4/span 6 serves lg+,
+     md re-declares centre 8 of 12, lg restores centre 6; tablet (8 cols) is
+     2/-2; mobile all columns inside the container padding. */
   grid-column: 4 / span 6;
   aspect-ratio: 4 / 3;
 
-  /* Tablet + mobile: all columns inside the container padding, matching the
-     Image slice's 4:3 span at these tiers. */
+  @include breakpoint(md) {
+    grid-column: 3 / span 8;
+  }
+  @include breakpoint(lg) {
+    grid-column: 4 / span 6;
+  }
   @include breakpoint-tablet {
-    grid-column: 1 / -1;
+    grid-column: 2 / -2;
   }
   @include breakpoint-mobile {
     grid-column: 1 / -1;
@@ -56,13 +65,19 @@
 /* Caption row — second grid row, aligned to the image's left edge. Matches the
    shared `.slice-caption` type (Rand caption spec via typo-caption). */
 .slice-slideshow__caption {
+  /* Tracks the viewport's per-tier placement exactly so the caption stays
+     aligned to the image's left edge at every breakpoint. */
   grid-column: 4 / span 6;
   margin: 1.5rem 0 0;
 
-  /* Tablet + mobile: track the viewport's full-width placement so the
-     caption stays aligned to the image's left edge. */
+  @include breakpoint(md) {
+    grid-column: 3 / span 8;
+  }
+  @include breakpoint(lg) {
+    grid-column: 4 / span 6;
+  }
   @include breakpoint-tablet {
-    grid-column: 1 / -1;
+    grid-column: 2 / -2;
   }
   @include breakpoint-mobile {
     grid-column: 1 / -1;
