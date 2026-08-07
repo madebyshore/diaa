@@ -44,7 +44,7 @@
   --XL: 14.2rem;
   --TABLET-M: 6rem;
 
-  /* Misc. Grid tiers: phone (base, 6 cols, ≤430) → `xs` 431+ (8 cols) →
+  /* Misc. Grid tiers: phone (base, 6 cols, ≤431) → `xs` 431+ (8 cols) →
      `md` 820+ (12 cols, the desktop grid all the way up). Gap and container
      padding share the same 3rem rhythm at every tier. */
   @include breakpoint(xs) {

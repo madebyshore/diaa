@@ -1,10 +1,12 @@
 @use "sass:map";
 
-// `sm` is 769 (not 768) by design: everything at or below 768px is the
-// mobile tier, styled by the mobile-first base rules + breakpoint-mobile
-// overrides. 769 is where the tablet tier begins (see breakpoint-tablet).
+// Map values mark the FIRST pixel of the tier above (the sm/769 convention:
+// everything at or below 768px is the mobile interaction tier). `xs` is 432
+// by design: everything at or below 431px is the PHONE grid tier (6 cols,
+// breakpoint-below(xs) overrides); 432 is where the 8-col tier begins (see
+// breakpoint-tablet).
 $-breakpoints: (
-  "xs": 431,
+  "xs": 432,
   "sm": 769,
   "md": 820,
   "lg": 1280,

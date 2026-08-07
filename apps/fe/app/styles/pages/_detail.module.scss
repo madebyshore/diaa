@@ -26,16 +26,12 @@
   gap: var(--XL);
 
   /* Mobile: a fifth of the viewport between modules — matches the desktop
-     rhythm's 20vh default without the column-based floor. The 50svh bottom
-     padding is only a pre-measure fallback: DetailPage.setMobileEndPadding()
-     replaces it inline with 50vh − half the LAST module's measured height,
-     so at full scroll that module CENTRES on the viewport midline — the
-     mirror of the cover's 50vh − hero/2 centred start. With the outro now
-     present on mobile it IS the last module (a full 100svh panel), so the
-     measured pad resolves to 0 and the page simply ends on the outro. */
+     rhythm's 20vh default without the column-based floor. NO bottom
+     padding: the outro (a full 100svh panel, present on mobile) is the last
+     module, so the page ends flush on it. (The old measured end-padding —
+     50vh − half the last module — and its JS measurer are gone with it.) */
   @include breakpoint-mobile {
     gap: 20vh;
-    padding-bottom: 50svh;
   }
 
   /* Desktop: the vertical rhythm between entries is 20vh, but must never be
@@ -116,8 +112,8 @@
   );
   /* --hero-span = the 4:3 hero's rendered WIDTH per tier — and, rotated,
      the 3:4 hero's HEIGHT (the 3:4 is "the same size, just rotated"):
-       phone   (≤430, 6 cols)  → full width inside the container padding (1/-1)
-       xs      (431+, 8 cols)  → inner 6 of 8 (6 tracks + 5 gaps)
+       phone   (≤431, 6 cols)  → full width inside the container padding (1/-1)
+       xs      (432+, 8 cols)  → inner 6 of 8 (6 tracks + 5 gaps)
        md      (820+, 12 cols) → centre 8 of 12 (8 tracks + 7 gaps)
        lg      (1280+, 12 cols)→ centre 6 of 12 (6 tracks + 5 gaps)
      MUST stay identical to `.home__text-gpu-figure`'s --hero-span so the
@@ -144,8 +140,8 @@
   justify-items: stretch;
   flex-shrink: 0;
 
-  /* Phone (≤430): the hero span is the full width inside the container
-     padding, mirroring the home reveal. On the 8-col tier (431–819) the
+  /* Phone (≤431): the hero span is the full width inside the container
+     padding, mirroring the home reveal. On the 8-col tier (432–819) the
      base 6-track formula above already gives the inner-6 span. */
   @include breakpoint-below(xs) {
     --hero-span: calc(100vw - 2 * var(--container-padding));
@@ -196,7 +192,7 @@
   /* Placement per tier tracks the hero span (a centred box the absolutely-
      centred ._g fills or overhangs; only its centring and height matter):
      md (12 cols) centre 8; lg+ (12 cols) centre 6; the 8-col tier
-     (431–819) 2/-2 (inner 6); phone (≤430) full-bleed. */
+     (432–819) 2/-2 (inner 6); phone (≤431) full-bleed. */
   grid-column: 3 / span 8;
   position: relative;
   width: 100%;

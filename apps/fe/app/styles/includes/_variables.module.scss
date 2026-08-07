@@ -1,9 +1,9 @@
 $scroll-margin-top: 150px;
 
 // Grid tiers: base = phone (<= 430px, 6 cols), -sm = the 8-col tier
-// (431–819px — from the `xs` edge through one pixel below `md`), -md =
+// (432–819px — from the `xs` edge through one pixel below `md`), -md =
 // desktop (>= 820px, 12 cols — same grid all the way up).
-// `breakpoint-tablet` (431–819) is the 8-col placement-override range for
+// `breakpoint-tablet` (432–819) is the 8-col placement-override range for
 // spans authored against the 12-col grid; phone-only (6-col) placements
 // live under breakpoint-below(xs).
 // Gap and container padding are the same 3rem rhythm at every tier.

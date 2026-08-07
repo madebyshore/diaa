@@ -1,5 +1,4 @@
 import { gsap } from "gsap";
-import { ResizeHub } from "kido/resize";
 
 import { skipNextHomeBeat } from "~/lib/beat-skip";
 import { takeImageBridge } from "~/lib/image-bridge";
@@ -121,8 +120,6 @@ export function createDetailController(): PageController {
   let coverSettleDelta = 0;
   /** In-flight cover settle tween — killed on teardown. */
   let coverSettleTween: gsap.core.Tween | null = null;
-  /** kido ResizeHub subscription id for the mobile end-padding measurement. */
-  let resizeSubId: symbol | null = null;
   /** Router + nav-lock state, captured at onInit() time (a guaranteed-safe
    *  Nuxt app context) for the later bottom-dwell setTimeout callback. */
   let router: ReturnType<typeof useRouter> | null = null;
@@ -131,39 +128,6 @@ export function createDetailController(): PageController {
    *  stored so onDestroy can remove the exact closure onInit added. */
   let closeEl: HTMLElement | null = null;
   let closeClickHandler: (() => void) | null = null;
-
-  /**
-   * Mobile: pad `.detail__container`'s bottom so the last visible module
-   * can centre on the viewport midline at full scroll — 50vh − half the
-   * module's height, the same treatment the cover gets at the top via its
-   * padding-top formula. With the outro now rendered on mobile it IS the
-   * last module (a full-viewport panel), so the measured pad resolves to 0
-   * and the page ends flush on the outro. The stylesheet's 50svh is only
-   * the pre-measure fallback; this inline value replaces it. No-ops (and
-   * clears any stale inline value) off-mobile.
-   */
-  function setMobileEndPadding(root: HTMLElement): void {
-    const containerEl = root.querySelector<HTMLElement>(".detail__container");
-    if (!containerEl) return;
-
-    if (!window.matchMedia(MOBILE_MEDIA_QUERY).matches) {
-      containerEl.style.paddingBottom = "";
-      return;
-    }
-
-    const children = Array.from(containerEl.children) as HTMLElement[];
-    let last: HTMLElement | null = null;
-    for (let i = children.length - 1; i >= 0; i--) {
-      const el = children[i]!;
-      if (getComputedStyle(el).display === "none") continue;
-      last = el;
-      break;
-    }
-    if (!last) return;
-
-    const pad = Math.max(0, window.innerHeight / 2 - last.offsetHeight / 2);
-    containerEl.style.paddingBottom = `${pad}px`;
-  }
 
   /**
    * Build the cover settle tween (mobile entrance phase two): animates the
@@ -385,14 +349,9 @@ export function createDetailController(): PageController {
         gsap.set(coverEl, { y: coverSettleDelta });
       }
 
-      // Mobile end padding: centre the LAST module on the viewport midline at
-      // full scroll — the mirror of the cover's centred start. The value
-      // depends on the module's measured height, so it can't live in CSS;
-      // re-measured on resize (orientation changes both terms). ResizeHub
-      // debounces resize/orientationchange via a shared RAF hub instead of a
-      // bare window listener per page.
-      setMobileEndPadding(root);
-      resizeSubId = ResizeHub.add(() => setMobileEndPadding(root));
+      // No end-padding measurement any more: the outro renders on every
+      // tier and is the container's last module (a full-viewport panel),
+      // so the page ends flush on it with zero bottom padding.
     },
 
     /**
@@ -544,10 +503,6 @@ export function createDetailController(): PageController {
       coverSettleTween = null;
       coverEl = null;
       coverSettleDelta = 0;
-      if (resizeSubId) {
-        ResizeHub.remove(resizeSubId);
-        resizeSubId = null;
-      }
       if (closeEl && closeClickHandler) closeEl.removeEventListener("click", closeClickHandler);
       closeEl = null;
       closeClickHandler = null;

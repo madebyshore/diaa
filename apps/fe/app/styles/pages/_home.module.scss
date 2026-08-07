@@ -390,8 +390,8 @@
   );
   /* --hero-span = the 4:3 hero's rendered WIDTH per tier — and, rotated,
      the 3:4 hero's HEIGHT (the 3:4 is "the same size, just rotated"):
-       phone   (≤430, 6 cols)  → full width inside the container padding (1/-1)
-       xs      (431+, 8 cols)  → inner 6 of 8 (6 tracks + 5 gaps)
+       phone   (≤431, 6 cols)  → full width inside the container padding (1/-1)
+       xs      (432+, 8 cols)  → inner 6 of 8 (6 tracks + 5 gaps)
        md      (820+, 12 cols) → centre 8 of 12 (8 tracks + 7 gaps)
        lg      (1280+, 12 cols)→ centre 6 of 12 (6 tracks + 5 gaps)
      The base 6-track formula serves BOTH the 8-col tier and lg (--col-w
