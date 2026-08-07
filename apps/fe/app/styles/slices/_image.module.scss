@@ -31,7 +31,7 @@
     --hero-span: calc(6 * var(--col-w) + 5 * var(--column-gap));
   }
 
-  @include breakpoint-mobile {
+  @include breakpoint-below(xs) {
     --hero-span: calc(100vw - 2 * var(--container-padding));
   }
 
@@ -51,7 +51,8 @@
 
   /* Column spans, tracking the shared hero tiers. c6 (4:3): the base
      4/span 6 serves lg+ (centre 6 of 12); md re-declares centre 8 of 12 and
-     lg restores centre 6; tablet (8 cols) is 2/-2 (centre 6 of 8). c4 (3:4)
+     lg restores centre 6; the 8-col tier (431–819, via breakpoint-tablet)
+     is 2/-2 (inner 6 of 8); phone (≤430) is full width. c4 (3:4)
      is NOT track-aligned any more — it's the 4:3 rotated, so it spans the
      full row and sizes itself: height = --hero-span (the 4:3 width at that
      tier), width from the --ar-3x4 aspect ratio (justify-self: center
@@ -93,13 +94,14 @@
     aspect-ratio: 4 / 3;
   }
 
-  /* Mobile placement: 4:3 (c6) runs full width inside the container
-     padding. 3:4 (c4) needs no override — its height already resolves to
-     the mobile --hero-span (the same full padded width, rotated). Declared
-     after the span rules above so this equal-specificity override wins the
-     cascade (the full-bleed variant below still outranks it, keeping
-     `--full` forced to 1 / -1). */
-  @include breakpoint-mobile {
+  /* Phone placement (≤430, 6 cols): 4:3 (c6) runs full width inside the
+     container padding. 3:4 (c4) needs no override — its height already
+     resolves to the phone --hero-span (the same full padded width,
+     rotated). On the 8-col tier (431–819) the tablet block above keeps c6
+     at the inner 6. Declared after the span rules above so this
+     equal-specificity override wins the cascade (the full-bleed variant
+     below still outranks it, keeping `--full` forced to 1 / -1). */
+  @include breakpoint-below(xs) {
     &--c6 {
       grid-column: 1 / -1;
     }

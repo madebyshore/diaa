@@ -20,14 +20,20 @@ $-breakpoints: (
   }
 }
 
-/* Tablet range — 769px (the `sm` edge) through 819px INCLUSIVE (one pixel
-   below the `md` edge). Exact-768 and below is the mobile tier, so tablet
-   styles must never leak onto a 768px viewport. Ends one pixel BEFORE the
-   `md` edge — `md` (820+) is the desktop tier with the full 12-col grid, so
-   the two ranges are disjoint and there is no overlap pixel to arbitrate
-   via source order anymore. */
+/* Tablet range — the 8-COLUMN TIER: xs (431px) through 819px INCLUSIVE (one
+   pixel below the `md` edge). Everything at or below 430px is the phone
+   tier (6 cols, styled by the mobile-first base rules + the
+   breakpoint-below(xs) placement overrides); `md` (820+) is the desktop
+   tier with the full 12-col grid. The ranges are disjoint — no overlap
+   pixel to arbitrate via source order.
+
+   NOTE this range deliberately overlaps breakpoint-mobile (≤768):
+   breakpoint-mobile remains the INTERACTION/LAYOUT tier (touch nav, home
+   scroll-reveal rhythm, svh heights), while this mixin owns GRID PLACEMENT
+   on the 8-col grid. Grid placements that only apply on the 6-col phone
+   grid live under breakpoint-below(xs), never breakpoint-mobile. */
 @mixin breakpoint-tablet {
-  @media only screen and (min-width: #{map.get($-breakpoints, "sm")}px) and (max-width: #{map.get($-breakpoints, "md") - 1}px) {
+  @media only screen and (min-width: #{map.get($-breakpoints, "xs")}px) and (max-width: #{map.get($-breakpoints, "md") - 1}px) {
     @content;
   }
 }

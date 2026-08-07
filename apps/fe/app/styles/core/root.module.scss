@@ -44,14 +44,17 @@
   --XL: 14.2rem;
   --TABLET-M: 6rem;
 
-  /* Misc. Grid tiers: mobile (base, 6 cols) → `sm` 769+ (8 cols) → `md`
-     820+ (12 cols, the desktop grid all the way up). Gap and container
+  /* Misc. Grid tiers: phone (base, 6 cols, ≤430) → `xs` 431+ (8 cols) →
+     `md` 820+ (12 cols, the desktop grid all the way up). Gap and container
      padding share the same 3rem rhythm at every tier. */
+  @include breakpoint(xs) {
+    --columns: var(--columns-sm);
+  }
+
   @include breakpoint(sm) {
     --target-window-width: #{$target-window-width-tablet};
     --scale-modifier: #{$scale-modifier-tablet};
 
-    --columns: var(--columns-sm);
     --container-padding: var(--container-padding-sm);
     --column-gap: var(--column-gap-sm);
 

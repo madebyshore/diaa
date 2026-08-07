@@ -3,10 +3,10 @@
 /* Image Slideshow — a 4:3 viewport with a click-to-advance carousel, laid
    out exactly like the Image slice's 4:3 (the shared hero tiers — keep in
    sync with `.slice-image__media--c6` / the --hero-span tier table):
-   centre 6 of 12 at lg+, centre 8 of 12 at md–lg, centre 6 of 8 (2/-2) on
-   the tablet tier, all columns inside the container padding on mobile —
-   the breakpoint, not a CMS value, picks the size, same as every other
-   4:3 surface.
+   centre 6 of 12 at lg+, centre 8 of 12 at md–lg, inner 6 of 8 (2/-2) on
+   the 8-col tier (431–819), all columns inside the container padding on
+   phone (≤430) — the breakpoint, not a CMS value, picks the size, same as
+   every other 4:3 surface.
    Every image is rendered stacked inside the viewport; only `.is-active` is
    shown and clicking the viewport swaps which one is active (instant
    replace, no slide). A `current / total  caption` line sits under the
@@ -39,7 +39,7 @@
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
-  @include breakpoint-mobile {
+  @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
   overflow: hidden;
@@ -79,7 +79,7 @@
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
-  @include breakpoint-mobile {
+  @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
   @include typo-caption;

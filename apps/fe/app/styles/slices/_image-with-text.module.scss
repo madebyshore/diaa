@@ -15,8 +15,8 @@
   );
   --centre-8: calc(8 * var(--col-w) + 7 * var(--column-gap));
 
-  /* Tablet (8 cols): same 2/-2 reference shape the cover uses — 6 tracks +
-     5 gaps — so the 3:4 height keeps its proportion on the tablet grid. */
+  /* The 8-col tier (431–819): same 2/-2 reference shape the cover uses —
+     6 tracks + 5 gaps — so the 3:4 height keeps its proportion there. */
   @include breakpoint-tablet {
     --centre-8: calc(6 * var(--col-w) + 5 * var(--column-gap));
   }
@@ -34,13 +34,13 @@
   margin: 0;
   text-align: center;
 
-  /* Tablet (8 cols): one column in from each edge. */
+  /* 8-col tier (431–819): one column in from each edge. */
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
 
-  /* Mobile (6 cols): full width, still centred as text. */
-  @include breakpoint-mobile {
+  /* Phone (≤430, 6 cols): full width, still centred as text. */
+  @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
 }
@@ -72,11 +72,11 @@
     aspect-ratio: 3 / 4;
   }
 
-  /* Mobile: 4:3 runs full width; 3:4 centres on the middle 4 of 6 and drops
-     the centre-8-derived fixed height (it was sized against the desktop
-     reference box) — the aspect ratio sizes it from its own tracks like
-     every other mobile image. */
-  @include breakpoint-mobile {
+  /* Phone (≤430, 6 cols): 4:3 runs full width; 3:4 centres on the middle 4
+     of 6 and drops the centre-8-derived fixed height (it was sized against
+     the desktop reference box) — the aspect ratio sizes it from its own
+     tracks like every other phone image. */
+  @include breakpoint-below(xs) {
     &--ar-4x3 {
       grid-column: 1 / -1;
     }
@@ -94,13 +94,13 @@
   grid-column: 4 / span 6;
   text-align: center;
 
-  /* Tablet (8 cols): one column in from each edge (center 6 of 8). */
+  /* 8-col tier (431–819): one column in from each edge (inner 6 of 8). */
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
 
-  /* Mobile (6 cols): full width. */
-  @include breakpoint-mobile {
+  /* Phone (≤430, 6 cols): full width. */
+  @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
 

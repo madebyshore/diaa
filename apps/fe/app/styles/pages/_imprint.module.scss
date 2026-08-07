@@ -91,9 +91,8 @@
     grid-column: 4 / span 6;
   }
 
-  /* Tablet (8 cols): one column in from each edge, matching the detail-page
-     slices. Declared after the `md` block — both queries match at exactly
-     1024, so source order lets the tablet placement win there. */
+  /* 8-col tier (431–819): one column in from each edge, matching the
+     detail-page slices. Disjoint from the `md` range, so order is moot. */
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }

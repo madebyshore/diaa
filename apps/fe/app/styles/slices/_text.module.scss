@@ -13,13 +13,13 @@
 .slice-text__body {
   grid-column: 3 / span 8;
 
-  /* Tablet (8 cols): one column in from each edge. */
+  /* 8-col tier (431–819): one column in from each edge (2/-2). */
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
 
-  /* Mobile: full width. */
-  @include breakpoint-mobile {
+  /* Phone (≤430): full width. */
+  @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
 
@@ -55,13 +55,13 @@
   grid-column: 3 / span 8;
   margin: var(--XS) 0 0;
 
-  /* Tablet (8 cols): one column in from each edge. */
+  /* 8-col tier (431–819): one column in from each edge (2/-2). */
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
 
-  /* Mobile: full width. */
-  @include breakpoint-mobile {
+  /* Phone (≤430): full width. */
+  @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
 
@@ -76,15 +76,15 @@
   grid-column: 4 / span 6;
   text-align: center;
 
-  /* Tablet (8 cols): the credits' higher-specificity placement must carry
-     its own override or it would win over the base tablet rule and overflow
-     the narrower grid. */
+  /* 8-col tier (431–819): the credits' higher-specificity placement must
+     carry its own override or it would win over the base tablet rule and
+     overflow the narrower grid. */
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
 
-  /* Mobile: full width (same specificity note as the tablet block). */
-  @include breakpoint-mobile {
+  /* Phone (≤430): full width (same specificity note as the tablet block). */
+  @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
 }

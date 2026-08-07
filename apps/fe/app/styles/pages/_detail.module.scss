@@ -116,8 +116,8 @@
   );
   /* --hero-span = the 4:3 hero's rendered WIDTH per tier — and, rotated,
      the 3:4 hero's HEIGHT (the 3:4 is "the same size, just rotated"):
-       mobile  (≤768, 6 cols)  → full width inside the container padding (1/-1)
-       sm      (769+, 8 cols)  → centre 6 of 8 (6 tracks + 5 gaps)
+       phone   (≤430, 6 cols)  → full width inside the container padding (1/-1)
+       xs      (431+, 8 cols)  → inner 6 of 8 (6 tracks + 5 gaps)
        md      (820+, 12 cols) → centre 8 of 12 (8 tracks + 7 gaps)
        lg      (1280+, 12 cols)→ centre 6 of 12 (6 tracks + 5 gaps)
      MUST stay identical to `.home__text-gpu-figure`'s --hero-span so the
@@ -144,19 +144,25 @@
   justify-items: stretch;
   flex-shrink: 0;
 
-  /* Mobile: mirror the home reveal's geometry — the hero span is the full
-     width inside the container padding (the cover's own side padding goes,
-     the inner is full-bleed). The cover RESTS at the home-matched centred
-     position, same as desktop's formula (svh, matching the home overlay's
-     100svh centring): the bridge image lands on it and never moves;
-     everything beneath fades in (see MOBILE_COVER_ENTRANCE_SLIDE in
-     detail.ts).
+  /* Phone (≤430): the hero span is the full width inside the container
+     padding, mirroring the home reveal. On the 8-col tier (431–819) the
+     base 6-track formula above already gives the inner-6 span. */
+  @include breakpoint-below(xs) {
+    --hero-span: calc(100vw - 2 * var(--container-padding));
+  }
+
+  /* Mobile (≤768): the cover's own side padding goes (the inner is
+     full-bleed; ._g is explicitly sized off --hero-span and centred, so
+     the padding is not part of the span math). The cover RESTS at the
+     home-matched centred position, same as desktop's formula (svh,
+     matching the home overlay's 100svh centring): the bridge image lands
+     on it and never moves; everything beneath fades in (see
+     MOBILE_COVER_ENTRANCE_SLIDE in detail.ts).
      TO REVERT to the entrance slide: swap the padding back to `20vh 0 0`
      (the settled page rhythm) AND flip MOBILE_COVER_ENTRANCE_SLIDE to
      true in detail.ts — the two are a pair.
      Declared after the base padding so these win the cascade. */
   @include breakpoint-mobile {
-    --hero-span: calc(100vw - 2 * var(--container-padding));
     padding: calc(50svh - var(--hero-h) / 2) 0 0;
   }
 }
@@ -189,8 +195,8 @@
 .detail__cover-inner {
   /* Placement per tier tracks the hero span (a centred box the absolutely-
      centred ._g fills or overhangs; only its centring and height matter):
-     md (12 cols) centre 8; lg+ (12 cols) centre 6; sm (8 cols) 2/-2
-     (centre 6); mobile full-bleed. */
+     md (12 cols) centre 8; lg+ (12 cols) centre 6; the 8-col tier
+     (431–819) 2/-2 (inner 6); phone (≤430) full-bleed. */
   grid-column: 3 / span 8;
   position: relative;
   width: 100%;
@@ -200,14 +206,14 @@
     grid-column: 4 / span 6;
   }
 
-  /* sm/tablet (8 cols): one column in from each edge. */
+  /* 8-col tier: one column in from each edge. */
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
 
-  /* Mobile: full-bleed, matching the home reveal's full-width inner (the
-     parent's side padding is zeroed there). */
-  @include breakpoint-mobile {
+  /* Phone: full-bleed, matching the home reveal's full-width inner (the
+     parent's side padding is zeroed on mobile). */
+  @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
 

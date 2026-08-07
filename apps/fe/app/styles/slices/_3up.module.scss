@@ -82,11 +82,12 @@
   aspect-ratio: 4 / 3;
 }
 
-/* Tablet (8 cols): every Layout variant collapses to the same placement —
-   three equal 2-col images filling cols 2–7, one column in from each edge
-   with no empty gap columns (the grid gap alone separates them). Aspect
-   ratios keep their per-variant values from above. Declared after the
-   variant rules so these equal-specificity overrides win the cascade. */
+/* The 8-col tier (431–819, via breakpoint-tablet): every Layout variant
+   collapses to the same placement — three equal 2-col images filling cols
+   2–7, one column in from each edge with no empty gap columns (the grid
+   gap alone separates them). Aspect ratios keep their per-variant values
+   from above. Declared after the variant rules so these equal-specificity
+   overrides win the cascade. */
 @include breakpoint-tablet {
   .slice-3up--a .slice-3up__item:nth-child(1),
   .slice-3up--b .slice-3up__item:nth-child(1),
@@ -107,14 +108,14 @@
   }
 }
 
-/* Mobile (6 cols): two rows for every Layout variant. The middle image gets
-   its own first row, centred on the middle 4; the two flanking images share
-   the second row at 3 columns each (a full-width pair). Rows are explicit —
-   auto-placement would push the third item to its own row because the
-   centred middle image blocks the columns between them. Row gap mirrors the
-   column gap; captions are absolutely positioned below each image and rely
-   on that gap for clearance. */
-@include breakpoint-mobile {
+/* Phone (≤430, 6 cols): two rows for every Layout variant. The middle image
+   gets its own first row, centred on the middle 4; the two flanking images
+   share the second row at 3 columns each (a full-width pair). Rows are
+   explicit — auto-placement would push the third item to its own row
+   because the centred middle image blocks the columns between them. Row gap
+   mirrors the column gap; captions are absolutely positioned below each
+   image and rely on that gap for clearance. */
+@include breakpoint-below(xs) {
   .slice-3up--a,
   .slice-3up--b,
   .slice-3up--c {

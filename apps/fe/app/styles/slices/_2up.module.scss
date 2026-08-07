@@ -57,14 +57,15 @@
 }
 
 /* Side-by-side pair, 3 columns each: adjacent with one-column outer margins
-   on the 8-col tablet grid, the full width of the 6-col mobile grid (same
-   full-bleed 3+3 pattern as variant B's mobile placement). Desktop is
-   untouched — the flex layout above ignores grid-column entirely. */
+   on the 8-col tier (431–819, via breakpoint-tablet), the full width of the
+   6-col phone grid (same full-bleed 3+3 pattern as variant B's phone
+   placement). Desktop is untouched — the flex layout above ignores
+   grid-column entirely. */
 .slice-2up--vertical .slice-2up__item:nth-child(1) {
   @include breakpoint-tablet {
     grid-column: 2 / span 3;
   }
-  @include breakpoint-mobile {
+  @include breakpoint-below(xs) {
     grid-column: 1 / span 3;
   }
 }
@@ -72,7 +73,7 @@
   @include breakpoint-tablet {
     grid-column: 5 / span 3;
   }
-  @include breakpoint-mobile {
+  @include breakpoint-below(xs) {
     grid-column: 4 / span 3;
   }
 }
@@ -87,9 +88,9 @@
     grid-column: 2 / span 2;
   }
 
-  /* Mobile (6 cols): each image spans 2 — the pair sits adjacent on the
-     middle 4 with one-column margins. */
-  @include breakpoint-mobile {
+  /* Phone (≤430, 6 cols): each image spans 2 — the pair sits adjacent on
+     the middle 4 with one-column margins. */
+  @include breakpoint-below(xs) {
     grid-column: 2 / span 2;
   }
 }
@@ -103,7 +104,7 @@
     grid-column: 5 / span 3;
   }
 
-  @include breakpoint-mobile {
+  @include breakpoint-below(xs) {
     grid-column: 4 / span 2;
   }
 }
@@ -130,11 +131,11 @@
     grid-column: 2 / span 3;
   }
 
-  /* Mobile (6 cols): the pair fills the full grid width — 3 + 3 with no
-     outer margin columns (unlike variant A's inset 2-col pair). The 2-col
-     version left images tiny with cols 1/6 empty, reading as a block of
-     blank space under whatever slice precedes it. */
-  @include breakpoint-mobile {
+  /* Phone (≤430, 6 cols): the pair fills the full grid width — 3 + 3 with
+     no outer margin columns (unlike variant A's inset 2-col pair). The
+     2-col version left images tiny with cols 1/6 empty, reading as a block
+     of blank space under whatever slice precedes it. */
+  @include breakpoint-below(xs) {
     grid-column: 1 / span 3;
   }
 }
@@ -148,7 +149,7 @@
     grid-column: 6 / span 2;
   }
 
-  @include breakpoint-mobile {
+  @include breakpoint-below(xs) {
     grid-column: 4 / span 3;
   }
 }
