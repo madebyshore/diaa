@@ -1,18 +1,40 @@
 @use "@/styles/includes" as *;
 
-/* Image slice — single centered image on the 12-col grid. Span + ratio are
+/* Image slice — single centered image on the page grid. Span + ratio are
    set by `--c*` / `--ar-*` modifiers from the resolver. `--full` breaks out of
    the container padding to a full-bleed 3:2 image.
 
-   Layout matrix (resolver: data/slices/sliceImage.ts):
-     3:4  → c4 — centre 4 of 12; tablet centre 4 of 8; mobile centre 4 of 6
-     4:3  → c6 — centre 6 of 12 on desktop (the former "Small" span);
-                 tablet/mobile all columns inside the container padding
-                 (the former "Large" treatment)
+   Layout matrix (resolver: data/slices/sliceImage.ts) — the same per-tier
+   sizes as every other 4:3/3:4 surface (home text-mode reveal, detail
+   cover; keep the tier table in sync with their --hero-span):
+     4:3  → c6 — lg+ centre 6 of 12; md–lg centre 8 of 12; sm–md centre 6
+                 of 8; mobile all columns inside the container padding
+     3:4  → c4 — the SAME SIZE ROTATED: height = the 4:3 span width at that
+                 tier (--hero-span), width from the ratio, centred
      Full → c12 — full bleed, forced 3:2
    (c8 — the retired "4:3 Large" desktop span — is gone: the resolver no
    longer emits it and legacy `size: 'lg'` documents resolve to c6.) */
 .slice-image {
+  /* --hero-span = the 4:3 span width per tier (and, rotated, the 3:4
+     height). Same formula as `.detail__cover` / `.home__text-gpu-figure`. */
+  --col-w: calc(
+    (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
+      var(--columns)
+  );
+  --hero-span: calc(6 * var(--col-w) + 5 * var(--column-gap));
+
+  @include breakpoint(md) {
+    --hero-span: calc(8 * var(--col-w) + 7 * var(--column-gap));
+  }
+
+  @include breakpoint(lg) {
+    --hero-span: calc(6 * var(--col-w) + 5 * var(--column-gap));
+  }
+
+  @include breakpoint-mobile {
+    --hero-span: calc(100vw - 2 * var(--container-padding));
+  }
+
   display: grid;
   grid-template-columns: repeat(var(--columns), 1fr);
   column-gap: var(--column-gap);
@@ -27,23 +49,33 @@
   margin: 0;
   overflow: hidden;
 
-  /* Column span. On tablet the 4:3 span (c6) opens up to all columns inside
-     the container padding — the "Large" treatment every 4:3 surface (home
-     text-mode reveal, detail cover) now shares below the desktop tier; c4
-     stays a narrower centered block (middle 4 of 8); c12 is grid-agnostic. */
+  /* Column spans, tracking the shared hero tiers. c6 (4:3): the base
+     4/span 6 serves lg+ (centre 6 of 12); md re-declares centre 8 of 12 and
+     lg restores centre 6; tablet (8 cols) is 2/-2 (centre 6 of 8). c4 (3:4)
+     is NOT track-aligned any more — it's the 4:3 rotated, so it spans the
+     full row and sizes itself: height = --hero-span (the 4:3 width at that
+     tier), width from the --ar-3x4 aspect ratio (justify-self: center
+     un-stretches the grid item so `width: auto` resolves through the
+     ratio). c12 is grid-agnostic. */
   &--c6 {
     grid-column: 4 / span 6;
 
+    @include breakpoint(md) {
+      grid-column: 3 / span 8;
+    }
+
+    @include breakpoint(lg) {
+      grid-column: 4 / span 6;
+    }
+
     @include breakpoint-tablet {
-      grid-column: 1 / -1;
+      grid-column: 2 / -2;
     }
   }
   &--c4 {
-    grid-column: 5 / span 4;
-
-    @include breakpoint-tablet {
-      grid-column: 3 / span 4;
-    }
+    grid-column: 1 / -1;
+    justify-self: center;
+    height: var(--hero-span);
   }
   &--c12 {
     grid-column: 1 / -1;
@@ -61,16 +93,13 @@
     aspect-ratio: 4 / 3;
   }
 
-  /* Mobile placement: 3:4 (c4) centres on the middle 4 of the 6-col grid;
-     4:3 (c6) runs full width inside the container padding — the former
-     "Large" span, now the only mobile 4:3 size. Declared after the span
-     rules above so these equal-specificity overrides win the cascade (the
-     full-bleed variant below still outranks both, keeping `--full` forced
-     to 1 / -1). */
+  /* Mobile placement: 4:3 (c6) runs full width inside the container
+     padding. 3:4 (c4) needs no override — its height already resolves to
+     the mobile --hero-span (the same full padded width, rotated). Declared
+     after the span rules above so this equal-specificity override wins the
+     cascade (the full-bleed variant below still outranks it, keeping
+     `--full` forced to 1 / -1). */
   @include breakpoint-mobile {
-    &--c4 {
-      grid-column: 2 / -2;
-    }
     &--c6 {
       grid-column: 1 / -1;
     }
