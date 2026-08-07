@@ -23,24 +23,21 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  gap: var(--XL);
+  /* Vertical rhythm between modules per tier (client spec values off the
+     768 / 1024 artboards): 27rem everywhere below `md` (phone + the whole
+     8-col tier), 32.5rem on `md`–`lg` (820–1279), and from `lg` up the
+     original desktop rule — 20vh floored at the horizontal space between
+     2-up/3-up image entries (one empty grid column plus the gap on either
+     side; max() picks whichever is larger on short/wide viewports). NO
+     bottom padding on any tier: the outro (a full-viewport panel, present
+     everywhere) is the last module, so the page ends flush on it. */
+  gap: 27rem;
 
-  /* Mobile: a fifth of the viewport between modules — matches the desktop
-     rhythm's 20vh default without the column-based floor. NO bottom
-     padding: the outro (a full 100svh panel, present on mobile) is the last
-     module, so the page ends flush on it. (The old measured end-padding —
-     50vh − half the last module — and its JS measurer are gone with it.) */
-  @include breakpoint-mobile {
-    gap: 20vh;
+  @include breakpoint(md) {
+    gap: 32.5rem;
   }
 
-  /* Desktop: the vertical rhythm between entries is 20vh, but must never be
-     smaller than the horizontal space between 2-up/3-up image entries
-     (client feedback). That horizontal space — one empty grid column plus
-     the gap on either side of it — is the floor: 1 column + 2 column gaps.
-     max() picks whichever is larger, so short/wide viewports (where 20vh
-     shrinks below the column spacing) fall back to the floor. */
-  @include breakpoint(md) {
+  @include breakpoint(lg) {
     --col-w: calc(
       (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
         var(--columns)
