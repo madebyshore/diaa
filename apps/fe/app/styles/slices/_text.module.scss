@@ -102,10 +102,11 @@
   }
 }
 
-/* 768 spec: the credits BODY (not the author line) gets 2rem of breathing
-   room inside its column on the mobile flow (≤768). */
+/* 768 spec: the credits BODY (not the author line) gets 2rem of HORIZONTAL
+   breathing room inside its column on the mobile flow (≤768) — sides only,
+   no vertical padding. */
 .slice-text--credits .slice-text__body {
   @include breakpoint-mobile {
-    padding: 2rem;
+    padding: 0 2rem;
   }
 }
