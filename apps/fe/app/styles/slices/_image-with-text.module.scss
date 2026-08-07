@@ -1,24 +1,25 @@
 @use "@/styles/includes" as *;
 
 /* Image-with-Text — centered title, image, rich-text body stacked with S gaps.
-   4:3 spans the center 4 columns (height from the aspect ratio); 3:4 is
-   centered with a fixed design height expressed as a percentage of the
-   centre-8 box (see .slice-image-with-text__media--ar-3x4). */
+   The 4:3 media spans a centred column band per tier and the 3:4 is the
+   SAME SIZE ROTATED (height = the 4:3 span width), mirroring the hero
+   convention:
+     phone (≤431, 6 cols)   → centre 4 of 6 (4 tracks + 3 gaps)
+     8-col tier (432–819)   → centre 2 of 8 (2 tracks + 1 gap)
+     md–lg + desktop (12)   → centre 4 of 12 (4 tracks + 3 gaps) */
 .slice-image-with-text {
-  /* Centre-8 reference box, mirroring `.detail__cover`'s math exactly: 1fr =
-     (content - 11 gaps) / 12, and centre-8 (cols 3→10) = 8 tracks + 7 gaps.
-     Built from the responsive grid tokens so the 3:4 height percentage below
-     scales with the viewport instead of sitting at a fixed rem. */
+  /* --iwt-span = the 4:3 media's rendered width per tier (and, rotated,
+     the 3:4's height). The base 4-track formula serves BOTH the phone and
+     12-col tiers (--col-w recomputes against each tier's --columns); the
+     8-col tier narrows to 2 tracks. */
   --col-w: calc(
     (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
       var(--columns)
   );
-  --centre-8: calc(8 * var(--col-w) + 7 * var(--column-gap));
+  --iwt-span: calc(4 * var(--col-w) + 3 * var(--column-gap));
 
-  /* The 8-col tier (432–819): same 2/-2 reference shape the cover uses —
-     6 tracks + 5 gaps — so the 3:4 height keeps its proportion there. */
   @include breakpoint-tablet {
-    --centre-8: calc(6 * var(--col-w) + 5 * var(--column-gap));
+    --iwt-span: calc(2 * var(--col-w) + 1 * var(--column-gap));
   }
 
   display: grid;
@@ -46,45 +47,35 @@
 }
 
 .slice-image-with-text__media {
+  /* 4:3 placement per tier (the base placement is the 4:3's): centre 4 of
+     12 on md–lg AND desktop; the 8-col tier narrows to the centre 2 of 8;
+     phone centres 4 of 6. Height comes purely from the aspect ratio, so
+     the rendered width always equals --iwt-span. */
   grid-column: 5 / span 4;
   margin: 0;
   overflow: hidden;
 
-  /* Tablet (8 cols): keep the narrower centered look — middle 4 of 8. */
   @include breakpoint-tablet {
-    grid-column: 3 / span 4;
+    grid-column: 4 / span 2;
   }
 
-  /* 4:3 — center 4 columns (the base placement above), height driven purely
-     by the aspect ratio. */
+  @include breakpoint-below(xs) {
+    grid-column: 2 / -2;
+  }
+
   &--ar-4x3 {
     aspect-ratio: 4 / 3;
   }
 
-  /* 3:4 — centered, fixed design height of 46rem (460px at the 1440 design)
-     expressed as a percentage of the centre-8 box, exactly like the detail
-     cover's `--hero-h` fractions: 460 / 910 (centre-8 at 1440) = 50.55%.
-     Width follows from the aspect ratio. */
+  /* 3:4 — the 4:3 rotated: full-row grid item un-stretched by
+     justify-self, HEIGHT = --iwt-span (the 4:3's width at that tier),
+     width from the ratio. One rule serves every tier — the span token
+     self-adjusts per breakpoint. */
   &--ar-3x4 {
     grid-column: 1 / -1;
     justify-self: center;
-    height: calc(0.5055 * var(--centre-8));
+    height: var(--iwt-span);
     aspect-ratio: 3 / 4;
-  }
-
-  /* Phone (≤431, 6 cols): 4:3 runs full width; 3:4 centres on the middle 4
-     of 6 and drops the centre-8-derived fixed height (it was sized against
-     the desktop reference box) — the aspect ratio sizes it from its own
-     tracks like every other phone image. */
-  @include breakpoint-below(xs) {
-    &--ar-4x3 {
-      grid-column: 1 / -1;
-    }
-    &--ar-3x4 {
-      grid-column: 2 / -2;
-      justify-self: stretch;
-      height: auto;
-    }
   }
 }
 
