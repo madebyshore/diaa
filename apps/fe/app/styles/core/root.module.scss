@@ -49,14 +49,13 @@
      padding share the same 3rem rhythm at every tier. */
   @include breakpoint(xs) {
     --columns: var(--columns-sm);
+    --container-padding: var(--container-padding-sm);
+    --column-gap: var(--column-gap-sm);
   }
 
   @include breakpoint(sm) {
     --target-window-width: #{$target-window-width-tablet};
     --scale-modifier: #{$scale-modifier-tablet};
-
-    --container-padding: var(--container-padding-sm);
-    --column-gap: var(--column-gap-sm);
 
     --g-start: var(--g-start-sm);
   }

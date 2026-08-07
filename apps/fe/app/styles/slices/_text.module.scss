@@ -51,6 +51,19 @@
   transform: translateX(-100%);
 }
 
+/* Below `lg` (the 768 and 1024 artboards): the CLOSING mark flows inline
+   with the body instead of hanging at its absolute static position — when
+   the quote's last line fills the narrower column, that static position
+   wraps and the mark renders alone on a new line. Inline it glues to the
+   last word (the template emits no whitespace between the text and the
+   span, so there is no break opportunity). The opening mark keeps its
+   hang on every tier; desktop (lg+) keeps both marks hanging. */
+@include breakpoint-below(lg) {
+  .slice-text__quote-mark--close {
+    position: static;
+  }
+}
+
 .slice-text__author {
   grid-column: 3 / span 8;
   margin: var(--XS) 0 0;
@@ -86,5 +99,13 @@
   /* Phone (≤431): full width (same specificity note as the tablet block). */
   @include breakpoint-below(xs) {
     grid-column: 1 / -1;
+  }
+}
+
+/* 768 spec: the credits BODY (not the author line) gets 2rem of breathing
+   room inside its column on the mobile flow (≤768). */
+.slice-text--credits .slice-text__body {
+  @include breakpoint-mobile {
+    padding: 2rem;
   }
 }
