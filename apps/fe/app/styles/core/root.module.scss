@@ -34,12 +34,15 @@
 
   /* Global spacing scale — used for paddings, gaps, and rhythm across the
      site. Anywhere a literal `3rem`, `6rem`, or `9rem` showed up before,
-     the corresponding token should be used now. */
+     the corresponding token should be used now. --TABLET-M ("Tablet M") is
+     the large-tablet stand-in for --M on the md–lg range (820–1279) — a
+     distinct token, not an alias of --S, so it can be tuned independently. */
   --XS: 3rem;
   --S: 6rem;
   --M: 9rem;
   --L: 12rem;
   --XL: 14.2rem;
+  --TABLET-M: 6rem;
 
   /* Misc. Grid tiers: mobile (base, 6 cols) → `sm` 769+ (8 cols) → `md`
      820+ (12 cols, the desktop grid all the way up). Gap and container

@@ -219,6 +219,18 @@
     padding-block: var(--S);
   }
 
+  /* Large tablet (md–lg, 820–1279): the horizontal padding steps down to
+     the Tablet M token (6rem); lg+ restores the desktop --M. padding-inline
+     (not the shorthand) so the max-height padding-block rule above keeps
+     its vertical padding on short viewports. */
+  @include breakpoint(md) {
+    padding-inline: var(--TABLET-M);
+  }
+
+  @include breakpoint(lg) {
+    padding-inline: var(--M);
+  }
+
   /* Mobile: the item box stays its natural --home-item-h (a normal tap
      target, see .home__text-item) and the rhythm is 50svh of VISUAL space
      between entries — measured from the BOTTOM of one label's text to the
