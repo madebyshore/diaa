@@ -6,7 +6,7 @@
 $-breakpoints: (
   "xs": 420,
   "sm": 769,
-  "md": 1024,
+  "md": 820,
   "lg": 1280,
   "xl": 1440,
   "xxl": 1920,
@@ -20,14 +20,14 @@ $-breakpoints: (
   }
 }
 
-/* Tablet range — 769px (the `sm` edge) through 1024px INCLUSIVE. Exact-768
-   and below is the mobile tier, so tablet styles must never leak onto a
-   768px viewport. Ends AT the `md` edge (1024 still holds the tablet
-   sizes), so this range overlaps `breakpoint(md)`'s first pixel — where the
-   two compete, the tablet declaration must come later in the cascade to win
-   (see root.module.scss). Desktop takes over from 1025. */
+/* Tablet range — 769px (the `sm` edge) through 819px INCLUSIVE (one pixel
+   below the `md` edge). Exact-768 and below is the mobile tier, so tablet
+   styles must never leak onto a 768px viewport. Ends one pixel BEFORE the
+   `md` edge — `md` (820+) is the desktop tier with the full 12-col grid, so
+   the two ranges are disjoint and there is no overlap pixel to arbitrate
+   via source order anymore. */
 @mixin breakpoint-tablet {
-  @media only screen and (min-width: #{map.get($-breakpoints, "sm")}px) and (max-width: #{map.get($-breakpoints, "md")}px) {
+  @media only screen and (min-width: #{map.get($-breakpoints, "sm")}px) and (max-width: #{map.get($-breakpoints, "md") - 1}px) {
     @content;
   }
 }

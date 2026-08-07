@@ -137,8 +137,9 @@ export function createDefaultTransition(): TransitionProps {
       // back button and return them to wherever they left the home scroll.
       // Upgrading the direction here (rather than inside scroll-restore.ts)
       // keeps the tier gate next to the only call site that knows the
-      // route names. ≤1024px matches the SCSS mobile+tablet tiers exactly
-      // (the 12-col desktop grid starts at 1025 — see core/root.module.scss);
+      // route names. ≤819px matches the SCSS mobile+tablet tiers exactly
+      // (the 12-col desktop grid starts at the 820 `md` edge — see
+      // includes/_breakpoints.module.scss and core/root.module.scss);
       // desktop keeps the original Close-resets-to-top behaviour. A direct
       // detail load with no home snapshot is safe: restoreOrResetScroll's
       // "back" branch falls through to top when no snapshot exists.
@@ -146,7 +147,7 @@ export function createDefaultTransition(): TransitionProps {
         direction === "forward" &&
         outgoingName === "slug" &&
         incomingName === "index" &&
-        window.matchMedia("(max-width: 1024px)").matches
+        window.matchMedia("(max-width: 819px)").matches
       ) {
         direction = "back";
         console.debug("[scroll-restore] slug→home on touch tier — treating Close as back");

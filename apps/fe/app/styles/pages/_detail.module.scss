@@ -30,7 +30,9 @@
      padding is only a pre-measure fallback: DetailPage.setMobileEndPadding()
      replaces it inline with 50vh − half the LAST module's measured height,
      so at full scroll that module CENTRES on the viewport midline — the
-     mirror of the cover's 50vh − hero/2 centred start. */
+     mirror of the cover's 50vh − hero/2 centred start. With the outro now
+     present on mobile it IS the last module (a full 100svh panel), so the
+     measured pad resolves to 0 and the page simply ends on the outro. */
   @include breakpoint-mobile {
     gap: 20vh;
     padding-bottom: 50svh;
@@ -93,7 +95,7 @@
 
 /* Cover image (first content under the nav). Positioned so the figure renders
    at the IDENTICAL size and viewport position as the home text-mode reveal
-   image (`.home__text-gpu*`): same centre-8 box width, same figure %, and —
+   image (`.home__text-gpu*`): same --hero-span width per tier, and —
    crucially — vertically centred at 50vh (where the fixed home reveal image
    sits). This lets the home→detail transition keep that image live and have it
    land here pixel-perfect (see controller/transitions/home-to-detail.ts).
@@ -105,22 +107,30 @@
    slice exactly one gap under the hero. `flex-shrink: 0` so the flex column
    never squeezes it. */
 .detail__cover {
-  /* Centre-8 box width, mirroring the page's 12-col grid math exactly: 1fr =
-     (content - 11 gaps) / 12, and centre-8 (cols 3→10) = 8 tracks + 7 gaps.
-     Built from the responsive grid tokens, so it tracks every breakpoint and
-     stays identical to `.home__text-gpu-inner`. */
+  /* One grid-track width from the responsive grid tokens — recomputes per
+     tier as --columns changes (6 → 8 → 12). Identical to
+     `.home__text-gpu-figure`'s --col-w, keeping the bridge pixel-matched. */
   --col-w: calc(
     (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
       var(--columns)
   );
-  --centre-8: calc(8 * var(--col-w) + 7 * var(--column-gap));
-  /* --hero-h (the figure's rendered height) is set per coverSize below. */
+  /* --hero-span = the 4:3 hero's rendered WIDTH per tier — and, rotated,
+     the 3:4 hero's HEIGHT (the 3:4 is "the same size, just rotated"):
+       mobile  (≤768, 6 cols)  → full width inside the container padding (1/-1)
+       sm      (769+, 8 cols)  → centre 6 of 8 (6 tracks + 5 gaps)
+       md      (820+, 12 cols) → centre 8 of 12 (8 tracks + 7 gaps)
+       lg      (1280+, 12 cols)→ centre 6 of 12 (6 tracks + 5 gaps)
+     MUST stay identical to `.home__text-gpu-figure`'s --hero-span so the
+     home→detail image bridge lands pixel-perfect.
+     --hero-h (the figure's rendered height) is set per coverSize below. */
+  --hero-span: calc(6 * var(--col-w) + 5 * var(--column-gap));
 
-  /* Tablet (8 cols): the inner spans 2 / -2 (see .detail__cover-inner), so
-     the reference width the hero-height %s are taken from must match that
-     box — 6 tracks + 5 gaps — or the cover renders oversized. */
-  @include breakpoint-tablet {
-    --centre-8: calc(6 * var(--col-w) + 5 * var(--column-gap));
+  @include breakpoint(md) {
+    --hero-span: calc(8 * var(--col-w) + 7 * var(--column-gap));
+  }
+
+  @include breakpoint(lg) {
+    --hero-span: calc(6 * var(--col-w) + 5 * var(--column-gap));
   }
 
   display: grid;
@@ -134,94 +144,76 @@
   justify-items: stretch;
   flex-shrink: 0;
 
-  /* Mobile: mirror the home reveal's geometry — the reference box is the
-     full viewport width (home's reveal inner is full-bleed on mobile) and
-     the container padding goes. The cover RESTS at the home-matched
-     centred position, same as desktop's formula (svh, matching the home
-     overlay's 100svh centring): the bridge image lands on it and never
-     moves; everything beneath fades in (see MOBILE_COVER_ENTRANCE_SLIDE
-     in detail.ts).
+  /* Mobile: mirror the home reveal's geometry — the hero span is the full
+     width inside the container padding (the cover's own side padding goes,
+     the inner is full-bleed). The cover RESTS at the home-matched centred
+     position, same as desktop's formula (svh, matching the home overlay's
+     100svh centring): the bridge image lands on it and never moves;
+     everything beneath fades in (see MOBILE_COVER_ENTRANCE_SLIDE in
+     detail.ts).
      TO REVERT to the entrance slide: swap the padding back to `20vh 0 0`
      (the settled page rhythm) AND flip MOBILE_COVER_ENTRANCE_SLIDE to
      true in detail.ts — the two are a pair.
      Declared after the base padding so these win the cascade. */
   @include breakpoint-mobile {
-    --centre-8: 100vw;
+    --hero-span: calc(100vw - 2 * var(--container-padding));
     padding: calc(50svh - var(--hero-h) / 2) 0 0;
   }
 }
 
-/* Per-coverSize figure height, derived from the same widths as
-   `.home__text-gpu-figure` (which mirror the Image slice's spans). Read off
-   the inner's existing variant class via :has() so no template change is
-   needed; the parent needs --hero-h to size its own top padding and the
-   inner's height.
+/* Per-coverSize figure height, derived from the shared --hero-span (see
+   the tier table on `.detail__cover`). Read off the inner's existing
+   variant class via :has() so no template change is needed; the parent
+   needs --hero-h to size its own top padding and the inner's height.
 
-   4:3 has ONE height per breakpoint tier — the CMS Small/Large only
+   4:3 has ONE size per breakpoint tier — the CMS Small/Large only
    differentiates the home image-mode grid, so both variant classes share
    every rule here (the template still emits `--4x3-sm`/`--4x3-lg` from
-   coverSize):
-     desktop → centre-6 span width × 3/4 (the slice's c6 span)
-     tablet  → full padded width × 3/4 (the slice's 1/-1 tablet span — see
-               the tablet block below)
-     3:4     → the slice's c4 span width (4 tracks + 3 gaps) × 4/3, via ONE
-               tier-agnostic formula — --col-w recomputes from the
-               responsive --columns tokens, so the same calc matches the
-               slice's centre-4 span on 12, 8, and 6 columns alike */
+   coverSize): height = span width × 3/4.
+   3:4 is the SAME SIZE ROTATED: its height IS the 4:3's width, i.e.
+   --hero-span itself — so on desktop the 3:4 hero's height equals the
+   centre-6 span width. (The loader normalizes legacy `3x4-sm`/`3x4-lg` to
+   `3x4`.) Both formulas track every tier automatically because --hero-span
+   already re-resolves per breakpoint. */
 .detail__cover:has(.detail__cover-inner--4x3-sm),
 .detail__cover:has(.detail__cover-inner--4x3-lg) {
-  --hero-h: calc(0.75 * (6 * var(--col-w) + 5 * var(--column-gap)));
-
-  /* Tablet: full width inside the container padding, matching the home
-     reveal figure's tablet size so the bridge stays pixel-identical. Wider
-     than the 2/-2 inner — the figure overhangs it, uncontained (see ._g). */
-  @include breakpoint-tablet {
-    --hero-h: calc(0.75 * (100vw - 2 * var(--container-padding)));
-  }
+  --hero-h: calc(0.75 * var(--hero-span));
 }
 .detail__cover:has(.detail__cover-inner--3x4) {
-  --hero-h: calc(4 / 3 * (4 * var(--col-w) + 3 * var(--column-gap)));
-}
-
-/* Mobile hero heights — both 4:3 variants use the full-width span (the
-   slice's 1/-1 mobile span; centre-8 is 100vw here, so the padding is
-   subtracted explicitly). Same width as `.home__text-gpu-figure`'s mobile
-   size, keeping the home→detail bridge pixel-matched. 3:4 needs no
-   override — its track formula above already resolves against the 6-col
-   mobile grid (the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`).
-   Declared after the desktop rules so this equal-specificity override wins. */
-@include breakpoint-mobile {
-  .detail__cover:has(.detail__cover-inner--4x3-sm),
-  .detail__cover:has(.detail__cover-inner--4x3-lg) {
-    --hero-h: calc(0.75 * (var(--centre-8) - 2 * var(--container-padding)));
-  }
+  --hero-h: var(--hero-span);
 }
 
 /* The inner now IS the figure box (height = the figure height), spanning the
    centre 8 of 12 cols — not a 1:1 reference box. The figure width % is unchanged
    from before, so the rendered dimensions match the home figure exactly. */
 .detail__cover-inner {
+  /* Placement per tier tracks the hero span (a centred box the absolutely-
+     centred ._g fills or overhangs; only its centring and height matter):
+     md (12 cols) centre 8; lg+ (12 cols) centre 6; sm (8 cols) 2/-2
+     (centre 6); mobile full-bleed. */
   grid-column: 3 / span 8;
   position: relative;
   width: 100%;
   height: var(--hero-h);
 
-  /* Tablet (8 cols): one column in from each edge, matching the slice
-     placements; the parent redefines --centre-8 to this box's width so the
-     hero-height math stays proportional. */
+  @include breakpoint(lg) {
+    grid-column: 4 / span 6;
+  }
+
+  /* sm/tablet (8 cols): one column in from each edge. */
   @include breakpoint-tablet {
     grid-column: 2 / -2;
   }
 
   /* Mobile: full-bleed, matching the home reveal's full-width inner (the
-     parent's --centre-8 is 100vw and its side padding is zeroed). */
+     parent's side padding is zeroed there). */
   @include breakpoint-mobile {
     grid-column: 1 / -1;
   }
 
   /* The `{{> picture}}` figure, horizontally centred and filling the inner's
-     height. Width is the figure % of centre-8 (set per variant below); height
-     fills the inner (= --hero-h). Override the partial's default aspect so the
+     height. Width is set per variant below off --hero-span; height fills the
+     inner (= --hero-h). Override the partial's default aspect so the
      explicit width/height drive size — same crop behaviour as the home figure. */
   ._g {
     position: absolute;
@@ -243,40 +235,28 @@
   }
 }
 
-/* Figure widths — same values as `.home__text-gpu-figure`, mirroring the
-   Image slice's spans. Both 4:3 variant classes share one width per tier
-   (Small/Large only matters to the home image-mode grid): desktop = the
-   centre-6 span, tablet = the full padded viewport width (overhanging the
-   2/-2 inner — ._g is absolutely centred and nothing between it and the
-   viewport clips horizontally). 3:4 is the slice's c4 span — 4 tracks +
-   3 gaps via one tier-agnostic formula, exactly like the home reveal
-   figure (the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). */
+/* Figure widths — same values as `.home__text-gpu-figure`, sized off the
+   shared --hero-span so both stay bridge-matched. Both 4:3 variant classes
+   share one width per tier (Small/Large only matters to the home
+   image-mode grid): width = --hero-span, and the inner's --hero-h height
+   (span × 3/4) completes the ratio. 3:4 is the same size rotated: its
+   height is the inner's --hero-h (= --hero-span), so its width is span ×
+   3/4 (the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). ._g is
+   absolutely centred and may overhang the inner — nothing between it and
+   the viewport clips horizontally. */
 .detail__cover-inner--4x3-sm ._g,
 .detail__cover-inner--4x3-lg ._g {
-  width: calc(6 * var(--col-w) + 5 * var(--column-gap));
-
-  @include breakpoint-tablet {
-    width: calc(100vw - 2 * var(--container-padding));
-  }
+  width: var(--hero-span);
 }
 
 .detail__cover-inner--3x4 ._g {
-  width: calc(4 * var(--col-w) + 3 * var(--column-gap));
+  width: calc(0.75 * var(--hero-span));
 }
 
-/* Mobile figure widths — both 4:3 variants at full width inside the
-   container padding (the inner is full-bleed 100vw here). Paired with the
-   mobile --hero-h fraction above so width × aspect = height and the crop
-   matches home exactly. 3:4 needs no override — its track formula
-   self-adjusts to the 6-col mobile grid. */
-@include breakpoint-mobile {
-  .detail__cover-inner--4x3-sm ._g,
-  .detail__cover-inner--4x3-lg ._g {
-    width: calc(100% - 2 * var(--container-padding));
-  }
-}
-
-/* Full-viewport outro panel. Centers the DIAA logotype (same mark as the intro). */
+/* Full-viewport outro panel. Centers the DIAA logotype (same mark as the
+   intro). Present on EVERY tier — mobile/tablet included — with the same
+   scroll choreography as desktop (nav fade + bottom-dwell auto-close, see
+   controllers/detail.ts). */
 .detail__outro {
   display: flex;
   align-items: center;
@@ -284,9 +264,10 @@
   width: 100vw;
   height: 100vh;
 
-  /* Mobile: no outro panel — the fixed Close footer is the page's ending. */
+  /* Mobile: the SMALL viewport, so the panel fits the visible screen above
+     iOS Safari's bottom navigation chrome. */
   @include breakpoint-mobile {
-    display: none;
+    height: 100svh;
   }
 }
 
@@ -318,7 +299,9 @@
   z-index: $z-index-header;
 
   @include breakpoint-mobile {
-    bottom: var(--XS);
+    /* Safe-area inset lifts the Close above iOS 26 Safari's bottom
+       navigation chrome (0px everywhere else — see the home footer). */
+    bottom: calc(var(--XS) + env(safe-area-inset-bottom, 0px));
     padding: 0 var(--XS);
   }
 

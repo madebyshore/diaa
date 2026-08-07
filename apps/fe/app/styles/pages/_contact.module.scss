@@ -120,7 +120,9 @@
 }
 
 /* Full-viewport outro panel ("dia callout") — identical to
-   `.detail__outro`: centers the DIAA logotype (same mark as the intro). */
+   `.detail__outro`: centers the DIAA logotype (same mark as the intro).
+   Present on EVERY tier — mobile/tablet included — with the same scroll
+   choreography as desktop (see controllers/rich-text-page.ts). */
 .contact__outro {
   display: flex;
   align-items: center;
@@ -128,9 +130,10 @@
   width: 100vw;
   height: 100vh;
 
-  /* Mobile: no outro panel — the fixed Close footer is the page's ending. */
+  /* Mobile: the SMALL viewport, so the panel fits the visible screen above
+     iOS Safari's bottom navigation chrome. */
   @include breakpoint-mobile {
-    display: none;
+    height: 100svh;
   }
 }
 
@@ -160,7 +163,9 @@
   z-index: $z-index-header;
 
   @include breakpoint-mobile {
-    bottom: var(--XS);
+    /* Safe-area inset lifts the Close above iOS 26 Safari's bottom
+       navigation chrome (0px everywhere else — see the home footer). */
+    bottom: calc(var(--XS) + env(safe-area-inset-bottom, 0px));
     padding: 0 var(--XS);
   }
 

@@ -50,7 +50,7 @@ const IN_DELAY = 0.2;
 const IN_EASE = "slow";
 const OUT_DURATION = 0.8;
 
-// Desktop outro choreography — mirrors DetailPage (keep in sync with the
+// Outro choreography, every tier — mirrors DetailPage (keep in sync with the
 // constants in controllers/detail.ts):
 // - The title nav fades out over NAV_HIDE_DURATION once the outro section
 //   enters the viewport, and back in when the user scrolls above it.
@@ -71,10 +71,6 @@ const BOTTOM_EPSILON = 2;
 // past this halfway threshold, so the nav stays until the user scrolls.
 const OUTRO_NAV_HIDE_RATIO = 0.5;
 
-// Mobile tier — keep in sync with `breakpoint-mobile` in
-// styles/includes/_breakpoints.module.scss (everything at or below 768px).
-// The outro is display:none on mobile, so onScroll bails there entirely.
-const MOBILE_MEDIA_QUERY = "(max-width: 768px)";
 
 /**
  * createRichTextController — build a fresh PageController for a rich-text
@@ -104,6 +100,10 @@ export function createRichTextController(pageKey: string): PageController {
    *  bottom-dwell handler must not auto-navigate while a nav is already in
    *  flight (mirrors diaa's `App.mutating` guard). */
   let mutating: ReturnType<typeof useNavLock>["mutating"] | null = null;
+  /** The `( Close )` footer link + its beat-suppressing click handler —
+   *  stored so onDestroy can remove the exact closure onInit added. */
+  let closeEl: HTMLElement | null = null;
+  let closeClickHandler: (() => void) | null = null;
 
   /**
    * Scroll-driven nav show/hide (desktop) — same treatment as DetailPage.
@@ -189,10 +189,23 @@ export function createRichTextController(pageKey: string): PageController {
       gsap.set(root, { opacity: 0 });
 
       navEl = root.querySelector<HTMLElement>(`.${pageKey}__nav`);
-      // Outro section — scroll trigger for the desktop nav fade (see
-      // onScroll below). display:none on mobile, where onScroll bails
-      // before ever measuring it.
+      // Outro section — scroll trigger for the nav fade (see onScroll
+      // below). Present on every tier, mobile/tablet included.
       outroEl = root.querySelector<HTMLElement>(`.${pageKey}__outro`);
+
+      // Close-as-home takes the plain crossfade, not the DIAA brand beat —
+      // same reasoning as DetailPage: the outro already IS the brand
+      // moment, so Close (every tier) reads "page fades out, home fades
+      // in", identical to the bottom-dwell auto-close. HomePage.in()
+      // consumes the one-shot flag.
+      closeEl = root.querySelector<HTMLElement>(`.${pageKey}__footer .global-nav__link`);
+      if (closeEl) {
+        closeClickHandler = (): void => {
+          console.debug(`[page:${pageKey}] close → skip home beat`);
+          skipNextHomeBeat();
+        };
+        closeEl.addEventListener("click", closeClickHandler);
+      }
     },
 
     /**
@@ -233,15 +246,13 @@ export function createRichTextController(pageKey: string): PageController {
     },
 
     /**
-     * Scroll hook (subscribed after in() resolves) — desktop-only outro
-     * choreography: fade the nav out once the outro enters the viewport,
-     * and arm the bottom-dwell auto-close at full scroll. Mobile bails
-     * entirely — the outro is display:none there and the page fits the
-     * viewport.
+     * Scroll hook (subscribed after in() resolves) — outro choreography on
+     * EVERY tier (the outro panel now renders on mobile/tablet too): fade
+     * the nav out once the outro enters the viewport, and arm the
+     * bottom-dwell auto-close at full scroll — the outro fades out with
+     * the page and home fades in, same as Close.
      */
     onScroll(e: ScrollEvent): void {
-      if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
-
       if (outroEl) {
         const outroInView =
           outroEl.getBoundingClientRect().top <=
@@ -263,6 +274,9 @@ export function createRichTextController(pageKey: string): PageController {
         clearTimeout(bottomTimer);
         bottomTimer = null;
       }
+      if (closeEl && closeClickHandler) closeEl.removeEventListener("click", closeClickHandler);
+      closeEl = null;
+      closeClickHandler = null;
       navEl = null;
       outroEl = null;
       navHidden = false;

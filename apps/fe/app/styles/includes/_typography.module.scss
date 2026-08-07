@@ -111,11 +111,13 @@ $font-accent: "HW Beaujon", serif;
   leading-trim: both;
   text-edge: cap;
 
-  /* Mobile (<= 768) — Figma Mobile/Body: 20px @ root 10px = 2rem, 0.2px
-     tracking = 0.02rem. Weight (425) and line-height (160%) match desktop;
+  /* Mobile AND tablets (everything below `lg`, 1280) — Figma Mobile/Body:
+     20px @ root 10px = 2rem, 0.2px tracking = 0.02rem. The sm (769+) and md
+     (820+) tablet tiers share the mobile size by design; the 2.3rem desktop
+     body starts at `lg`. Weight (425) and line-height (160%) match desktop;
      the family stays $font-body — Figma's "HW Beaujon Text VF" is the same
      loaded face under its variable-font name. */
-  @include breakpoint-mobile {
+  @include breakpoint-below(lg) {
     font-size: 2rem;
     letter-spacing: 0.02rem;
   }
@@ -127,7 +129,8 @@ $font-accent: "HW Beaujon", serif;
    `leading-trim`/`text-edge` are the legacy property pair; `text-box` is the
    shipped shorthand — declared together so whichever the browser supports
    trims the cap height. Shared by every captioned slice (2Up / 3Up /
-   slideshow). */
+   slideshow). Like typo-base, the mobile size covers the sm/md tablet
+   tiers too — the 10px desktop caption starts at `lg`. */
 @mixin typo-caption {
   font-family: $font-serif;
   font-size: 10px;
@@ -141,7 +144,7 @@ $font-accent: "HW Beaujon", serif;
   text-edge: cap;
   text-box: cap alphabetic;
 
-  @include breakpoint-mobile {
+  @include breakpoint-below(lg) {
     font-size: 8px;
     line-height: 140%;
     letter-spacing: 0.24px;

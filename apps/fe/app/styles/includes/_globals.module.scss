@@ -64,6 +64,13 @@
   // far taller than 2×--XS padding + cap height. Trimming them brings the
   // whole nav down to the cap-height rhythm used everywhere else; the
   // paren glyphs simply ink-overflow the trimmed box, which is fine.
+  //
+  // The negative margins collapse the flex `gap` on the paren side down to
+  // exactly 1px, so each paren hugs its neighbouring word like normal
+  // kerning — `(All` … `Text)` — while the commas between items keep the
+  // full 0.6rem gap. Applies to every .global-nav paren, including the
+  // page footers' restored `( Close )` (content: none pseudo-elements have
+  // no box, so the margins are inert on the plain home footer).
   &::before,
   &::after {
     text-box: cap alphabetic;
@@ -71,10 +78,12 @@
 
   &::before {
     content: "(";
+    margin-right: calc(1px - 0.6rem);
   }
 
   &::after {
     content: ")";
+    margin-left: calc(1px - 0.6rem);
   }
 
   // Comma after every direct child except the last AND except groups.
@@ -87,8 +96,8 @@
 // Inline cluster of comma-separated items inside a .global-nav. Children
 // (buttons, anchors) get a comma between them; groups themselves get the
 // outer parent's `gap` (0.6rem) plus an extra margin so the visual gap
-// between consecutive groups reaches --XS — without affecting the paren
-// pseudo-elements which stay at the base 0.6rem.
+// between consecutive groups reaches 1.4rem — without affecting the paren
+// pseudo-elements, which carry their own 1px-hug margins.
 .global-nav__group {
   display: flex;
   gap: 0.6rem;
@@ -99,7 +108,7 @@
   }
 
   & + & {
-    margin-left: calc(var(--XS) - 0.6rem);
+    margin-left: calc(1.4rem - 0.6rem);
   }
 }
 

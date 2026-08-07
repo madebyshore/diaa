@@ -6,7 +6,6 @@
 
   --columns: #{$columns};
   --columns-sm: #{$columns-sm};
-  --columns-tablet: #{$columns-tablet};
   --columns-md: #{$columns-md};
 
   --column-gap: #{$column-gap};
@@ -42,7 +41,9 @@
   --L: 12rem;
   --XL: 14.2rem;
 
-  /* Misc. */
+  /* Misc. Grid tiers: mobile (base, 6 cols) → `sm` 769+ (8 cols) → `md`
+     820+ (12 cols, the desktop grid all the way up). Gap and container
+     padding share the same 3rem rhythm at every tier. */
   @include breakpoint(sm) {
     --target-window-width: #{$target-window-width-tablet};
     --scale-modifier: #{$scale-modifier-tablet};
@@ -62,15 +63,6 @@
     --container-padding: var(--container-padding-md);
     --column-gap: var(--column-gap-md);
     --header-height: 10.6rem;
-  }
-
-  /* Tablet (769–1024 inclusive): 8-column grid. Declared AFTER the `md`
-     block because the ranges overlap at exactly 1024px — source order lets
-     the tablet value win there, so 1024 still holds the tablet grid and the
-     12-col desktop grid starts at 1025. At or below 768 the mobile base
-     values above apply (6 cols). */
-  @include breakpoint-tablet {
-    --columns: var(--columns-tablet);
   }
 
   @include breakpoint(xl) {

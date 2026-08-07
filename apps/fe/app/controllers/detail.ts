@@ -48,7 +48,7 @@ const DETAIL_IN_DELAY = 0.2;
 // title nav is a passive heading.
 const NAV_FADE_EASE = "none";
 
-// Desktop outro choreography (see onScroll):
+// Outro choreography, every tier (see onScroll):
 // - The title nav fades out over NAV_HIDE_DURATION once the outro section
 //   enters the viewport, and fades back in when the user scrolls above it.
 // - Resting at the very bottom of the page for BOTTOM_DWELL_MS auto-navigates
@@ -127,14 +127,20 @@ export function createDetailController(): PageController {
    *  Nuxt app context) for the later bottom-dwell setTimeout callback. */
   let router: ReturnType<typeof useRouter> | null = null;
   let mutating: ReturnType<typeof useNavLock>["mutating"] | null = null;
+  /** The `( Close )` footer link + its beat-suppressing click handler —
+   *  stored so onDestroy can remove the exact closure onInit added. */
+  let closeEl: HTMLElement | null = null;
+  let closeClickHandler: (() => void) | null = null;
 
   /**
    * Mobile: pad `.detail__container`'s bottom so the last visible module
-   * (the outro is display:none on mobile) can centre on the viewport midline
-   * at full scroll — 50vh − half the module's height, the same treatment the
-   * cover gets at the top via its padding-top formula. The stylesheet's
-   * 50svh is only the pre-measure fallback; this inline value replaces it.
-   * No-ops (and clears any stale inline value) off-mobile.
+   * can centre on the viewport midline at full scroll — 50vh − half the
+   * module's height, the same treatment the cover gets at the top via its
+   * padding-top formula. With the outro now rendered on mobile it IS the
+   * last module (a full-viewport panel), so the measured pad resolves to 0
+   * and the page ends flush on the outro. The stylesheet's 50svh is only
+   * the pre-measure fallback; this inline value replaces it. No-ops (and
+   * clears any stale inline value) off-mobile.
    */
   function setMobileEndPadding(root: HTMLElement): void {
     const containerEl = root.querySelector<HTMLElement>(".detail__container");
@@ -330,10 +336,24 @@ export function createDetailController(): PageController {
       gsap.set(root, { opacity: 0 });
 
       navEl = root.querySelector<HTMLElement>(".detail__nav");
-      // Outro section — scroll trigger for the desktop nav fade (see
-      // onScroll). display:none on mobile, where onScroll bails before ever
-      // measuring it.
+      // Outro section — scroll trigger for the nav fade (see onScroll).
+      // Present on every tier, mobile/tablet included.
       outroEl = root.querySelector<HTMLElement>(".detail__outro");
+
+      // Close-as-home takes the plain crossfade, not the DIAA brand beat:
+      // the outro already IS the brand moment on this page, and the client
+      // wants Close (every tier) to read as "page fades out, home fades in"
+      // — the exact behaviour the bottom-dwell auto-close has. Setting the
+      // one-shot skip at click time (before the delegated SPA navigation
+      // runs) makes both paths identical; HomePage.in() consumes the flag.
+      closeEl = root.querySelector<HTMLElement>(".detail__footer .global-nav__link");
+      if (closeEl) {
+        closeClickHandler = (): void => {
+          console.debug("[page:detail] close → skip home beat");
+          skipNextHomeBeat();
+        };
+        closeEl.addEventListener("click", closeClickHandler);
+      }
 
       // Mobile cover entrance slide (gated off by default — see
       // MOBILE_COVER_ENTRANCE_SLIDE): offset the cover down from its
@@ -489,15 +509,13 @@ export function createDetailController(): PageController {
     },
 
     /**
-     * Scroll hook (subscribed after in() resolves) — desktop-only outro
-     * choreography: fade the nav out once the outro enters the viewport,
-     * and arm the bottom-dwell auto-close at full scroll. Mobile bails
-     * entirely — the outro is display:none there and the Close footer
-     * handles closing.
+     * Scroll hook (subscribed after in() resolves) — outro choreography on
+     * EVERY tier (the outro panel now renders on mobile/tablet too): fade
+     * the nav out once the outro enters the viewport, and arm the
+     * bottom-dwell auto-close at full scroll — the outro fades out with the
+     * page and home fades in, same as Close.
      */
     onScroll(e: ScrollEvent): void {
-      if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
-
       if (outroEl) {
         const outroInView =
           outroEl.getBoundingClientRect().top <=
@@ -530,6 +548,9 @@ export function createDetailController(): PageController {
         ResizeHub.remove(resizeSubId);
         resizeSubId = null;
       }
+      if (closeEl && closeClickHandler) closeEl.removeEventListener("click", closeClickHandler);
+      closeEl = null;
+      closeClickHandler = null;
       navEl = null;
       router = null;
       mutating = null;

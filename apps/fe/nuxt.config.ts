@@ -66,6 +66,15 @@ export default defineNuxtConfig({
     head: {
       // Old shell (`index.html`) declared `<html lang="en">` directly.
       htmlAttrs: { lang: "en" },
+      // viewport-fit=cover extends the layout into the iOS safe areas so
+      // env(safe-area-inset-*) resolves to real values — the fixed footers
+      // (home DIAA footer, the ( Close ) footers) add
+      // env(safe-area-inset-bottom) to clear iOS 26 Safari's bottom
+      // navigation chrome. Without this Nuxt emits the default viewport
+      // meta and the insets are always 0 on iOS.
+      meta: [
+        { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      ],
       // Font preloads, ported verbatim from `index.html`'s two `<link
       // rel="preload">` tags. Only the two "Upright" weight-VF files are
       // preloaded (the pair actually used above the fold on first paint —

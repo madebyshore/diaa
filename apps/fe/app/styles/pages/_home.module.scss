@@ -76,11 +76,14 @@
        beneath it), re-centred with the fixed-position idiom since the base
        footer variant is a static flex item. --XS breathing room below via
        `bottom` (not padding, so the box hugs the content), no top padding
-       — the mirror of the fixed nav above. */
+       — the mirror of the fixed nav above. The safe-area inset lifts the
+       footer above iOS 26 Safari's bottom navigation chrome / home
+       indicator (requires viewport-fit=cover — set in nuxt.config.ts's
+       viewport meta; 0px everywhere else). */
     .global-nav--footer {
       position: fixed;
       top: auto;
-      bottom: var(--XS);
+      bottom: calc(var(--XS) + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%);
       z-index: 10;
@@ -217,20 +220,23 @@
   }
 
   /* Mobile: the item box stays its natural --home-item-h (a normal tap
-     target, see .home__text-item) and the gap is HALF the old
-     screen-per-entry rhythm — (100svh − item) / 2 instead of 100svh − item —
-     so consecutive labels sit roughly half a screen apart centre-to-centre
-     and two entries can read on screen at once. The image handoff no longer
-     needs the one-per-screen spacing: home.ts's updateScrollReveal swaps at
-     the reveal container's edges (next label touches the container's bottom
-     scrolling down, previous touches its top scrolling up), not at the
-     midline crossover the old rhythm guaranteed. svh (not a chrome-dependent
-     unit) keeps the rhythm stable when the browser toolbar minimises
-     mid-scroll — a gap measured off the visible viewport would shift the
-     entries once the toolbar hides. The edge padding (50svh − half an item)
-     keeps the begin/end-on-the-midline contract: the first label centres on
-     load, the last at full scroll. (Declared after the max-height rule above
-     so this shorthand wins its padding-block.) */
+     target, see .home__text-item) and the rhythm is 50svh of VISUAL space
+     between entries — measured from the BOTTOM of one label's text to the
+     TOP of the next label's text, not box edge to box edge. The label's
+     visible text is one cap-height tall (the items trim to the cap via
+     `text-box: cap alphabetic`, and 1cap here resolves against the same
+     inherited font the labels use), and it sits centred in the item box, so
+     each box adds (item − 1cap) / 2 of dead space on either side of the
+     flex gap. Compensating: gap = 50svh − (item − 1cap) puts exactly 50svh
+     between the text edges. svh, not vh, is deliberate twice over: it keeps
+     the rhythm stable when the browser toolbar minimises mid-scroll, and on
+     iOS 26 Safari it measures against the SMALL viewport — the area
+     actually visible above the bottom navigation chrome — so the space the
+     floating tab bar covers never silently eats into the 50-per-cent
+     spacing. The edge padding (50svh − half an item) keeps the
+     begin/end-on-the-midline contract: the first label centres on load, the
+     last at full scroll. (Declared after the max-height rule above so this
+     shorthand wins its padding-block.) */
   @include breakpoint-mobile {
     --home-item-h: 8rem;
     flex-flow: column nowrap;
@@ -239,7 +245,7 @@
        block and pull the first item off the midline. */
     justify-content: flex-start;
     align-items: center;
-    gap: calc((100svh - var(--home-item-h)) / 2);
+    gap: calc(50svh - (var(--home-item-h) - 1cap));
     padding: calc(50svh - var(--home-item-h) / 2) var(--container-padding);
     /* The pane sits above the image overlay (z-index 1 vs 0), so by
        default it swallows every tap. Letting taps fall through the pane —
@@ -330,29 +336,29 @@
   }
 }
 
-/* 1:1 inner box every figure centres against. The span must fit the tier's
-   column count or the box overflows the explicit grid and drifts off-centre
-   (the old `3 / span 8` on the 6-col mobile grid did exactly that). Mobile:
-   centre 4 of 6 (cols 2 → 5); `sm` up: centre 8 of 12 (cols 3 → 10) — the
-   same two-thirds proportion; tablet (8 cols): 2 / -2, one column in from
-   each edge, matching the detail cover's tablet box (--centre-8 there is
-   redefined to this same 6-track width, keeping the home→detail image
-   bridge pixel-matched). All figures are positioned absolutely centred
-   inside this box and sized as % of it. */
+/* 1:1 inner box every figure centres against — a centred REFERENCE box (the
+   figures size off --hero-span and are absolutely centred, so they can
+   overhang it freely); on mobile its top/bottom edges are the scroll
+   reveal's swap thresholds (see home.ts updateScrollReveal). The span must
+   fit the tier's column count or the box overflows the explicit grid and
+   drifts off-centre (the old `3 / span 8` on the 6-col mobile grid did
+   exactly that). Mobile: centre 4 of 6 (cols 2 → 5); `md` up (12 cols):
+   centre 8 of 12 (cols 3 → 10); tablet/`sm` (8 cols): 2 / -2, one column in
+   from each edge. */
 .home__text-gpu-inner {
   grid-column: 2 / span 4;
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
 
+  /* sm (8 cols): one column in from each edge. */
   @include breakpoint(sm) {
-    grid-column: 3 / span 8;
+    grid-column: 2 / -2;
   }
 
-  /* Declared after the `sm` block — both queries match on 769–1024, so
-     source order lets the tablet placement win there. */
-  @include breakpoint-tablet {
-    grid-column: 2 / -2;
+  /* md+ (12 cols): centre 8. */
+  @include breakpoint(md) {
+    grid-column: 3 / span 8;
   }
 
   /* Mobile: the parent overlay is a full-bleed flex row (no grid), so the
@@ -363,14 +369,35 @@
 }
 
 .home__text-gpu-figure {
-  /* One grid-track width, from the same responsive tokens the Image slice's
-     grid uses — lets BOTH ratio sizes below equal the slice's rendered spans
-     exactly at every viewport (a fixed % would only hold at the 1440 design).
-     Matches `.detail__cover`'s --col-w formula, keeping the bridge matched. */
+  /* One grid-track width, from the responsive grid tokens — recomputes per
+     tier as --columns changes (6 → 8 → 12). Matches `.detail__cover`'s
+     --col-w formula, keeping the home→detail bridge pixel-matched. */
   --col-w: calc(
     (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
       var(--columns)
   );
+  /* --hero-span = the 4:3 hero's rendered WIDTH per tier — and, rotated,
+     the 3:4 hero's HEIGHT (the 3:4 is "the same size, just rotated"):
+       mobile  (≤768, 6 cols)  → full width inside the container padding (1/-1)
+       sm      (769+, 8 cols)  → centre 6 of 8 (6 tracks + 5 gaps)
+       md      (820+, 12 cols) → centre 8 of 12 (8 tracks + 7 gaps)
+       lg      (1280+, 12 cols)→ centre 6 of 12 (6 tracks + 5 gaps)
+     The base 6-track formula serves BOTH the sm and lg tiers (--col-w
+     recomputes against each tier's --columns); md re-declares 8 tracks and
+     lg restores 6. Keep in sync with `.detail__cover`'s --hero-span. */
+  --hero-span: calc(6 * var(--col-w) + 5 * var(--column-gap));
+
+  @include breakpoint(md) {
+    --hero-span: calc(8 * var(--col-w) + 7 * var(--column-gap));
+  }
+
+  @include breakpoint(lg) {
+    --hero-span: calc(6 * var(--col-w) + 5 * var(--column-gap));
+  }
+
+  @include breakpoint-mobile {
+    --hero-span: calc(100vw - 2 * var(--container-padding));
+  }
 
   position: absolute;
   top: 50%;
@@ -403,51 +430,31 @@
     display: block;
   }
 
-  /* BOTH ratios now render the Image slice's exact spans (the same rects
-     `.slice-image__media--c6`/`--c4` occupy on the page grid), built from
-     the responsive grid tokens rather than fixed design percentages — the
-     figures are absolutely centred, and the slice spans are symmetric
-     around the page centre at every tier (c6 = 4/span 6 of 12, c4 =
-     5/span 4 of 12, 3/span 4 of 8, 2/-2 of 6), so centred + span-width is
-     pixel-identical to true grid placement.
-
+  /* Both ratios size off the shared --hero-span (see its tier table above).
      4:3 has ONE rendered size per breakpoint tier, regardless of the CMS
      Cover Size — Small vs Large only differentiates the image-mode grid.
      Both variant classes therefore share every rule (the template still
      emits `--4x3-sm`/`--4x3-lg` from coverSize, so both must be styled):
-       desktop       → the slice's centre-6 span (6 tracks + 5 gaps)
-       tablet/mobile → full width inside the container padding (the slice's
-                       1/-1 tablet/mobile span)
-     3:4 is the slice's c4 span — 4 tracks + 3 gaps — via ONE formula for
-     every tier: --col-w recomputes from the responsive --columns tokens, so
-     the same calc yields centre-4-of-12 (desktop), 3/span 4 of 8 (tablet),
-     and 2/-2 of 6 (mobile) automatically. (The loader normalizes legacy
-     `3x4-sm`/`3x4-lg` to `3x4`.) */
+     WIDTH = --hero-span, height from the aspect ratio.
+     3:4 is the SAME SIZE ROTATED: HEIGHT = --hero-span (the 4:3's width),
+     width from the aspect ratio — so on desktop the 3:4 hero's height
+     equals the centre-6 span width. (The loader normalizes legacy
+     `3x4-sm`/`3x4-lg` to `3x4`.) The figures are absolutely centred, so a
+     span wider than the inner box just overhangs it harmlessly — nothing
+     between the figure and the viewport clips horizontally (body uses
+     overflow-x: clip at the viewport edge only). */
   &--4x3-sm,
   &--4x3-lg {
-    width: calc(6 * var(--col-w) + 5 * var(--column-gap));
+    width: var(--hero-span);
     height: auto;
     aspect-ratio: 4 / 3;
-
-    /* Tablet: the inner box is 2/-2, so the full padded width overhangs it —
-       fine, because the figure is absolutely centred and nothing between it
-       and the viewport clips horizontally (body uses overflow-x: clip at the
-       viewport edge only). Must match .detail__cover's tablet hero math so
-       the home→detail bridge stays pixel-identical. */
-    @include breakpoint-tablet {
-      width: calc(100vw - 2 * var(--container-padding));
-    }
   }
   &--3x4 {
-    width: calc(4 * var(--col-w) + 3 * var(--column-gap));
-    height: auto;
+    height: var(--hero-span);
+    width: auto;
     aspect-ratio: 3 / 4;
   }
 
-  /* Mobile sizes — both 4:3 variants render the full-width span (the slice's
-     1/-1 mobile span): the inner is the full viewport here, so the padding
-     is subtracted explicitly. 3:4 needs no override — its track formula
-     above already resolves to the slice's centre-4-of-6 mobile span. */
   @include breakpoint-mobile {
     /* The revealed centre image doubles as a tap target for the detail
        page (home.ts navigates via the matching label's anchor). Only the
@@ -457,13 +464,6 @@
     &.is-active {
       pointer-events: auto;
       cursor: pointer;
-    }
-
-    &--4x3-sm,
-    &--4x3-lg {
-      height: auto;
-      aspect-ratio: 4 / 3;
-      width: calc(100% - 2 * var(--container-padding));
     }
   }
 }
