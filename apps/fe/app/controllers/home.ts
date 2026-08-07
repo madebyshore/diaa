@@ -8,7 +8,7 @@ import { createApp as createVueApp } from "vue";
 import { homeAnim } from "~/composables/useHomeAnim";
 import { takeHomeBeatSkip } from "~/lib/beat-skip";
 
-import type { PageController, ScrollEvent } from "~/controllers/page-controller";
+import type { PageController } from "~/controllers/page-controller";
 
 /**
  * controllers/home.ts — manages lifecycle for the `/` route, ported from
@@ -22,7 +22,12 @@ import type { PageController, ScrollEvent } from "~/controllers/page-controller"
  *   labels. Hovering a label toggles `.is-active` on the matching
  *   `.home__text-gpu-figure` so its `<img>` fades in at the viewport centre
  *   via CSS transition. Mouse leave removes `.is-active` and the image fades
- *   out.
+ *   out. HOVER-CAPABLE DEVICES ONLY: touch devices get no reveal at all —
+ *   the overlay is display:none there (see `.home__text-gpu` in
+ *   _home.module.scss), tapping a label navigates directly, and with no
+ *   `.is-active` figure the home→detail bridge no-ops so the detail page
+ *   simply fades in whole (the old mobile scroll-driven reveal + tap-the-
+ *   image navigation were removed at client request).
  *
  *   Image mode — DOM shows a 4-per-row grid of 1:1 cells. Each cell's
  *   `<figure class="_g">` contains the responsive `<img>`. Hovering a slot
@@ -194,10 +199,6 @@ export function createHomeController(): PageController {
   let textPane: HTMLElement | null = null;
   let imagePane: HTMLElement | null = null;
   let textGpu: HTMLElement | null = null;
-  /** The `.home__text-gpu-inner` 1:1 box every reveal figure centres in —
-   *  the "image container" whose top/bottom edges are the mobile scroll
-   *  reveal's swap thresholds (see updateScrollReveal). */
-  let textGpuInner: HTMLElement | null = null;
   let footer: HTMLElement | null = null;
   let modeButtons: HTMLButtonElement[] = [];
   let filterButtons: HTMLButtonElement[] = [];
@@ -205,15 +206,6 @@ export function createHomeController(): PageController {
   let imageItems: HTMLElement[] = [];
   let imageSlots: HTMLElement[] = [];
   let textGpuFigures: HTMLElement[] = [];
-
-  /** Index of the figure the mobile scroll reveal currently holds active,
-   *  -1 when none. Desktop keeps hover-driven reveals and ignores this. */
-  let scrollRevealIndex = -1;
-  /** Scroll position the last updateScrollReveal call saw — comparing
-   *  against it is what tells the reveal whether the user is scrolling down
-   *  (swap when the next label hits the container's BOTTOM edge) or back up
-   *  (swap when the previous label hits the TOP edge). */
-  let lastRevealScrollY = 0;
 
   // Handler references, stored so cleanup can removeEventListener the exact
   // same closure it added (source stored these as parallel arrays/pairs —
@@ -236,9 +228,6 @@ export function createHomeController(): PageController {
   /** Touch parity for the hover reveal — a tap on the collapsed nav expands
    *  it (mobile hides the mode group but the filters still need opening). */
   let navClickHandler: ((e: Event) => void) | null = null;
-  /** Mobile-only: a tap on the revealed centre image navigates to the same
-   *  detail page as its text label (see the textGpu click wiring in onInit). */
-  let textGpuClickHandler: ((e: Event) => void) | null = null;
 
   /** One-shot mousemove backstop armed by syncHoverFromPointer() — re-syncs
    *  hover state on the first pointer move after an entrance, for browsers
@@ -328,98 +317,6 @@ export function createHomeController(): PageController {
   }
 
   /**
-   * Mobile scroll-driven image reveal — the touch counterpart of the desktop
-   * hover reveal. The swap thresholds are the EDGES OF THE IMAGE CONTAINER
-   * (`.home__text-gpu-inner`, the viewport-centred 1:1 box every reveal
-   * figure sits in), not the viewport midline: scrolling DOWN, the next
-   * entry's label rises from below the footer and the image swaps the
-   * instant that label's top edge touches the container's bottom edge;
-   * scrolling back UP, the previous label descends from above and the swap
-   * fires when its bottom edge touches the container's top edge. Direction
-   * is derived by comparing window.scrollY against the previous call
-   * (`lastRevealScrollY`); the down-rule doubles as the direction-less
-   * geometry for `force`d re-syncs. The two rules agree everywhere except
-   * the hand-off zones at the container edges, where the direction picks the
-   * entry that is entering — exactly the asymmetry requested. Exactly one
-   * figure holds `.is-active` at a time (the same class the hover path and
-   * the home→detail bridge use), so the CSS fade and the transition clone
-   * work unchanged. No-ops on desktop widths and in image mode (the overlay
-   * is `hidden` there — zero rects, nothing to measure; runModeSwitch forces
-   * a re-sync when text mode returns); `force` skips the mutating/
-   * mode-switch freeze for init/filter-time re-syncs, where there is no
-   * bridge clone or hover state to protect.
-   *
-   * Called `force`d from THREE places: onInit (via applyFilter, against
-   * whatever scroll happens to be at mount time — before this page's own
-   * scroll reset/restore has run), filter-switch time (against the new
-   * item layout), and again from the top of in() (against the NOW-FINAL
-   * entrance scroll — transitions/default.ts's onEnter finishes
-   * restoreOrResetScroll() before in() is ever invoked). The in()-time call
-   * is the one that actually matters for correctness: onInit's own call can
-   * only ever be provisional, computed too early, and nothing re-syncs it
-   * again until the user's first real scroll (onScroll, below) — which is
-   * why a stale figure used to stay active through the whole entrance.
-   */
-  function updateScrollReveal(force = false): void {
-    if (!window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
-    if (!force && (mutating?.value || modeSwitching)) return;
-
-    // Image mode hides the whole overlay (`hidden` → display: none), so the
-    // container rect collapses to zero and there are no edges to measure
-    // against — keep the current state; runModeSwitch forces a re-sync the
-    // moment text mode (and the container's real geometry) returns.
-    if (!textGpuInner) return;
-    const band = textGpuInner.getBoundingClientRect();
-    if (band.height === 0) return;
-
-    const scrollY = window.scrollY;
-    // Ties (and force calls, which have no meaningful "previous" position —
-    // init, filter swaps, in()'s entrance re-sync) take the down-rule.
-    const goingUp = !force && scrollY < lastRevealScrollY;
-    lastRevealScrollY = scrollY;
-
-    let active = -1;
-    if (!goingUp) {
-      // Scrolling down: labels rise. Active = the LAST visible item whose
-      // top edge has reached the container's bottom edge — the current
-      // entry keeps the reveal until the next label touches the container.
-      let firstVisible = -1;
-      for (let i = 0; i < textItems.length; i++) {
-        if (isFilteredOut(i)) continue;
-        if (firstVisible < 0) firstVisible = i;
-        // Items are in document order (tops strictly increase), so the
-        // first miss ends the scan.
-        if (textItems[i]!.getBoundingClientRect().top > band.bottom) break;
-        active = i;
-      }
-      // Top rubber-band overscroll can push even the first label below the
-      // container's bottom edge — clamp to the first visible entry.
-      if (active < 0) active = firstVisible;
-    } else {
-      // Scrolling up: labels descend. Active = the FIRST visible item whose
-      // bottom edge is still at/below the container's top edge — the
-      // previous entry takes the reveal the instant it enters from above.
-      let lastVisible = -1;
-      for (let i = 0; i < textItems.length; i++) {
-        if (isFilteredOut(i)) continue;
-        lastVisible = i;
-        if (textItems[i]!.getBoundingClientRect().bottom >= band.top) {
-          active = i;
-          break;
-        }
-      }
-      // Bottom rubber-band overscroll mirror — clamp to the last entry.
-      if (active < 0) active = lastVisible;
-    }
-
-    if (active === scrollRevealIndex) return;
-    if (scrollRevealIndex >= 0) textGpuFigures[scrollRevealIndex]?.classList.remove("is-active");
-    if (active >= 0) textGpuFigures[active]?.classList.add("is-active");
-    scrollRevealIndex = active;
-    console.debug(`[page:home] scroll-reveal index=${active}`);
-  }
-
-  /**
    * Reflect the picked filter on the nav — persists via useHomeFilter() and
    * moves `.is-active`/aria-pressed to the matching filter button. The nav's
    * collapsed view (only the active filter + mode) reads these `.is-active`
@@ -455,12 +352,6 @@ export function createHomeController(): PageController {
     for (const item of textItems) setHidden(item, !matches(item));
     for (const item of imageItems) setHidden(item, !matches(item));
     for (const fig of textGpuFigures) setHidden(fig, !matches(fig));
-
-    // The visible item set changed, so the mobile scroll reveal's active
-    // label may have too (forced — this also runs during onInit and the
-    // filter-switch fade, setting the reveal for the initial scroll
-    // position before the page is shown).
-    updateScrollReveal(true);
   }
 
   /** Apply a taxonomy filter (no animation) — hides cells/figures/rows that
@@ -660,14 +551,6 @@ export function createHomeController(): PageController {
     $lenis?.resize();
     $lenis?.scrollTo(savedScrollY, { immediate: true });
 
-    // Mobile: re-sync the scroll reveal against the restored scroll — while
-    // the overlay was `hidden` (image mode) updateScrollReveal early-returns
-    // on the zero-height container rect, so entering text mode must
-    // recompute here, after the DOM swap and scroll restore, while the pane
-    // is still faded out. Forced: modeSwitching is true for the whole swap.
-    // Harmless no-op when switching INTO image mode (overlay just hid).
-    updateScrollReveal(true);
-
     // Instant swap — the mode is applied, nothing left to animate.
     if (!homeAnim.switchEnabled) return;
 
@@ -781,8 +664,8 @@ export function createHomeController(): PageController {
    * fires once the freeze lifts — mouseenter only fires on a boundary
    * crossing — so the reveal would silently never happen. Called at the end
    * of in(): reads `:hover` off the DOM and toggles the same classes the
-   * handlers would, for whichever mode is active. Desktop only — mobile
-   * reveals are scroll-driven (see updateScrollReveal).
+   * handlers would, for whichever mode is active. Desktop only — touch
+   * devices have no reveal at all (the overlay is display:none there).
    */
   function syncHoverFromPointer(): void {
     if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
@@ -839,7 +722,6 @@ export function createHomeController(): PageController {
       textPane = root.querySelector<HTMLElement>('[data-mode-pane="text"]');
       imagePane = root.querySelector<HTMLElement>('[data-mode-pane="image"]');
       textGpu = root.querySelector<HTMLElement>(".home__text-gpu");
-      textGpuInner = root.querySelector<HTMLElement>(".home__text-gpu-inner");
       footer = root.querySelector<HTMLElement>(".global-nav--footer");
       textItems = Array.from(root.querySelectorAll<HTMLElement>(".home__text-item"));
       imageItems = Array.from(root.querySelectorAll<HTMLElement>(".home__image-item"));
@@ -949,6 +831,12 @@ export function createHomeController(): PageController {
       // Wire text hover → DOM figure reveal. Hover toggles .is-active on the
       // matching .home__text-gpu-figure; CSS transitions opacity 0 → 1 so
       // the centered image appears behind the text labels (DOM-only).
+      // HOVER-CAPABLE DEVICES ONLY (DESKTOP_HOVER_QUERY): touch devices
+      // have no reveal at all — the overlay is display:none there (see
+      // `.home__text-gpu`), a tap navigates via the label anchor directly,
+      // and gating the handlers keeps a touch browser's emulated
+      // mouseenter/mouseleave from toggling stray classes on the hidden
+      // figures (the old mobile scroll-driven reveal is gone).
       for (let i = 0; i < textItems.length; i++) {
         const item = textItems[i]!;
 
@@ -960,8 +848,7 @@ export function createHomeController(): PageController {
           // add/remove it. Same freeze during a mode/filter switch — hover
           // must not fight the pane fade.
           if (mutating?.value || modeSwitching) return;
-          // Mobile reveals are scroll-driven (see updateScrollReveal); an
-          // emulated mouseenter from a tap must not fight that state.
+          if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) return;
           if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
           if (mode.value !== "text") return;
           if (isFilteredOut(i)) return;
@@ -969,6 +856,7 @@ export function createHomeController(): PageController {
         };
         const leave = (): void => {
           if (mutating?.value || modeSwitching) return;
+          if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) return;
           if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
           if (mode.value !== "text") return;
           if (isFilteredOut(i)) return;
@@ -978,30 +866,6 @@ export function createHomeController(): PageController {
         item.addEventListener("mouseenter", enter);
         item.addEventListener("mouseleave", leave);
         hoverHandlers.push({ item, enter, leave });
-      }
-
-      // Mobile-only: the revealed centre image is a second tap target for
-      // the detail page. CSS routes the hit (`.home__text` passes taps
-      // through on mobile, only the `.is-active` figure is hit-testable),
-      // and this delegated handler forwards the tap to the matching text
-      // label's anchor via a programmatic click — so navigation takes the
-      // exact same path as tapping the label (plugins/click-delegation.
-      // client.ts's global delegation, the home→detail image bridge). Items
-      // without an href (routable: false) render as <div>s, so their image
-      // stays a no-op; routable ones are <a>s and forward normally.
-      if (textGpu) {
-        textGpuClickHandler = (e: Event): void => {
-          if (!window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
-          if (mutating?.value || modeSwitching) return;
-          const fig = (e.target as Element | null)?.closest<HTMLElement>(".home__text-gpu-figure");
-          if (!fig) return;
-          const item = textItems.find((el) => el.dataset.index === fig.dataset.index);
-          if (item instanceof HTMLAnchorElement) {
-            console.debug(`[page:home] gpu-tap → ${item.getAttribute("href")}`);
-            item.click();
-          }
-        };
-        textGpu.addEventListener("click", textGpuClickHandler);
       }
 
       // Image mode hover — entering a slot toggles `.is-hovered` on the
@@ -1065,28 +929,6 @@ export function createHomeController(): PageController {
       // Clear any stale inline opacity left by out() on a previous mount.
       if (textPane) textPane.style.opacity = "";
       if (imagePane) imagePane.style.opacity = "";
-
-      // Mobile: re-sync the scroll-driven reveal now that the scroll
-      // position is FINAL. onInit()'s own updateScrollReveal(true) call
-      // (via applyFilter → applyFilterVisibility) runs from
-      // transitions/default.ts's onBeforeEnter — which fires well before
-      // onEnter's scroll reset/restore (restoreOrResetScroll, called
-      // synchronously right before this in() is invoked) — so it computed
-      // the active entry against whatever scroll the OUTGOING page
-      // happened to be at, not this page's actual entrance scroll (0 on
-      // forward nav, the snapshot on back-nav). The result: the wrong
-      // figure held `.is-active` and stayed wrong until the user's first
-      // real scroll event (onScroll → updateScrollReveal()) self-corrected
-      // it. There is no stale state to clear here first — onInit() runs
-      // against a fresh DOM/closure every mount (no <KeepAlive>, no
-      // module-level state), so the only thing wrong was WHEN the one
-      // existing call ran, not leftover `.is-active` from a previous visit.
-      // `force: true` bypasses the mutating/mode-switch freeze, matching
-      // onInit's own forced call — there is no bridge clone or hover state
-      // to protect this early in the entrance (container is still opacity 0
-      // here, per transitions/default.ts's onEnter pin), and it must win
-      // over a wrong index unconditionally. No-ops on desktop widths.
-      updateScrollReveal(true);
 
       // Return-to-home brand beat: on every SPA navigation back to home,
       // echo the intro. useNavLock().mutating is true only during a
@@ -1240,13 +1082,6 @@ export function createHomeController(): PageController {
       });
     },
 
-    /** Scroll hook (subscribed after in() resolves) — drives the mobile
-     *  reveal. Desktop keeps hover-driven reveals and no-ops here (see
-     *  updateScrollReveal's own mobile-only guard). */
-    onScroll(_e: ScrollEvent): void {
-      updateScrollReveal();
-    },
-
     /** Teardown: remove every listener onInit added, kill any in-flight
      *  tween, and release every DOM ref so nothing leaks across SPA
      *  navigation. */
@@ -1266,8 +1101,6 @@ export function createHomeController(): PageController {
         if (navLeaveHandler) navEl.removeEventListener("mouseleave", navLeaveHandler);
         if (navClickHandler) navEl.removeEventListener("click", navClickHandler);
       }
-      if (textGpu && textGpuClickHandler) textGpu.removeEventListener("click", textGpuClickHandler);
-      textGpuClickHandler = null;
       // Disarm the one-shot pointer re-sync if the user navigated away
       // before moving the mouse (harmless no-op when it already fired).
       if (hoverSyncMoveHandler) {
@@ -1288,11 +1121,8 @@ export function createHomeController(): PageController {
       textPane = null;
       imagePane = null;
       textGpu = null;
-      textGpuInner = null;
       footer = null;
       container = null;
-      scrollRevealIndex = -1;
-      lastRevealScrollY = 0;
       modeButtons = [];
       filterButtons = [];
       navEl = null;

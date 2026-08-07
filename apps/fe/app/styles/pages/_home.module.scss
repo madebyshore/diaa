@@ -259,12 +259,6 @@
     align-items: center;
     gap: calc(50svh - (var(--home-item-h) - 1cap));
     padding: calc(50svh - var(--home-item-h) / 2) var(--container-padding);
-    /* The pane sits above the image overlay (z-index 1 vs 0), so by
-       default it swallows every tap. Letting taps fall through the pane —
-       while the labels themselves stay tappable (see .home__text-item) —
-       is what lets the revealed centre image receive its own tap and act
-       as a second link to the detail page (see .home__text-gpu-figure). */
-    pointer-events: none;
   }
 
   &[hidden] {
@@ -283,19 +277,16 @@
   text-box: cap alphabetic;
 
   /* Mobile: the box height is pinned to --home-item-h so the pane's
-     screen-per-entry math (gap = 100svh − height, edge padding = 50svh −
-     height/2) is exact; the label centres inside it via flex. 8rem ≈ the
-     natural box (cap line + 2×--XS padding) so the tap target stays the
-     label, not the whole screen. */
+     screen-per-entry math (gap, edge padding = 50svh − height/2) is exact;
+     the label centres inside it via flex. 8rem ≈ the natural box (cap line
+     + 2×--XS padding) so the tap target stays the label, not the whole
+     screen. */
   @include breakpoint-mobile {
     display: flex;
     align-items: center;
     justify-content: center;
     height: var(--home-item-h);
     padding: 0 var(--XS);
-    /* Re-enable hits on the labels — the pane around them is
-       pointer-events: none on mobile so taps reach the revealed image. */
-    pointer-events: auto;
   }
 
 }
@@ -318,6 +309,16 @@
   height: 100vh;
   pointer-events: none;
   z-index: 0;
+
+  /* Touch devices: NO text-mode reveal at all (client request) — the
+     hover interaction doesn't exist there, so the whole overlay is
+     removed outright. Tapping a label navigates directly, and with no
+     `.is-active` figure the home→detail bridge no-ops, so the detail
+     page simply fades in whole. Capability query, not a width query —
+     an iPad at desktop width is still touch. */
+  @media (hover: none), (pointer: coarse) {
+    display: none;
+  }
 
   display: grid;
   grid-template-columns: repeat(var(--columns), 1fr);
@@ -350,8 +351,7 @@
 
 /* 1:1 inner box every figure centres against — a centred REFERENCE box (the
    figures size off --hero-span and are absolutely centred, so they can
-   overhang it freely); on mobile its top/bottom edges are the scroll
-   reveal's swap thresholds (see home.ts updateScrollReveal). The span must
+   overhang it freely). The span must
    fit the tier's column count or the box overflows the explicit grid and
    drifts off-centre (the old `3 / span 8` on the 6-col mobile grid did
    exactly that). Mobile: centre 4 of 6 (cols 2 → 5); `md` up (12 cols):
@@ -467,17 +467,6 @@
     aspect-ratio: 3 / 4;
   }
 
-  @include breakpoint-mobile {
-    /* The revealed centre image doubles as a tap target for the detail
-       page (home.ts navigates via the matching label's anchor). Only the
-       ACTIVE figure is hit-testable — the text pane above it passes taps
-       through (pointer-events: none, labels re-enabled), and inactive
-       figures stay inert so a tap between entries does nothing. */
-    &.is-active {
-      pointer-events: auto;
-      cursor: pointer;
-    }
-  }
 }
 
 /* ── Image mode ────────────────────────────────────────────────────────── */
