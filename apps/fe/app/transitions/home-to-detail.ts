@@ -133,7 +133,17 @@ export function bridgeOut(fromEl: HTMLElement, toPath: string): void {
   // viewport-centred, so the clone is visually identical — removing the
   // home section underneath it is invisible. All sizing/placement is inline
   // so it is independent of the now-removed `.home__text-gpu` grid context.
+  //
+  // The clone starts at the figure's CURRENT computed opacity, not a flat 1:
+  // on the tablet tap-reveal path (controllers/home.ts's tapReveal) the
+  // navigation fires the same tick `.is-active` is added, so the figure is
+  // still at ~0 of its 800ms fade when this clones it — snapping the clone
+  // to 1 would be exactly the harsh pop the tap-reveal exists to avoid. A
+  // sub-1 clone finishes the fade itself (below), concurrently with home
+  // out()'s text fade. Desktop hover arrives here with the figure already
+  // at opacity 1, so the start value is 1 and nothing changes.
   const rect = figure.getBoundingClientRect();
+  const startOpacity = Number.parseFloat(getComputedStyle(figure).opacity) || 0;
   const clone = figure.cloneNode(true) as HTMLElement;
   clone.removeAttribute("class");
   clone.style.cssText = [
@@ -146,9 +156,12 @@ export function bridgeOut(fromEl: HTMLElement, toPath: string): void {
     "transform:none",
     // Kill the .home__text-gpu-figure 800ms opacity transition —
     // controllers/detail.ts's in() drives the cross-fade opacity directly.
+    // (Re-armed below for the one case that needs it: finishing a mid-fade
+    // reveal. detail.ts never tweens the clone's opacity, so the re-armed
+    // transition can't fight it.)
     "transition:none",
     "overflow:hidden",
-    "opacity:1",
+    `opacity:${startOpacity}`,
     "pointer-events:none",
     // Behind the text (matches .home__text-gpu's own z:0 vs .home__text's
     // z:1) for the home-out phase — see BRIDGE_Z_INDEX_HOME's doc comment
@@ -183,6 +196,24 @@ export function bridgeOut(fromEl: HTMLElement, toPath: string): void {
   // the viewport, not `#app`'s box; it does still outlive `.home`'s removal
   // (a sibling of `.home` under `#app`, not a descendant of it).
   document.getElementById("app")?.appendChild(clone);
+
+  // Mid-fade clone (tablet tap-reveal): finish the reveal on the clone
+  // itself, over the same curve/duration the figure's own CSS transition
+  // uses (keep in sync with `.home__text-gpu-figure` in
+  // _home.module.scss), so the image keeps fading IN while home's out()
+  // fades the text OUT on top of it — the two 800ms halves of the tap
+  // transition run concurrently. Double-rAF so the browser commits the
+  // start opacity before the transition is armed (a same-frame flip would
+  // jump straight to 1). No-op cleanup needed: detail.ts's in() never
+  // touches the clone's opacity, and the clone is removed at hand-off.
+  if (startOpacity < 1) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        clone.style.transition = "opacity 800ms cubic-bezier(0.345, 0.635, 0.084, 1.167)";
+        clone.style.opacity = "1";
+      });
+    });
+  }
 
   // Hide the ORIGINAL reveal figure now that its pixel-identical clone is
   // stacked over the exact same viewport rect. Both stay in the DOM until

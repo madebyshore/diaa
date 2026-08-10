@@ -259,6 +259,12 @@
     align-items: center;
     gap: calc(50svh - (var(--home-item-h) - 1cap));
     padding: calc(50svh - var(--home-item-h) / 2) var(--container-padding);
+    /* The pane sits above the image overlay (z-index 1 vs 0), so by
+       default it swallows every tap. Letting taps fall through the pane —
+       while the labels themselves stay tappable (see .home__text-item) —
+       is what lets the revealed centre image receive its own tap and act
+       as a second link to the detail page (see .home__text-gpu-figure). */
+    pointer-events: none;
   }
 
   &[hidden] {
@@ -287,6 +293,9 @@
     justify-content: center;
     height: var(--home-item-h);
     padding: 0 var(--XS);
+    /* Re-enable hits on the labels — the pane around them is
+       pointer-events: none on mobile so taps reach the revealed image. */
+    pointer-events: auto;
   }
 
 }
@@ -310,16 +319,14 @@
   pointer-events: none;
   z-index: 0;
 
-  /* Touch devices: NO text-mode reveal at all (client request) — the
-     hover interaction doesn't exist there, so the whole overlay is
-     removed outright. Tapping a label navigates directly, and with no
-     `.is-active` figure the home→detail bridge no-ops, so the detail
-     page simply fades in whole. Capability query, not a width query —
-     an iPad at desktop width is still touch. */
-  @media (hover: none), (pointer: coarse) {
-    display: none;
-  }
-
+  /* The overlay renders on EVERY device — how a figure becomes `.is-active`
+     differs per tier/capability instead (see home.ts): desktop hover
+     reveals on mouseenter; mobile (≤768) is scroll-driven (the centred
+     entry's figure holds the reveal); no-hover devices at desktop widths
+     (tablets) reveal on tap, which then navigates after the fade (the
+     tap-reveal-then-navigate sequence). An earlier iteration hid this
+     overlay outright on touch — that left mobile with no images at all and
+     made tablet taps cut harshly to the detail page. */
   display: grid;
   grid-template-columns: repeat(var(--columns), 1fr);
   gap: var(--column-gap);
@@ -467,6 +474,17 @@
     aspect-ratio: 3 / 4;
   }
 
+  @include breakpoint-mobile {
+    /* The revealed centre image doubles as a tap target for the detail
+       page (home.ts navigates via the matching label's anchor). Only the
+       ACTIVE figure is hit-testable — the text pane above it passes taps
+       through (pointer-events: none, labels re-enabled), and inactive
+       figures stay inert so a tap between entries does nothing. */
+    &.is-active {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+  }
 }
 
 /* ── Image mode ────────────────────────────────────────────────────────── */
