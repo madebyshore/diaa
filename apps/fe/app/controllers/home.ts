@@ -798,6 +798,14 @@ export function createHomeController(): PageController {
           const next = (btn.dataset.mode as HomeMode | undefined) ?? "text";
           if (next === mode.value) return;
           void switchMode(next);
+          // No-hover devices (tablets — the mode group is hidden on the
+          // ≤768 mobile tier, so this is effectively the tablet path):
+          // there's no hover to leave, so the nav would sit open
+          // indefinitely after a mode pick — collapse it as the switch
+          // starts, exactly like the filter handler below. Same
+          // hover-capability gate (not a viewport-width check) for the
+          // same reasons documented there.
+          if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) setNavExpanded(false);
         };
         btn.addEventListener("click", handler);
         modeBtnHandlers.push({ btn, handler });
