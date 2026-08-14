@@ -42,6 +42,19 @@
   @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
+
+  /* Wide-short screens: the 4:3's width caps at 60svh — same gate and
+     value as the Image slice's c6 and the home/detail 4:3 rules; keep in
+     sync. Grid-track-sized like c6, so the cap is a width on the element:
+     min(100%, …) can never exceed the original track span, and
+     justify-self re-centres the narrower viewport in its grid area
+     (height still follows via the aspect-ratio). The caption row below
+     mirrors this so it stays aligned to the image's left edge. */
+  @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
+    justify-self: center;
+    width: min(100%, 60svh);
+  }
+
   overflow: hidden;
   cursor: pointer;
 }
@@ -82,6 +95,14 @@
   @include breakpoint-below(xs) {
     grid-column: 1 / -1;
   }
+
+  /* Wide-short screens: mirror the viewport's 60svh width cap above so the
+     caption's left edge keeps tracking the (now narrower, centred) image. */
+  @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
+    justify-self: center;
+    width: min(100%, 60svh);
+  }
+
   @include typo-caption;
 }
 

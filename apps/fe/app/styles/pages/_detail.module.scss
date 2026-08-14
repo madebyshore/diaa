@@ -169,17 +169,40 @@
    differentiates the home image-mode grid, so both variant classes share
    every rule here (the template still emits `--4x3-sm`/`--4x3-lg` from
    coverSize): height = span width × 3/4.
-   3:4 is the SAME SIZE ROTATED: its height IS the 4:3's width, i.e.
-   --hero-span itself — so on desktop the 3:4 hero's height equals the
-   centre-6 span width. (The loader normalizes legacy `3x4-sm`/`3x4-lg` to
-   `3x4`.) Both formulas track every tier automatically because --hero-span
-   already re-resolves per breakpoint. */
+   3:4 is the SAME SIZE ROTATED (height = --hero-span) — except on
+   wide-short screens (≥1880px & ≥19/10 window), where the bare rotated
+   span overflowed the viewport and the height caps at 60svh
+   (client-tuned; see the :has() rule below). (The loader normalizes
+   legacy `3x4-sm`/`3x4-lg` to `3x4`.) Both formulas track every tier
+   automatically because --hero-span already re-resolves per
+   breakpoint. */
 .detail__cover:has(.detail__cover-inner--4x3-sm),
 .detail__cover:has(.detail__cover-inner--4x3-lg) {
   --hero-h: calc(0.75 * var(--hero-span));
+
+  /* Wide-short screens: the 4:3's width caps at 60svh (same gate and
+     value as the 3:4's height cap below, preserving the "same size
+     rotated" pair relation), so its height is 0.75 × the capped width.
+     MUST stay identical to `.home__text-gpu-figure--4x3-*` or the
+     home→detail bridge loses its pixel match. */
+  @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
+    --hero-h: calc(0.75 * min(var(--hero-span), 60svh));
+  }
 }
 .detail__cover:has(.detail__cover-inner--3x4) {
   --hero-h: var(--hero-span);
+
+  /* Wide-short screens only: cap at 60svh — same gate and formula as
+     `.home__text-gpu-figure--3x4` (see the comment there for the full
+     rationale on both media-query arms; the bare-span height overflowed
+     wide-short screens). Gate + formula MUST stay identical to home's or
+     the home→detail bridge loses its pixel match. Because the width rule
+     below derives from --hero-h, the figure's 3:4 ratio follows the
+     capped height automatically, as does the mobile 50svh-centring
+     padding above. */
+  @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
+    --hero-h: min(var(--hero-span), 60svh);
+  }
 }
 
 /* The inner now IS the figure box (height = the figure height), spanning the
@@ -238,18 +261,28 @@
    shared --hero-span so both stay bridge-matched. Both 4:3 variant classes
    share one width per tier (Small/Large only matters to the home
    image-mode grid): width = --hero-span, and the inner's --hero-h height
-   (span × 3/4) completes the ratio. 3:4 is the same size rotated: its
-   height is the inner's --hero-h (= --hero-span), so its width is span ×
-   3/4 (the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). ._g is
+   (span × 3/4) completes the ratio. 3:4 derives its width from the
+   viewport-capped --hero-h (= min(span, 60svh)) so the ratio follows the
+   cap (the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). ._g is
    absolutely centred and may overhang the inner — nothing between it and
    the viewport clips horizontally. */
 .detail__cover-inner--4x3-sm ._g,
 .detail__cover-inner--4x3-lg ._g {
   width: var(--hero-span);
+
+  /* Wide-short screens: mirror the --hero-h cap above — the figure's
+     width is the same min() the height derives from. */
+  @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
+    width: min(var(--hero-span), 60svh);
+  }
 }
 
 .detail__cover-inner--3x4 ._g {
-  width: calc(0.75 * var(--hero-span));
+  /* Derived from --hero-h (not --hero-span directly) so the width follows
+     the wide-short viewport clamp above: height × 3/4. When the clamp is
+     inactive --hero-h = --hero-span and this resolves to the original
+     0.75 × span. */
+  width: calc(0.75 * var(--hero-h));
 }
 
 /* Full-viewport outro panel. Centers the DIAA logotype (same mark as the
