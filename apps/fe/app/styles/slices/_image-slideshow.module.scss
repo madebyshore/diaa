@@ -43,16 +43,20 @@
     grid-column: 1 / -1;
   }
 
-  /* Wide-short screens: the 4:3's width caps at 60svh — same gate and
-     value as the Image slice's c6 and the home/detail 4:3 rules; keep in
-     sync. Grid-track-sized like c6, so the cap is a width on the element:
-     min(100%, …) can never exceed the original track span, and
-     justify-self re-centres the narrower viewport in its grid area
-     (height still follows via the aspect-ratio). The caption row below
-     mirrors this so it stays aligned to the image's left edge. */
-  @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
-    justify-self: center;
-    width: min(100%, 60svh);
+  /* TWO-STAGE viewport-percentage width, matching the Image slice's c6
+     and the home/detail 4:3 rules (see the home --3x4 comment for the
+     full rationale); keep in sync. Grid-track-sized like c6, so the cap
+     is a width on the element: min(100%, …) can never exceed the original
+     track span, and justify-self re-centres the narrower viewport
+     (height follows via the aspect-ratio). The caption row below mirrors
+     this so it stays aligned to the image's left edge. */
+  justify-self: center;
+  width: min(100%, 85svh);
+
+  /* 92svh, not the 3:4's 80svh — the 4:3 pair-parity break on wide-short
+     windows (see the home 4x3 comment; 92 ≈ 80 × 676/587). */
+  @media (min-aspect-ratio: 19 / 10) {
+    width: min(100%, 92svh);
   }
 
   overflow: hidden;
@@ -96,11 +100,13 @@
     grid-column: 1 / -1;
   }
 
-  /* Wide-short screens: mirror the viewport's 60svh width cap above so the
-     caption's left edge keeps tracking the (now narrower, centred) image. */
-  @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
-    justify-self: center;
-    width: min(100%, 60svh);
+  /* Mirror the viewport's two-stage width cap above so the caption's left
+     edge keeps tracking the (possibly narrower, centred) image. */
+  justify-self: center;
+  width: min(100%, 85svh);
+
+  @media (min-aspect-ratio: 19 / 10) {
+    width: min(100%, 92svh);
   }
 
   @include typo-caption;

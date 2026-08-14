@@ -456,60 +456,55 @@
      emits `--4x3-sm`/`--4x3-lg` from coverSize, so both must be styled):
      WIDTH = --hero-span, height from the aspect ratio.
      3:4 is the SAME SIZE ROTATED (HEIGHT = --hero-span, width from the
-     aspect ratio) — except on wide-short screens (≥1880px & ≥19/10),
-     where the height caps at 60svh (see the --3x4 rule below). (The
-     loader normalizes legacy
+     aspect ratio). Both span-derived dimensions carry the shared
+     two-stage viewport cap (≤85svh always, 80svh on wide-short windows —
+     see the --3x4 rule below). (The loader normalizes legacy
      `3x4-sm`/`3x4-lg` to `3x4`.) The figures are absolutely centred, so a
      span wider than the inner box just overhangs it harmlessly — nothing
      between the figure and the viewport clips horizontally (body uses
      overflow-x: clip at the viewport edge only). */
   &--4x3-sm,
   &--4x3-lg {
-    width: var(--hero-span);
+    /* WIDTH follows the same two-stage viewport sizing as the 3:4's
+       HEIGHT (see the --3x4 rule below for the full rationale); height
+       follows via the aspect ratio. Base stage keeps the "same size
+       rotated" parity (85svh ceiling); under the wide-short gate the
+       pair deliberately BREAKS parity — the 4:3 runs a little wider than
+       the 3:4 is tall: 92svh ≈ 80svh × 676/587, the client's 1440
+       artboard non-parity ratio (4:3 676 wide vs 3:4 587 tall). */
+    width: min(var(--hero-span), 85svh);
     height: auto;
     aspect-ratio: 4 / 3;
 
-    /* Wide-short screens: the 4:3's WIDTH caps at 60svh — the same value
-       the 3:4's HEIGHT caps at under the identical gate (see the --3x4
-       rule below for the full gate rationale), so the "same size
-       rotated" pair relation survives the cap. Height follows through
-       the aspect ratio (= 45svh). MUST stay identical to the detail
-       cover's 4:3 rules (_detail.module.scss) and the Image slice's c6
-       (_image.module.scss). */
-    @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
-      width: min(var(--hero-span), 60svh);
+    @media (min-aspect-ratio: 19 / 10) {
+      width: min(var(--hero-span), 92svh);
     }
   }
   &--3x4 {
-    height: var(--hero-span);
+    /* TWO-STAGE viewport-percentage height (the bare rotated span tracks
+       viewport WIDTH only, so it collided with the title/Close on any
+       window whose height falls near the span — a condition no aspect
+       threshold alone can express):
+       1) ALWAYS capped at 85svh — a continuous safety ceiling that
+          guarantees nav/footer headroom in every window shape. Laptops
+          sit just under it (1440×900: span ≈675 vs 85svh ≈680) so their
+          design is untouched; phones' span is far smaller, also
+          untouched.
+       2) Wide-short windows (aspect ≥19/10 — "a little bigger than
+          16:9"; a maximized 1080p browser is ~1.96:1, maximized laptop
+          windows ≈1.7–1.8 stay out) drop to the client-tuned 80svh look.
+       The 4:3's WIDTH follows the same two-stage sizing (rule above), so
+       the "same size rotated" pair relation survives. MUST stay
+       identical to the detail cover's --hero-h formulas
+       (_detail.module.scss) and the Image slice's c4 rules
+       (_image.module.scss) or the home→detail bridge loses its pixel
+       match / the surfaces drift apart. */
+    height: min(var(--hero-span), 85svh);
     width: auto;
     aspect-ratio: 3 / 4;
 
-    /* Wide-short screens only (client spec: ">1920×1080, when the
-       viewport height falls significantly short of the image height"):
-       cap the height at 60svh (client-tuned). The bare rotated span
-       tracks viewport WIDTH only and overflowed wide-short screens
-       (~93% of a 16:9 monitor's visible height, taller than a 21:9
-       ultrawide's viewport). The gate needs BOTH arms:
-       - width ≥1880px = "1920-class screens and up", minus ~40px so a
-         Windows scrollbar on an exactly-1920 screen can't push the
-         viewport under the gate. Excludes every laptop (1440×900,
-         MBP 16" at 1728) no matter the browser chrome — aspect alone is
-         chrome-fragile (a maximized 1440×900 window with a bookmarks
-         bar is ~1.8:1).
-       - aspect ≥19/10 = "height significantly short": a maximized 1080p
-         browser is ~1.96:1 (chrome eats the height) so it matches, but
-         an exact 16:9 (1.78) window — where the span-height still fits
-         with ~15% margin — and 16:10 monitors (1920×1200 ≈ 1.71 when
-         maximized) do not.
-       Laptops and phones keep the original span-based design; the 4:3
-       keeps its size everywhere. The min() inside protects tiny matched
-       windows. MUST stay identical to the detail cover's --hero-h
-       formula (_detail.module.scss) and the Image slice's c4 height
-       (_image.module.scss) or the home→detail bridge loses its pixel
-       match / the surfaces drift apart. */
-    @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
-      height: min(var(--hero-span), 60svh);
+    @media (min-aspect-ratio: 19 / 10) {
+      height: min(var(--hero-span), 80svh);
     }
   }
 

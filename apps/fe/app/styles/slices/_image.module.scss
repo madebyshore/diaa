@@ -10,8 +10,9 @@
      4:3  → c6 — lg+ centre 6 of 12; md–lg centre 8 of 12; sm–md centre 6
                  of 8; mobile all columns inside the container padding
      3:4  → c4 — the SAME SIZE ROTATED: height = the 4:3 span width at
-                 that tier (--hero-span), capped at 60svh on wide-short
-                 screens (≥1880px & ≥19/10), width from the ratio, centred
+                 that tier (--hero-span), width from the ratio, centred.
+                 Both spans carry the shared two-stage viewport cap
+                 (≤85svh always, 80svh on wide-short windows)
      Full → c12 — full bleed, forced 3:2
    (c8 — the retired "4:3 Large" desktop span — is gone: the resolver no
    longer emits it and legacy `size: 'lg'` documents resolve to c6.) */
@@ -56,7 +57,7 @@
      is 2/-2 (inner 6 of 8); phone (≤431) is full width. c4 (3:4)
      is NOT track-aligned any more — it's the 4:3 rotated, so it spans the
      full row and sizes itself: height = --hero-span (the 4:3 width at
-     that tier; capped at 60svh on wide-short screens), width from the
+     that tier, two-stage viewport-capped — see the rule), width from the
      --ar-3x4 aspect ratio (justify-self: center
      un-stretches the grid item so `width: auto` resolves through the
      ratio). c12 is grid-agnostic. */
@@ -75,31 +76,35 @@
       grid-column: 2 / -2;
     }
 
-    /* Wide-short screens: the 4:3's width caps at 60svh — same gate and
-       value as the c4 (3:4) height cap below and the home/detail 4:3
-       rules; keep all in sync. Unlike those, c6 is sized by its grid
-       placement, so the cap is a width on the media element itself:
-       min(100%, …) can never exceed the original track span, and
-       justify-self re-centres the narrower figure in its grid area
-       (height still follows via --ar-4x3). */
-    @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
-      justify-self: center;
-      width: min(100%, 60svh);
+    /* TWO-STAGE viewport-percentage width, matching the 4:3 rules on the
+       home reveal / detail cover (see the home --3x4 comment for the
+       full rationale). c6 is grid-track-sized, so the cap is a width on
+       the media element itself: min(100%, …) can never exceed the
+       original track span, and justify-self re-centres the narrower
+       figure in its grid area (height follows via --ar-4x3). On laptops
+       and phones 85svh exceeds the track span, so nothing changes. */
+    justify-self: center;
+    width: min(100%, 85svh);
+
+    /* 92svh, not the c4's 80svh — the pair breaks parity on wide-short
+       windows (see the home 4x3 comment; 92 ≈ 80 × 676/587). */
+    @media (min-aspect-ratio: 19 / 10) {
+      width: min(100%, 92svh);
     }
   }
   &--c4 {
     grid-column: 1 / -1;
     justify-self: center;
-    height: var(--hero-span);
+    /* TWO-STAGE viewport-percentage height, same as the detail cover's
+       --hero-h and `.home__text-gpu-figure--3x4` (see the home comment
+       for the full rationale); keep all three in sync: always ≤85svh
+       (continuous headroom safety — laptops/phones sit under it,
+       untouched), 80svh on wide-short windows (aspect ≥19/10). Width
+       still resolves through --ar-3x4 + justify-self. */
+    height: min(var(--hero-span), 85svh);
 
-    /* Wide-short screens only: cap at 60svh — same gate and formula as
-       the detail cover's --hero-h and `.home__text-gpu-figure--3x4` (see
-       the home comment for the full rationale on both media-query arms);
-       keep all three in sync. The bare-span height ("the 4:3 rotated")
-       overflowed wide-short screens. Width still resolves through
-       --ar-3x4 + justify-self. */
-    @media (min-width: 1880px) and (min-aspect-ratio: 19 / 10) {
-      height: min(var(--hero-span), 60svh);
+    @media (min-aspect-ratio: 19 / 10) {
+      height: min(var(--hero-span), 80svh);
     }
   }
   &--c12 {
