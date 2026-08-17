@@ -44,6 +44,24 @@
   --XL: 14.2rem;
   --TABLET-M: 6rem;
 
+  /* Equal-margin hero cap inset for the xxl wide tier (≥1920px wide AND
+     aspect ≥16:9): the distance from the viewport's top/bottom edge to the
+     hero image's edge that puts the SAME visual gap between the image and
+     the nav/footer text as between the home grid's word rows (client
+     request — the svh-only caps still let the image crowd the nav on big
+     16:9 monitors). Derivation, from the home text-mode geometry:
+       nav offset:      --XS padding + the nav's cap-trimmed content
+                        height (measured 1.5rem in headless Chromium)
+                        = 4.5rem to the nav text's edge
+       word-row rhythm: 2 × --XS (item padding) + --S (flex row gap)
+                        = 12rem of visual space between label rows
+     Total 16.5rem — verified live: nav→image, image→footer, and the
+     word-row gap all measure 12rem. Consumed by `.home__text-gpu-figure`, the detail cover's
+     --hero-h, and the Image slice / Slideshow hero-tier caps — all four
+     surfaces MUST share it or the home→detail bridge loses its pixel
+     match / the surfaces drift apart. */
+  --hero-edge-inset: calc(3 * var(--XS) + var(--S) + 1.5rem);
+
   /* Misc. Grid tiers: phone (base, 6 cols, ≤431) → `xs` 431+ (8 cols) →
      `md` 820+ (12 cols, the desktop grid all the way up). Gap and container
      padding share the same 3rem rhythm at every tier. */

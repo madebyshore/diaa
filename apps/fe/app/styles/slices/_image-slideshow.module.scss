@@ -59,6 +59,16 @@
     width: min(100%, 92svh);
   }
 
+  /* xxl wide tier (≥1920, aspect ≥16:9): equal-margin cap, mirroring the
+     home/detail 4:3 rules — see --hero-edge-inset in root.module.scss.
+     Declared last so it wins when the 19/10 gate also matches. The
+     caption row below mirrors this stage too. */
+  @include breakpoint(xxl) {
+    @media (min-aspect-ratio: 16 / 9) {
+      width: min(100%, calc((100svh - 2 * var(--hero-edge-inset)) * 4 / 3));
+    }
+  }
+
   overflow: hidden;
   cursor: pointer;
 }
@@ -107,6 +117,12 @@
 
   @media (min-aspect-ratio: 19 / 10) {
     width: min(100%, 92svh);
+  }
+
+  @include breakpoint(xxl) {
+    @media (min-aspect-ratio: 16 / 9) {
+      width: min(100%, calc((100svh - 2 * var(--hero-edge-inset)) * 4 / 3));
+    }
   }
 
   @include typo-caption;

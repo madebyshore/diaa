@@ -192,6 +192,17 @@
   @media (min-aspect-ratio: 19 / 10) {
     --hero-h: calc(0.75 * min(var(--hero-span), 92svh));
   }
+
+  /* xxl wide tier (≥1920, aspect ≥16:9): equal-margin height cap, mirroring
+     the home 4:3 rule exactly (height = width × 3/4, width = the equal-
+     margin window × 4/3 — so the height IS the window). Declared last so
+     it wins when the 19/10 gate also matches. See --hero-edge-inset in
+     root.module.scss. */
+  @include breakpoint(xxl) {
+    @media (min-aspect-ratio: 16 / 9) {
+      --hero-h: min(calc(0.75 * var(--hero-span)), calc(100svh - 2 * var(--hero-edge-inset)));
+    }
+  }
 }
 .detail__cover:has(.detail__cover-inner--3x4-sm),
 .detail__cover:has(.detail__cover-inner--3x4-lg) {
@@ -199,6 +210,15 @@
 
   @media (min-aspect-ratio: 19 / 10) {
     --hero-h: min(var(--hero-span), 80svh);
+  }
+
+  /* xxl wide tier (≥1920, aspect ≥16:9): equal-margin height cap, mirroring
+     the home 3:4 rule exactly. Declared last so it wins when the 19/10
+     gate also matches. See --hero-edge-inset in root.module.scss. */
+  @include breakpoint(xxl) {
+    @media (min-aspect-ratio: 16 / 9) {
+      --hero-h: min(var(--hero-span), calc(100svh - 2 * var(--hero-edge-inset)));
+    }
   }
 }
 

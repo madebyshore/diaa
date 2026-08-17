@@ -479,6 +479,18 @@
     @media (min-aspect-ratio: 19 / 10) {
       width: min(var(--hero-span), 92svh);
     }
+
+    /* xxl wide tier (≥1920, aspect ≥16:9): the svh caps still left the
+       image crowding the nav on big 16:9 monitors — bound the HEIGHT to
+       the equal-margin window instead (100svh − 2 × --hero-edge-inset,
+       see the token's derivation in root.module.scss), width = height ×
+       4/3. Declared after the 19/10 stage so this wins when both gates
+       match (the equal-margin window is the smaller of the two there). */
+    @include breakpoint(xxl) {
+      @media (min-aspect-ratio: 16 / 9) {
+        width: min(var(--hero-span), calc((100svh - 2 * var(--hero-edge-inset)) * 4 / 3));
+      }
+    }
   }
   &--3x4-sm,
   &--3x4-lg {
@@ -506,6 +518,16 @@
 
     @media (min-aspect-ratio: 19 / 10) {
       height: min(var(--hero-span), 80svh);
+    }
+
+    /* xxl wide tier (≥1920, aspect ≥16:9): equal-margin height cap — the
+       gap between the image and the nav/footer text matches the word-row
+       rhythm (see --hero-edge-inset in root.module.scss). Declared after
+       the 19/10 stage so this wins when both gates match. */
+    @include breakpoint(xxl) {
+      @media (min-aspect-ratio: 16 / 9) {
+        height: min(var(--hero-span), calc(100svh - 2 * var(--hero-edge-inset)));
+      }
     }
   }
 
