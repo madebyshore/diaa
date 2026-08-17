@@ -105,7 +105,8 @@ export default defineType({
       title: 'Cover Size',
       name: 'coverSize',
       type: 'string',
-      description: 'Aspect ratio and size of the cover image on the home grid.',
+      description:
+        'Aspect ratio and size of the cover image. The aspect ratio (3:4 or 4:3) applies everywhere the cover appears — Text mode, Image mode, and the detail page. Small vs Large only changes the rendered size in Image mode on the home page.',
       options: {
         // Both ratios come in Small / Large. The size only differentiates
         // the home Image-mode grid — Text mode and the detail cover render
