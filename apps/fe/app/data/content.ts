@@ -294,15 +294,17 @@ function coverMedia(d: DetailRef, alt: string, index: number): MediaData {
 }
 
 /**
- * Normalize a stored coverSize to the current option set: `3x4` (single
- * size), `4x3-sm`, `4x3-lg`. The Studio dropdown once offered 3:4 in
- * Small/Large too — those legacy values fold into the unified `3x4` here so
- * published documents keep rendering (the CSS variant classes only exist for
- * the normalized tokens). Unknown/missing values fall back to `4x3-sm`,
- * matching the loaders' historical default.
+ * Normalize a stored coverSize to the current option set: `3x4-sm`,
+ * `3x4-lg`, `4x3-sm`, `4x3-lg`. The Studio dropdown briefly collapsed 3:4
+ * to a single unified `3x4` value — those documents fold into `3x4-lg`
+ * here (the unified size took the former Large percentages), so anything
+ * published during that era keeps rendering without a migration. Unknown/
+ * missing values fall back to `4x3-sm`, matching the loaders' historical
+ * default.
  */
 function normalizeCoverSize(raw: string | null | undefined): string {
-  if (raw === "3x4" || raw === "3x4-sm" || raw === "3x4-lg") return "3x4";
+  if (raw === "3x4-sm") return "3x4-sm";
+  if (raw === "3x4" || raw === "3x4-lg") return "3x4-lg";
   if (raw === "4x3-lg") return "4x3-lg";
   return "4x3-sm";
 }

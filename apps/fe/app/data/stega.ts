@@ -195,6 +195,11 @@ const EXCLUDED_RESULT_KEYS: ReadonlySet<string> = new Set([
   "introText",
   "title",
   "name",
+  // Becomes a CSS class token (`home__image-slot--${coverSize}`,
+  // `detail__cover-inner--${coverSize}`, `home__text-gpu-figure--…`) — a
+  // stega-tagged value would break every variant-class selector match, so
+  // no figure would ever get its size rules on preview builds.
+  "coverSize",
   // SEO/meta fields (composables/usePageSeo.ts). None of these ever render
   // as visible page text — they land in <head> attribute values, where
   // stega's zero-width characters would corrupt the emitted markup:

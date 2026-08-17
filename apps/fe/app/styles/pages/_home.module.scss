@@ -450,23 +450,23 @@
   }
 
   /* Both ratios size off the shared --hero-span (see its tier table above).
-     4:3 has ONE rendered size per breakpoint tier, regardless of the CMS
-     Cover Size — Small vs Large only differentiates the image-mode grid.
-     Both variant classes therefore share every rule (the template still
-     emits `--4x3-sm`/`--4x3-lg` from coverSize, so both must be styled):
-     WIDTH = --hero-span, height from the aspect ratio.
+     Each ratio has ONE rendered size per breakpoint tier, regardless of the
+     CMS Cover Size — Small vs Large only differentiates the image-mode
+     grid. The sm/lg variant classes of a ratio therefore share every rule
+     (the template emits `--4x3-sm`/`--4x3-lg`/`--3x4-sm`/`--3x4-lg` from
+     coverSize, so all four must be styled):
+     4:3 → WIDTH = --hero-span, height from the aspect ratio.
      3:4 is the SAME SIZE ROTATED (HEIGHT = --hero-span, width from the
      aspect ratio). Both span-derived dimensions carry the shared
      two-stage viewport cap (≤85svh always, 80svh on wide-short windows —
-     see the --3x4 rule below). (The loader normalizes legacy
-     `3x4-sm`/`3x4-lg` to `3x4`.) The figures are absolutely centred, so a
+     see the 3:4 rule below). The figures are absolutely centred, so a
      span wider than the inner box just overhangs it harmlessly — nothing
      between the figure and the viewport clips horizontally (body uses
      overflow-x: clip at the viewport edge only). */
   &--4x3-sm,
   &--4x3-lg {
     /* WIDTH follows the same two-stage viewport sizing as the 3:4's
-       HEIGHT (see the --3x4 rule below for the full rationale); height
+       HEIGHT (see the 3:4 rule below for the full rationale); height
        follows via the aspect ratio. Base stage keeps the "same size
        rotated" parity (85svh ceiling); under the wide-short gate the
        pair deliberately BREAKS parity — the 4:3 runs a little wider than
@@ -480,7 +480,8 @@
       width: min(var(--hero-span), 92svh);
     }
   }
-  &--3x4 {
+  &--3x4-sm,
+  &--3x4-lg {
     /* TWO-STAGE viewport-percentage height (the bare rotated span tracks
        viewport WIDTH only, so it collided with the title/Close on any
        window whose height falls near the span — a condition no aspect
@@ -625,9 +626,12 @@
      Derived from the editorial reference:
        4:3 sm 189×142 → 58.7% × 44.1%
        4:3 lg 281×211 → 87.3% × 65.5%
-       3:4 (former lg) 211×281 → 65.5% × 87.3%
-     Percentages keep the proportions responsive across breakpoints. 3:4 has
-     a single size — the loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`. */
+       3:4 sm 142×189 → 44.1% × 58.7%
+       3:4 lg 211×281 → 65.5% × 87.3%
+     Percentages keep the proportions responsive across breakpoints. The
+     image-mode grid is the ONLY surface where Small vs Large renders
+     differently — Text mode and the detail cover collapse each ratio to
+     one size per breakpoint. */
   &--4x3-sm {
     width: 58.7%;
     height: 44.1%;
@@ -636,7 +640,11 @@
     width: 87.3%;
     height: 65.5%;
   }
-  &--3x4 {
+  &--3x4-sm {
+    width: 44.1%;
+    height: 58.7%;
+  }
+  &--3x4-lg {
     width: 65.5%;
     height: 87.3%;
   }

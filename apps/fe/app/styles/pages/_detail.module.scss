@@ -165,16 +165,16 @@
    variant class via :has() so no template change is needed; the parent
    needs --hero-h to size its own top padding and the inner's height.
 
-   4:3 has ONE size per breakpoint tier — the CMS Small/Large only
-   differentiates the home image-mode grid, so both variant classes share
-   every rule here (the template still emits `--4x3-sm`/`--4x3-lg` from
-   coverSize): height = span width × 3/4. 3:4 is the SAME SIZE ROTATED
-   (height = the 4:3's width; the loader normalizes legacy
-   `3x4-sm`/`3x4-lg` to `3x4`). Both formulas track every tier
+   Each ratio has ONE size per breakpoint tier — the CMS Small/Large only
+   differentiates the home image-mode grid, so a ratio's sm/lg variant
+   classes share every rule here (the template emits
+   `--4x3-sm`/`--4x3-lg`/`--3x4-sm`/`--3x4-lg` from coverSize):
+   4:3 height = span width × 3/4. 3:4 is the SAME SIZE ROTATED
+   (height = the 4:3's width). Both formulas track every tier
    automatically because --hero-span already re-resolves per breakpoint.
 
    Both ratios use the same TWO-STAGE viewport-percentage sizing as
-   `.home__text-gpu-figure` (see the --3x4 comment there for the full
+   `.home__text-gpu-figure` (see the 3:4 comment there for the full
    rationale): the span-derived dimension — the 4:3's width, the 3:4's
    height — is ALWAYS capped at 85svh (continuous headroom safety;
    laptops/phones sit under it, untouched) and drops to 80svh on
@@ -193,7 +193,8 @@
     --hero-h: calc(0.75 * min(var(--hero-span), 92svh));
   }
 }
-.detail__cover:has(.detail__cover-inner--3x4) {
+.detail__cover:has(.detail__cover-inner--3x4-sm),
+.detail__cover:has(.detail__cover-inner--3x4-lg) {
   --hero-h: min(var(--hero-span), 85svh);
 
   @media (min-aspect-ratio: 19 / 10) {
@@ -256,12 +257,12 @@
 /* Figure widths — same values as `.home__text-gpu-figure`, sized off the
    shared --hero-span so both stay bridge-matched. Both 4:3 variant classes
    share one width per tier (Small/Large only matters to the home
-   image-mode grid): width = --hero-span, and the inner's --hero-h height
+   image-mode grid, and both 3:4 variants share theirs for the same
+   reason): width = --hero-span, and the inner's --hero-h height
    (span × 3/4) completes the ratio. 3:4 derives its width from --hero-h
-   (× 0.75) so it follows the wide-short parity break automatically (the
-   loader normalizes legacy `3x4-sm`/`3x4-lg` to `3x4`). ._g is
-   absolutely centred and may overhang the inner — nothing between it and
-   the viewport clips horizontally. */
+   (× 0.75) so it follows the wide-short parity break automatically. ._g
+   is absolutely centred and may overhang the inner — nothing between it
+   and the viewport clips horizontally. */
 .detail__cover-inner--4x3-sm ._g,
 .detail__cover-inner--4x3-lg ._g {
   /* Derived from --hero-h (height / 0.75) so the width follows the
@@ -270,7 +271,8 @@
   width: calc(var(--hero-h) / 0.75);
 }
 
-.detail__cover-inner--3x4 ._g {
+.detail__cover-inner--3x4-sm ._g,
+.detail__cover-inner--3x4-lg ._g {
   /* Derived from --hero-h (not --hero-span directly) so the width follows
      the wide-short override above: height × 3/4. Normally --hero-h =
      --hero-span and this resolves to the original 0.75 × span; under the
