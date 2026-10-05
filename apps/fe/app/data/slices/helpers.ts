@@ -90,6 +90,10 @@ export function mediaFromUrls(
 export interface CaptionedImageRaw {
   url?: string | null;
   lqip?: string | null;
+  /** The asset's intrinsic width / height, projected from
+   *  `image.asset->metadata.dimensions.aspectRatio`. Only the 2Up query
+   *  projects it (for its Open aspect layout). */
+  ratio?: number | null;
   caption?: PortableTextBlock[] | null;
 }
 
@@ -101,6 +105,10 @@ export interface CaptionedImageRaw {
  */
 export interface CaptionedImage {
   image: PictureData | null;
+  /** Intrinsic width / height of the uploaded image — drives the box shape
+   *  in layouts that don't crop (2Up "Open aspect"). Falls back to 3:4 when
+   *  the query didn't project it. */
+  ratio: number;
   caption: PortableTextBlock[] | null;
   hasCaption: boolean;
 }
@@ -116,9 +124,20 @@ export function resolveCaptionedImages(
 ): CaptionedImage[] {
   return (images ?? []).map((im, i) => ({
     image: pictureFromUrl(im.url, "", i, width, undefined, im.lqip),
+    ratio: normalizeRatio(im.ratio),
     caption: im.caption ?? null,
     hasCaption: hasPortableTextContent(im.caption),
   }));
+}
+
+/**
+ * Sanitize an asset aspect ratio (width / height) coming out of GROQ. A
+ * missing or nonsensical value (asset without metadata, a query that doesn't
+ * project it) falls back to 3:4 — the site's default portrait box — so the
+ * CSS `aspect-ratio` it feeds is always a positive finite number.
+ */
+export function normalizeRatio(ratio: number | null | undefined): number {
+  return typeof ratio === "number" && Number.isFinite(ratio) && ratio > 0 ? ratio : 3 / 4;
 }
 
 /**

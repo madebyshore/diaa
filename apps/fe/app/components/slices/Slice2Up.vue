@@ -3,8 +3,11 @@
  * Slice2Up.vue — two captioned images, DOM-structure port of
  * `apps/fe/src/routes/partials/slices/slice2Up.html`. Per-image aspect/grid
  * placement is entirely CSS-driven off the `layout`/`bottomAligned` modifier
- * classes — see `data/slices/slice2Up.ts`'s file header for the three
- * layout variants.
+ * classes — see `data/slices/slice2Up.ts`'s file header for the layout
+ * variants. The one exception is the uncropped `open` layout: its boxes
+ * take each image's own proportions, so the per-image width/height ratio is
+ * passed to CSS as the `--slice-ratio` custom property (only emitted for
+ * that layout — the fixed-ratio variants' markup is unchanged).
  *
  * Captions render `inline` (no `<p>` wrap, `<br>`-joined blocks) — the old
  * resolver rendered them via bare `renderPortableText(im.caption)` with no
@@ -21,7 +24,12 @@ defineProps<{ data: ResolvedSlice2Up }>();
     :class="['slice-2up', `slice-2up--${data.layout}`, { 'slice-2up--bottom-aligned': data.bottomAligned }]"
     data-slice="slice2Up"
   >
-    <figure v-for="(item, i) in data.images" :key="i" class="slice-2up__item">
+    <figure
+      v-for="(item, i) in data.images"
+      :key="i"
+      class="slice-2up__item"
+      :style="data.layout === 'open' ? { '--slice-ratio': item.ratio } : undefined"
+    >
       <div class="slice-2up__media">
         <FigureBase v-if="item.image" v-bind="item.image" />
       </div>

@@ -30,7 +30,7 @@
   }
 }
 
-/* Caption type — shared by every captioned slice (2Up / 3Up). Rand caption
+/* Caption type — shared by every captioned slice (Image / 2Up / 3Up). Rand caption
    spec via typo-caption. Positioned OUT of flow (absolute) directly under its
    image so it never adds to the figure's height — sibling images stay aligned
    by their media boxes. 1.5rem below the image. The figure is the positioning

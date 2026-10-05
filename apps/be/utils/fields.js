@@ -7,6 +7,13 @@ export const ASPECT_OPTIONS = [
   {title: '3:4', value: '3x4'},
   {title: '2:3', value: '2x3'},
   {title: '4:3', value: '4x3'},
+  // Open aspect — the image keeps its own uploaded proportions instead of
+  // being cropped to a fixed ratio. Two flavours because they occupy
+  // different widths on the page: Vertical takes the 3:4 image's width,
+  // Horizontal the 4:3 image's width; the height follows the image. Only
+  // offered where a slice opts in through `allowed` (the Image slice).
+  {title: 'Open aspect — Vertical', value: 'open-v'},
+  {title: 'Open aspect — Horizontal', value: 'open-h'},
 ]
 
 // Returns the shared Aspect dropdown field used across image slices. Pass

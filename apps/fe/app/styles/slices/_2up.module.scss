@@ -183,6 +183,53 @@
   aspect-ratio: 3 / 4;
 }
 
+/* Open aspect — no crop. Each image keeps its own proportions
+   (`--slice-ratio` = intrinsic width / height, set inline per item by
+   Slice2Up.vue) and the pair is a "justified row": every item's flex-grow
+   IS its ratio (basis 0), so the row's width is shared out in proportion to
+   the ratios and both media boxes land on exactly the same height, whatever
+   the two shapes are (a 16:9 beside a 4:5, two panoramas, …).
+
+   Desktop mirrors the 3:4 | 3:4 layout: centred, 14.8rem gap, and the same
+   4-column-width height — expressed as a per-item max-width of
+   height × ratio. The caps are proportional to the grow factors, so either
+   both items reach their cap (the usual case — the row sits centred at the
+   4-column height) or neither does (a very wide pair — the row fills the
+   container and the shared height shrinks to fit). It can never overflow.
+
+   Tablet + mobile: the caps come off and the gap returns to the grid token,
+   so the pair fills the full padded width, same as the other variants'
+   4+4 / 3+3 placements. */
+.slice-2up--open {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 14.8rem;
+
+  @include breakpoint-tablet {
+    gap: var(--column-gap);
+  }
+  @include breakpoint-mobile {
+    gap: var(--column-gap);
+  }
+}
+.slice-2up--open .slice-2up__item {
+  flex: var(--slice-ratio, 0.75) 1 0px;
+  /* Let the flex share, not the image's intrinsic size, set the width. */
+  min-width: 0;
+  max-width: calc(#{calc-columns(4)} * var(--slice-ratio, 0.75));
+
+  @include breakpoint-tablet {
+    max-width: none;
+  }
+  @include breakpoint-mobile {
+    max-width: none;
+  }
+}
+.slice-2up--open .slice-2up__media {
+  aspect-ratio: var(--slice-ratio, 0.75);
+}
+
 /* Bottom Aligned toggle — align the images by the bottom of their media
    boxes instead of the top. Captions are absolutely positioned and don't
    affect item height, so `end` is exactly "align the media bottoms" — and

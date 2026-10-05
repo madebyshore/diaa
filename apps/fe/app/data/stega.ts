@@ -200,6 +200,14 @@ const EXCLUDED_RESULT_KEYS: ReadonlySet<string> = new Set([
   // stega-tagged value would break every variant-class selector match, so
   // no figure would ever get its size rules on preview builds.
   "coverSize",
+  // Slice variant tokens, same failure mode as `coverSize`: `layout` becomes
+  // `slice-2up--${layout}` / `slice-3up--${layout}` and is compared exactly
+  // (`layout === "open"`) to decide whether per-image ratios are emitted;
+  // `aspect` is matched exactly by the Image slice resolver ("open-v",
+  // "4x3", …) to pick its `--ar-*` / `--c*` classes. A stega-tagged value
+  // would miss every one of those matches.
+  "layout",
+  "aspect",
   // SEO/meta fields (composables/usePageSeo.ts). None of these ever render
   // as visible page text — they land in <head> attribute values, where
   // stega's zero-width characters would corrupt the emitted markup:

@@ -19,10 +19,23 @@
  * Legacy aspect values from the wider option set are still normalized here
  * (3:2 → 4:3, 2:3 → 3:4) so previously published documents keep rendering
  * without a content migration.
+ *
+ * Open aspect ("open-v" / "open-h") is the uncropped variant: the media box
+ * takes the uploaded image's own proportions (`ratio`, projected from the
+ * asset's dimensions metadata) instead of a fixed 3:4 / 4:3. The two options
+ * exist because they occupy different WIDTHS — Vertical reuses the 3:4 span
+ * (cols 4), Horizontal the 4:3 span (cols 6) — and in both the height then
+ * follows the image. They resolve to `aspect: "open"` + `open: true`; the
+ * component feeds `ratio` to CSS as a custom property.
+ *
+ * `caption` is the optional small caption under the image (same treatment
+ * as the 2Up/3Up captions) — raw Portable Text, rendered by `<RichText>`.
+ * Full-bleed images never show one, so `hasCaption` is forced false there
+ * even if a caption was authored before `full` was switched on.
  */
 
-import { mediaFromUrls } from "./helpers";
-import type { MediaData, RawSlice, SliceDefinition } from "./types";
+import { hasPortableTextContent, mediaFromUrls, normalizeRatio } from "./helpers";
+import type { MediaData, PortableTextBlock, RawSlice, SliceDefinition } from "./types";
 
 interface RawSliceImage extends RawSlice {
   aspect?: string;
@@ -32,16 +45,28 @@ interface RawSliceImage extends RawSlice {
   lqip?: string | null;
   /** Raw MP4 asset URL, projected from `video.asset->url`. */
   video?: string | null;
+  /** Intrinsic width / height of the image asset. */
+  ratio?: number | null;
+  caption?: PortableTextBlock[] | null;
 }
 
 export interface ResolvedSliceImage {
   full: boolean;
-  /** Aspect token used for the `--ar-*` class, e.g. "4x3". */
+  /** Aspect token used for the `--ar-*` class, e.g. "4x3" — or "open" for
+   *  the uncropped variants, whose ratio comes from `ratio` instead. */
   aspect: string;
+  /** True for the Open aspect variants — the box follows the image's own
+   *  proportions rather than a fixed ratio. */
+  open: boolean;
+  /** Intrinsic width / height of the image (3:4 fallback). Only consumed
+   *  when `open`. */
+  ratio: number;
   /** Column span used for the `--c*` class (6 / 4, or 12 when full). */
   cols: number;
   /** Poster image + optional video — renders `<video>` when `hasVideo`. */
   image: MediaData | null;
+  caption: PortableTextBlock[] | null;
+  hasCaption: boolean;
 }
 
 const sliceImage: SliceDefinition<RawSliceImage, ResolvedSliceImage> = {
@@ -51,7 +76,9 @@ const sliceImage: SliceDefinition<RawSliceImage, ResolvedSliceImage> = {
     full,
     "image": image.asset->url,
     "lqip": image.asset->metadata.lqip,
-    "video": video.asset->url
+    "video": video.asset->url,
+    "ratio": image.asset->metadata.dimensions.aspectRatio,
+    caption
   `,
   resolve: (raw) => {
     const full = !!raw.full;
@@ -63,17 +90,25 @@ const sliceImage: SliceDefinition<RawSliceImage, ResolvedSliceImage> = {
         : raw.aspect === "2x3"
           ? "3x4"
           : (raw.aspect ?? "3x4");
-    const aspect = full ? "3x2" : storedAspect;
+    // Open aspect collapses to one "open" class token; which of the two it
+    // was only matters for the span (below). `full` overrides it entirely.
+    const open = !full && (storedAspect === "open-v" || storedAspect === "open-h");
+    const aspect = full ? "3x2" : open ? "open" : storedAspect;
     // One span per aspect: 4:3 always takes the centre-6 span (the retired
-    // Size dropdown's "Small"), 3:4 the centre 4.
-    const cols = full ? 12 : aspect === "4x3" ? 6 : 4;
+    // Size dropdown's "Small"), 3:4 the centre 4. Open Horizontal shares the
+    // 4:3 span, Open Vertical the 3:4 one.
+    const cols = full ? 12 : storedAspect === "4x3" || storedAspect === "open-h" ? 6 : 4;
     // All detail-page images are served at the site-wide 3000w source width
     // regardless of column span — layout size is a CSS concern only.
     return {
       full,
       aspect,
+      open,
+      ratio: normalizeRatio(raw.ratio),
       cols,
       image: mediaFromUrls(raw.image, raw.video, "", 0, 3000, raw.lqip),
+      caption: raw.caption ?? null,
+      hasCaption: !full && hasPortableTextContent(raw.caption),
     };
   },
 };

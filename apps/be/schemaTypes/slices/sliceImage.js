@@ -1,6 +1,6 @@
 import {defineField, defineType} from 'sanity'
 import {BiImage} from 'react-icons/bi'
-import {aspectField} from '../../utils/fields.js'
+import {ASPECT_OPTIONS, aspectField} from '../../utils/fields.js'
 
 // Hidden when `full` is on — a full-screen image ignores Aspect.
 const hiddenWhenFull = ({parent}) => parent?.full === true
@@ -10,7 +10,10 @@ const hiddenWhenFull = ({parent}) => parent?.full === true
 const requiredUnlessFull = (Rule) =>
   Rule.custom((value, context) => (context?.parent?.full || value ? true : 'Required'))
 
-// Image slice — a single positioned image. Aspect is 3:4 or 4:3 only; each
+// Image slice — a single positioned image. Aspect is 3:4 or 4:3 (cropped to
+// that ratio) or one of the two Open aspect options (uncropped — Vertical
+// sits at the 3:4 width, Horizontal at the 4:3 width, and the height follows
+// the uploaded image's own proportions). Each
 // aspect has exactly one rendered size per breakpoint (the old Small/Large
 // dropdown is gone — 4:3 renders at the former Small span on desktop and
 // full width on tablet/mobile; legacy stored `size` values are ignored by
@@ -29,7 +32,13 @@ export default defineType({
       description: 'Toggle this for a full screen image (3:2).',
       initialValue: false,
     }),
-    aspectField({allowed: ['3x4', '4x3'], hidden: hiddenWhenFull, validation: requiredUnlessFull}),
+    aspectField({
+      allowed: ['3x4', '4x3', 'open-v', 'open-h'],
+      description:
+        '3:4 and 4:3 crop the image to that ratio. Open aspect keeps the image at its own proportions: Vertical is as wide as a 3:4 image, Horizontal as wide as a 4:3 image.',
+      hidden: hiddenWhenFull,
+      validation: requiredUnlessFull,
+    }),
     defineField({
       title: 'Image',
       name: 'image',
@@ -57,11 +66,23 @@ export default defineType({
           return ref.endsWith('-mp4') || 'Video must be an MP4 file.'
         }),
     }),
+    // Optional small caption under the image — same treatment as the 2Up/3Up
+    // captions. Hidden for full-screen images, which never show one.
+    defineField({
+      title: 'Caption',
+      name: 'caption',
+      type: 'richText',
+      description: 'Optional. A small caption shown under the image.',
+      hidden: hiddenWhenFull,
+    }),
   ],
   preview: {
     select: {media: 'image', aspect: 'aspect', full: 'full'},
     prepare({media, aspect, full}) {
-      const subtitle = full ? 'Full screen' : aspect
+      // Show the editor-facing option title ("3:4", "Open aspect — Vertical")
+      // rather than the stored value ("3x4", "open-v").
+      const label = ASPECT_OPTIONS.find((o) => o.value === aspect)?.title ?? aspect
+      const subtitle = full ? 'Full screen' : label
       return {
         title: 'Image',
         subtitle,

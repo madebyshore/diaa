@@ -1,6 +1,18 @@
 import {defineField, defineType} from 'sanity'
 import {BiColumns} from 'react-icons/bi'
 
+// Layout options. Titles spell out each image's aspect, left to right, so
+// editors don't have to memorise letter codes. The stored VALUES are the
+// original ones (`vertical` / `a` / `b`) — only the labels changed, so
+// existing documents need no migration. `open` leaves both images at their
+// own uploaded proportions.
+const LAYOUTS = [
+  {title: '3:4 | 3:4', value: 'vertical'},
+  {title: '3:4 | 4:3', value: 'a'},
+  {title: '4:3 | 3:4', value: 'b'},
+  {title: 'Open aspect', value: 'open'},
+]
+
 // 2Up slice — exactly two captioned images side by side. The Layout dropdown
 // drives the per-image aspect ratios, so the images themselves don't carry
 // their own Aspect/Size fields.
@@ -15,13 +27,9 @@ export default defineType({
       name: 'layout',
       type: 'string',
       description:
-        'Vertical sets both images in 3:4 aspect side by side. A sets the first image 3:4 and the second 4:3. B sets the first image 4:3 and the second 3:4.',
+        'The aspect of each image, left to right — images are cropped to fit. Open aspect does not crop: both images keep their own proportions and sit side by side at the same height.',
       options: {
-        list: [
-          {title: 'Vertical', value: 'vertical'},
-          {title: 'A', value: 'a'},
-          {title: 'B', value: 'b'},
-        ],
+        list: LAYOUTS,
         layout: 'dropdown',
       },
       initialValue: 'vertical',
@@ -35,6 +43,8 @@ export default defineType({
       type: 'boolean',
       description: 'Align the images to their baseline (bottom) instead of the top.',
       initialValue: false,
+      // Open aspect images always share one height, so there is nothing to align.
+      hidden: ({parent}) => parent?.layout === 'open',
     }),
     defineField({
       title: 'Images',
@@ -49,7 +59,7 @@ export default defineType({
     prepare({layout, media}) {
       return {
         title: '2Up',
-        subtitle: layout ? `Layout: ${String(layout).toUpperCase()}` : '',
+        subtitle: LAYOUTS.find((l) => l.value === layout)?.title ?? '',
         media,
       }
     },

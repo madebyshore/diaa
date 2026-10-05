@@ -1,6 +1,15 @@
 import {defineField, defineType} from 'sanity'
 import {BiGridAlt} from 'react-icons/bi'
 
+// Layout options. Titles spell out each image's aspect + size (M = Mid,
+// S = Small), left to right. The stored VALUES are the original letter codes
+// — only the labels changed, so existing documents need no migration.
+const LAYOUTS = [
+  {title: '3:4 M | 3:4 S | 4:3 S', value: 'a'},
+  {title: '4:3 S | 3:4 S | 3:4 M', value: 'b'},
+  {title: '3:4 S | 3:4 M | 4:3 S', value: 'c'},
+]
+
 // 3Up slice — exactly three captioned images. The Layout dropdown drives each
 // image's aspect + size, so the images themselves don't carry their own
 // Aspect/Size fields.
@@ -15,13 +24,9 @@ export default defineType({
       name: 'layout',
       type: 'string',
       description:
-        'A sets the first image 3:4 Mid, second 3:4 Small, third 4:3 Small. B sets the first image 4:3 Small, second 3:4 Small, third 3:4 Mid. C sets the first image 3:4 Small, second 3:4 Mid, third 4:3 Small.',
+        'The aspect and size of each image, left to right (M = Mid, S = Small). Images are cropped to fit.',
       options: {
-        list: [
-          {title: 'A', value: 'a'},
-          {title: 'B', value: 'b'},
-          {title: 'C', value: 'c'},
-        ],
+        list: LAYOUTS,
         layout: 'dropdown',
       },
       initialValue: 'a',
@@ -49,7 +54,7 @@ export default defineType({
     prepare({layout, media}) {
       return {
         title: '3Up',
-        subtitle: layout ? `Layout: ${String(layout).toUpperCase()}` : '',
+        subtitle: LAYOUTS.find((l) => l.value === layout)?.title ?? '',
         media,
       }
     },

@@ -142,6 +142,21 @@
   &--ar-4x3 {
     aspect-ratio: 4 / 3;
   }
+  /* Open aspect — no crop: the box takes the image's own proportions.
+     `--slice-ratio` (intrinsic width / height) is set inline by
+     SliceImage.vue. */
+  &--ar-open {
+    aspect-ratio: var(--slice-ratio, 0.75);
+  }
+
+  /* Captioned: the shared `.slice-caption` is absolutely positioned under
+     its image and needs this box as its positioning context — and must not
+     be clipped by it. The inner `._g` figure keeps its own overflow:hidden,
+     so the image itself is still clipped to the box. */
+  &--captioned {
+    position: relative;
+    overflow: visible;
+  }
 
   /* Phone placement (≤431, 6 cols): 4:3 (c6) runs full width inside the
      container padding. 3:4 (c4) needs no override — its height already
@@ -153,6 +168,29 @@
   @include breakpoint-below(xs) {
     &--c6 {
       grid-column: 1 / -1;
+    }
+  }
+}
+
+/* Open aspect — Vertical (c4 + open). The fixed-ratio c4 is HEIGHT-driven
+   (height = the capped --hero-span, width through the 3:4 ratio). The open
+   variant keeps that exact WIDTH — 3/4 of the same capped span, stage for
+   stage — and flips to width-driven so the height can follow the image's
+   own ratio instead. Two-class selector so its `height: auto` outranks
+   every media-gated height in the c4 rule above. (Open Horizontal needs no
+   counterpart: c6 is already width-driven, so `--ar-open` alone reshapes
+   it.) */
+.slice-image__media--open.slice-image__media--c4 {
+  height: auto;
+  width: calc(min(var(--hero-span), 85svh) * 3 / 4);
+
+  @media (min-aspect-ratio: 19 / 10) {
+    width: calc(min(var(--hero-span), 80svh) * 3 / 4);
+  }
+
+  @include breakpoint(xxl) {
+    @media (min-aspect-ratio: 16 / 9) {
+      width: calc(min(var(--hero-span), calc(100svh - 2 * var(--hero-edge-inset))) * 3 / 4);
     }
   }
 }
