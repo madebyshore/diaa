@@ -22,7 +22,8 @@
    That geometry is DESKTOP-ONLY: the fixed gap + fixed height overflow small
    viewports (the second image ran off-screen), so tablet and mobile return
    to the base grid and place the pair side by side, 3 columns each. */
-.slice-2up--vertical {
+.slice-2up--vertical,
+.slice-2up--open {
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -56,6 +57,27 @@
   }
 }
 
+/* Open aspect — the 3:4 | 3:4 layout without the crop. Placement is shared
+   with `--vertical` (the selectors above/below list both): same centred
+   pair, same 14.8rem gap, same per-tier columns. The only difference is
+   the media box — it keeps the vertical layout's WIDTH (the 3:4 box is
+   4 column-widths tall, so 3 column-widths wide) and lets the height
+   follow the image's own proportions (`--slice-ratio` = intrinsic
+   width / height, set inline per item by Slice2Up.vue). The two images can
+   therefore differ in height; they top-align by default and the Bottom
+   Aligned toggle flips that. */
+.slice-2up--open .slice-2up__media {
+  width: calc-columns(3);
+  aspect-ratio: var(--slice-ratio, 0.75);
+
+  @include breakpoint-tablet {
+    width: 100%;
+  }
+  @include breakpoint-mobile {
+    width: 100%;
+  }
+}
+
 /* Side-by-side pair. Tablet band (769–819): adjacent 3+3 with one-column
    outer margins on the 8-col grid. The ≤768 slice of the 8-col tier
    (432–768): the pair fills the full grid width — 1/-1 overall, 4 columns
@@ -63,7 +85,8 @@
    same pattern as the 3up flow). Phone (≤431, 6 cols): full-bleed 3+3.
    Desktop is untouched — the flex layout above ignores grid-column
    entirely. */
-.slice-2up--vertical .slice-2up__item:nth-child(1) {
+.slice-2up--vertical .slice-2up__item:nth-child(1),
+.slice-2up--open .slice-2up__item:nth-child(1) {
   @include breakpoint-tablet {
     grid-column: 2 / span 3;
   }
@@ -74,7 +97,8 @@
     grid-column: 1 / span 3;
   }
 }
-.slice-2up--vertical .slice-2up__item:nth-child(2) {
+.slice-2up--vertical .slice-2up__item:nth-child(2),
+.slice-2up--open .slice-2up__item:nth-child(2) {
   @include breakpoint-tablet {
     grid-column: 5 / span 3;
   }
@@ -181,53 +205,6 @@
 }
 .slice-2up--b .slice-2up__item:nth-child(2) .slice-2up__media {
   aspect-ratio: 3 / 4;
-}
-
-/* Open aspect — no crop. Each image keeps its own proportions
-   (`--slice-ratio` = intrinsic width / height, set inline per item by
-   Slice2Up.vue) and the pair is a "justified row": every item's flex-grow
-   IS its ratio (basis 0), so the row's width is shared out in proportion to
-   the ratios and both media boxes land on exactly the same height, whatever
-   the two shapes are (a 16:9 beside a 4:5, two panoramas, …).
-
-   Desktop mirrors the 3:4 | 3:4 layout: centred, 14.8rem gap, and the same
-   4-column-width height — expressed as a per-item max-width of
-   height × ratio. The caps are proportional to the grow factors, so either
-   both items reach their cap (the usual case — the row sits centred at the
-   4-column height) or neither does (a very wide pair — the row fills the
-   container and the shared height shrinks to fit). It can never overflow.
-
-   Tablet + mobile: the caps come off and the gap returns to the grid token,
-   so the pair fills the full padded width, same as the other variants'
-   4+4 / 3+3 placements. */
-.slice-2up--open {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 14.8rem;
-
-  @include breakpoint-tablet {
-    gap: var(--column-gap);
-  }
-  @include breakpoint-mobile {
-    gap: var(--column-gap);
-  }
-}
-.slice-2up--open .slice-2up__item {
-  flex: var(--slice-ratio, 0.75) 1 0px;
-  /* Let the flex share, not the image's intrinsic size, set the width. */
-  min-width: 0;
-  max-width: calc(#{calc-columns(4)} * var(--slice-ratio, 0.75));
-
-  @include breakpoint-tablet {
-    max-width: none;
-  }
-  @include breakpoint-mobile {
-    max-width: none;
-  }
-}
-.slice-2up--open .slice-2up__media {
-  aspect-ratio: var(--slice-ratio, 0.75);
 }
 
 /* Bottom Aligned toggle — align the images by the bottom of their media

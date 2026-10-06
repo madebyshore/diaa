@@ -4,9 +4,9 @@
  *   vertical → both 3:4, centered, 14.8rem gap, height = 4 column-widths
  *   a        → first 3:4 (col 2/3), second 4:3 (col 6/6)
  *   b        → first 4:3 (col 2/6), second 3:4 (col 9/3), baseline-aligned
- *   open     → no crop: each image keeps its own proportions (`ratio`, the
- *              asset's intrinsic width / height) and the pair shares one
- *              height, widths following each image's shape
+ *   open     → the `vertical` placement and widths without the crop: each
+ *              image keeps its own proportions (`ratio`, the asset's
+ *              intrinsic width / height), so heights can differ
  *
  * Ported from `apps/fe/scripts/slices/slice2Up.ts`. `images[].caption` now
  * carries raw Portable Text blocks (via `resolveCaptionedImages` in

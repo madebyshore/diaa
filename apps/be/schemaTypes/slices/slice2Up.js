@@ -4,8 +4,8 @@ import {BiColumns} from 'react-icons/bi'
 // Layout options. Titles spell out each image's aspect, left to right, so
 // editors don't have to memorise letter codes. The stored VALUES are the
 // original ones (`vertical` / `a` / `b`) — only the labels changed, so
-// existing documents need no migration. `open` leaves both images at their
-// own uploaded proportions.
+// existing documents need no migration. `open` is the 3:4 | 3:4 placement with
+// each image at its own uploaded proportions instead of a 3:4 crop.
 const LAYOUTS = [
   {title: '3:4 | 3:4', value: 'vertical'},
   {title: '3:4 | 4:3', value: 'a'},
@@ -27,7 +27,7 @@ export default defineType({
       name: 'layout',
       type: 'string',
       description:
-        'The aspect of each image, left to right — images are cropped to fit. Open aspect does not crop: both images keep their own proportions and sit side by side at the same height.',
+        'The aspect of each image, left to right — images are cropped to fit. Open aspect does not crop: the images sit in the same positions and at the same width as 3:4 | 3:4, but each keeps its own proportions.',
       options: {
         list: LAYOUTS,
         layout: 'dropdown',
@@ -43,8 +43,6 @@ export default defineType({
       type: 'boolean',
       description: 'Align the images to their baseline (bottom) instead of the top.',
       initialValue: false,
-      // Open aspect images always share one height, so there is nothing to align.
-      hidden: ({parent}) => parent?.layout === 'open',
     }),
     defineField({
       title: 'Images',
