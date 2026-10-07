@@ -13,6 +13,9 @@
                  that tier (--hero-span), width from the ratio, centred.
                  Both spans carry the shared two-stage viewport cap
                  (≤85svh always, 80svh on wide-short windows)
+     Open H → c10 — the inner 10 of 12 (md+), uncropped; inner 6 of 8 on
+                 the 8-col tier, all columns on phone. No viewport cap —
+                 it is meant to run wide, the height follows the image
      Full → c12 — full bleed, forced 3:2
    (c8 — the retired "4:3 Large" desktop span — is gone: the resolver no
    longer emits it and legacy `size: 'lg'` documents resolve to c6.) */
@@ -127,6 +130,15 @@
       }
     }
   }
+  /* c10 — Open aspect Horizontal only. The inner 10 of the 12-col grid
+     from md up (one column of air each side); below that it follows c6's
+     small-tier placement (inner 6 of 8 on the 8-col tier, full padded
+     width on phone — see the phone block below). Purely track-sized: no
+     viewport-percentage width cap like c6's, since the point of this span
+     is to run wide and the height is whatever the image's ratio makes it. */
+  &--c10 {
+    grid-column: 2 / -2;
+  }
   &--c12 {
     grid-column: 1 / -1;
   }
@@ -166,7 +178,8 @@
      equal-specificity override wins the cascade (the full-bleed variant
      below still outranks it, keeping `--full` forced to 1 / -1). */
   @include breakpoint-below(xs) {
-    &--c6 {
+    &--c6,
+    &--c10 {
       grid-column: 1 / -1;
     }
   }
@@ -178,7 +191,7 @@
    stage — and flips to width-driven so the height can follow the image's
    own ratio instead. Two-class selector so its `height: auto` outranks
    every media-gated height in the c4 rule above. (Open Horizontal needs no
-   counterpart: c6 is already width-driven, so `--ar-open` alone reshapes
+   counterpart: its c10 span is track-sized, so `--ar-open` alone shapes
    it.) */
 .slice-image__media--open.slice-image__media--c4 {
   height: auto;

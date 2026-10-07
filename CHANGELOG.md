@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Image slice "Open aspect — Horizontal" now spans the inner 10 columns** (`apps/fe/app/data/slices/sliceImage.ts`, `apps/fe/app/styles/slices/_image.module.scss`, `apps/be/schemaTypes/slices/sliceImage.js`). Was the 4:3 image's width (the centre-6 `c6` span with its viewport caps). The resolver now emits `cols: 10` for `open-h`, styled by a new `.slice-image__media--c10`: `grid-column: 2 / -2` from `md` up (inner 10 of 12), the same on the 8-col tier (inner 6 of 8), full padded width on phone. Deliberately uncapped — no `svh` width limit like `c6`'s — so the height is purely the image's ratio at that width. Open Vertical is unchanged. Studio help text updated to match.
+
 - **2Up / 3Up Layout options renamed to describe what they render** (`apps/be/schemaTypes/slices/{slice2Up,slice3Up}.js`). 2Up: `Vertical` → `3:4 | 3:4`, `A` → `3:4 | 4:3`, `B` → `4:3 | 3:4` (plus the new `Open aspect`). 3Up: `A` → `3:4 M | 3:4 S | 4:3 S`, `B` → `4:3 S | 3:4 S | 3:4 M`, `C` → `3:4 S | 3:4 M | 4:3 S`. Labels, help text and the Studio list-preview subtitles only — stored values are unchanged, so no content migration and no frontend change.
 
 - **`layout` and `aspect` added to the stega exclusion set** (`apps/fe/app/data/stega.ts`). Absolute rule #3: both become CSS class tokens and are now also matched exactly in code (`layout === "open"`, the Image resolver's `open-v` / `open-h` arms).

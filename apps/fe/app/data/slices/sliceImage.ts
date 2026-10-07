@@ -6,6 +6,7 @@
  * Column spans (12-col grid):
  *   4:3 → 6 (the former "4:3 Small" — the only 4:3 size now)
  *   3:4 → one fixed size → 4
+ *   open horizontal → the inner 10
  *   full → the whole width (no container padding)
  *
  * Tablet/mobile placement is breakpoint-driven in the styles
@@ -24,8 +25,8 @@
  * takes the uploaded image's own proportions (`ratio`, projected from the
  * asset's dimensions metadata) instead of a fixed 3:4 / 4:3. The two options
  * exist because they occupy different WIDTHS — Vertical reuses the 3:4 span
- * (cols 4), Horizontal the 4:3 span (cols 6) — and in both the height then
- * follows the image. They resolve to `aspect: "open"` + `open: true`; the
+ * (cols 4), Horizontal spans the inner 10 columns (cols 10) — and in both
+ * the height then follows the image. They resolve to `aspect: "open"` + `open: true`; the
  * component feeds `ratio` to CSS as a custom property.
  *
  * `caption` is the optional small caption under the image (same treatment
@@ -61,7 +62,8 @@ export interface ResolvedSliceImage {
   /** Intrinsic width / height of the image (3:4 fallback). Only consumed
    *  when `open`. */
   ratio: number;
-  /** Column span used for the `--c*` class (6 / 4, or 12 when full). */
+  /** Column span used for the `--c*` class (6 / 4, 10 for Open Horizontal,
+   *  or 12 when full). */
   cols: number;
   /** Poster image + optional video — renders `<video>` when `hasVideo`. */
   image: MediaData | null;
@@ -95,9 +97,16 @@ const sliceImage: SliceDefinition<RawSliceImage, ResolvedSliceImage> = {
     const open = !full && (storedAspect === "open-v" || storedAspect === "open-h");
     const aspect = full ? "3x2" : open ? "open" : storedAspect;
     // One span per aspect: 4:3 always takes the centre-6 span (the retired
-    // Size dropdown's "Small"), 3:4 the centre 4. Open Horizontal shares the
-    // 4:3 span, Open Vertical the 3:4 one.
-    const cols = full ? 12 : storedAspect === "4x3" || storedAspect === "open-h" ? 6 : 4;
+    // Size dropdown's "Small"), 3:4 the centre 4. Open Vertical shares the
+    // 3:4 span; Open Horizontal runs wider than any cropped image, across
+    // the inner 10 columns.
+    const cols = full
+      ? 12
+      : storedAspect === "open-h"
+        ? 10
+        : storedAspect === "4x3"
+          ? 6
+          : 4;
     // All detail-page images are served at the site-wide 3000w source width
     // regardless of column span — layout size is a CSS concern only.
     return {

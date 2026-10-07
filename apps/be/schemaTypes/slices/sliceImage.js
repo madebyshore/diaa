@@ -35,7 +35,7 @@ export default defineType({
     aspectField({
       allowed: ['3x4', '4x3', 'open-v', 'open-h'],
       description:
-        '3:4 and 4:3 crop the image to that ratio. Open aspect keeps the image at its own proportions: Vertical is as wide as a 3:4 image, Horizontal as wide as a 4:3 image.',
+        '3:4 and 4:3 crop the image to that ratio. Open aspect keeps the image at its own proportions: Vertical is as wide as a 3:4 image, Horizontal spans the inner 10 columns of the page grid.',
       hidden: hiddenWhenFull,
       validation: requiredUnlessFull,
     }),
