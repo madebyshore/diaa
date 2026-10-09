@@ -34,33 +34,48 @@
 
 /* Quote — the wrapping curly quotes hang outside the text block so the
    quote's first and last characters stay flush with the column edges.
-   Both marks sit at their natural (static) inline position but are pulled
-   out of flow with `position: absolute`, so they occupy no layout space;
-   the opening mark is then shifted left by exactly its own glyph width.
-   Done with spans (emitted by the sliceText resolver) because the native
-   CSS `hanging-punctuation` property is Safari-only. */
+   Done with spans (emitted by SliceText.vue) because the native CSS
+   `hanging-punctuation` property is Safari-only. */
 .slice-text--quote .slice-text__body {
   position: relative;
 }
 
-.slice-text__quote-mark {
-  position: absolute;
-}
-
+/* Opening mark: sits at its natural (static) inline position but is pulled
+   out of flow with `position: absolute`, so it occupies no layout space,
+   then shifts left by exactly its own glyph width. Safe because it is the
+   very first thing in the body — its static position can never wrap. */
 .slice-text__quote-mark--open {
+  position: absolute;
   transform: translateX(-100%);
 }
 
-/* Below `lg` (the 768 and 1024 artboards): the CLOSING mark flows inline
-   with the body instead of hanging at its absolute static position — when
-   the quote's last line fills the narrower column, that static position
-   wraps and the mark renders alone on a new line. Inline it glues to the
-   last word (the template emits no whitespace between the text and the
-   span, so there is no break opportunity). The opening mark keeps its
-   hang on every tier; desktop (lg+) keeps both marks hanging. */
+/* Closing mark: an IN-FLOW zero-width inline-block whose glyph overflows to
+   the right. It used to be `position: absolute` like the opening mark, but
+   an abspos box's static position is "where it would have been in flow",
+   and under the site-wide `text-wrap: pretty` (core/base.module.scss) the
+   last lines get re-broken after that position is decided — at roughly one
+   viewport width in five the mark was left alone on a line beneath the
+   quote (reproduced in Chromium across a 200–900px column sweep). Being in
+   flow, the mark now takes part in that re-breaking and always lays out on
+   the last word's line; being zero-width, it always fits there no matter
+   how full the line is, and it still takes no measure away from the text
+   (the hang is preserved). SliceText.vue trims trailing whitespace/empty
+   blocks from the body so nothing can sit between the last word and this
+   span. */
+.slice-text__quote-mark--close {
+  display: inline-block;
+  width: 0;
+  white-space: nowrap;
+}
+
+/* Below `lg` (the 768 and 1024 artboards): the closing mark does not hang —
+   it flows as ordinary inline text, glued to the last word (the template
+   emits no whitespace between the text and the span, so there is no break
+   opportunity). The opening mark keeps its hang on every tier. */
 @include breakpoint-below(lg) {
   .slice-text__quote-mark--close {
-    position: static;
+    display: inline;
+    width: auto;
   }
 }
 
