@@ -320,10 +320,11 @@
   z-index: 0;
 
   /* The overlay renders on EVERY device — how a figure becomes `.is-active`
-     differs per tier/capability instead (see home.ts): desktop hover
-     reveals on mouseenter; mobile (≤768) is scroll-driven (the centred
-     entry's figure holds the reveal); no-hover devices at desktop widths
-     (tablets) reveal on tap, which then navigates after the fade (the
+     differs per tier/input instead (see home.ts): a mouse or trackpad
+     cursor reveals on pointerenter (iPad trackpads included); mobile
+     (≤768) is scroll-driven (the centred entry's figure holds the
+     reveal); touch input at desktop widths (tablets) reveals on tap,
+     which then navigates after the fade (the
      tap-reveal-then-navigate sequence). An earlier iteration hid this
      overlay outright on touch — that left mobile with no images at all and
      made tablet taps cut harshly to the detail page. */

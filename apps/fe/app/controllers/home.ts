@@ -23,11 +23,13 @@ import type { PageController, ScrollEvent } from "~/controllers/page-controller"
  *   `.home__text-gpu-figure` so its `<img>` fades in at the viewport centre
  *   via CSS transition. Mouse leave removes `.is-active` and the image fades
  *   out. The reveal exists on EVERY device — only the trigger differs per
- *   tier/capability: hover-capable pointers reveal on mouseenter/leave;
+ *   tier/INPUT: a mouse-type pointer reveals on pointerenter/leave (a
+ *   desktop mouse, and equally a trackpad paired with an iPad — the gate
+ *   is the pointer that fired the event, not the device's media queries);
  *   mobile (≤768) is scroll-driven (updateScrollReveal keeps the centred
  *   entry's figure active, and the revealed image doubles as a tap target
- *   for the detail page); no-hover devices at DESKTOP widths (tablets)
- *   reveal on tap and navigate immediately — the bridge clone continues
+ *   for the detail page); touch input at DESKTOP widths (tablets)
+ *   reveals on tap and navigates immediately — the bridge clone continues
  *   the fade-in WHILE the outgoing text fades out (see the tapReveal
  *   wiring and transitions/home-to-detail.ts's partial-opacity clone
  *   handling), so the home→detail bridge always has a live image to carry
@@ -132,6 +134,13 @@ const MOBILE_MEDIA_QUERY = "(max-width: 768px)";
 // the hover listeners on this query is the actual fix (rather than the width
 // query, which a touch device in a WIDE viewport — a touchscreen laptop, an
 // iPad in landscape — would still fail to catch).
+//
+// NOT the gate for the text-mode image reveal: this query describes the
+// device's PRIMARY input, so an iPad reports `hover: none` / `pointer:
+// coarse` even with a trackpad attached, and gating the reveal on it left
+// trackpad hovers dead in text mode (client-reported). The reveal handlers
+// gate on the pointer type of the event itself — see isHoverPointer(). The
+// query survives there only as the fallback for "no pointer seen yet".
 const DESKTOP_HOVER_QUERY = "(hover: hover) and (pointer: fine)";
 
 /** Text ⇄ Image mode. Ported from apps/fe/src/app/context.ts's `HomeMode`. */
@@ -227,7 +236,11 @@ export function createHomeController(): PageController {
   // Handler references, stored so cleanup can removeEventListener the exact
   // same closure it added (source stored these as parallel arrays/pairs —
   // ported 1:1).
-  let hoverHandlers: Array<{ item: HTMLElement; enter: () => void; leave: () => void }> = [];
+  let hoverHandlers: Array<{
+    item: HTMLElement;
+    enter: (e: PointerEvent) => void;
+    leave: (e: PointerEvent) => void;
+  }> = [];
   let imageHoverHandlers: Array<{ slot: HTMLElement; enter: () => void; leave: () => void }> = [];
   /** Tablet tap-reveal-then-navigate handlers (see the text-item click
    *  wiring in onInit) — one per text item, removed in onDestroy. */
@@ -262,10 +275,20 @@ export function createHomeController(): PageController {
    *  the anchor click, so plugins/click-delegation.client.ts never sees it). */
   let router: ReturnType<typeof useRouter> | null = null;
 
-  /** One-shot mousemove backstop armed by syncHoverFromPointer() — re-syncs
-   *  hover state on the first pointer move after an entrance, for browsers
-   *  that leave `:hover` stale until the mouse moves. Null when unarmed. */
-  let hoverSyncMoveHandler: (() => void) | null = null;
+  /** One-shot pointermove backstop armed by syncHoverFromPointer() — re-syncs
+   *  hover state on the first MOUSE-type pointer move after an entrance, for
+   *  browsers that leave `:hover` stale until the mouse moves. Null when
+   *  unarmed. */
+  let hoverSyncMoveHandler: ((e: PointerEvent) => void) | null = null;
+
+  /** `pointerType` of the last pointer to enter a text label ("mouse" |
+   *  "touch" | "pen"), null until one has. A click carries no reliable
+   *  pointer type across engines, but a pointerenter always precedes it on
+   *  the same label — for touch it fires on the touchdown itself — so
+   *  tapReveal reads this to tell a finger tap from a mouse click. That
+   *  distinction has to be per-INTERACTION, not per-device: an iPad with a
+   *  trackpad does both. */
+  let lastTextPointerType: string | null = null;
 
   /** Teardown for the dev-only tweak panel's Ctrl+F toggle — unmounts the
    *  Vue component (which owns the keydown listener itself). Null in
@@ -776,6 +799,18 @@ export function createHomeController(): PageController {
   }
 
   /**
+   * True when a pointer event came from an input that can genuinely hover —
+   * a mouse or trackpad cursor. This is the text-mode reveal's capability
+   * gate, asked of the EVENT rather than of the device: touch pointers also
+   * fire pointerenter/leave (on touchdown/touchend), and those must not
+   * toggle the reveal, while a trackpad on an otherwise touch-first device
+   * (an iPad with a keyboard folio) must. Pen is left on the tap path.
+   */
+  function isHoverPointer(e: PointerEvent): boolean {
+    return e.pointerType === "mouse";
+  }
+
+  /**
    * The class-toggling half of syncHoverFromPointer(): for the active mode,
    * mirrors each item's current `:hover` state onto the same class its
    * mouseenter/mouseleave handlers manage (`.is-active` on the matching
@@ -806,19 +841,21 @@ export function createHomeController(): PageController {
    * fires once the freeze lifts — mouseenter only fires on a boundary
    * crossing — so the reveal would silently never happen. Called at the end
    * of in(): reads `:hover` off the DOM and toggles the same classes the
-   * handlers would, for whichever mode is active. Hover-capable desktop
-   * widths only — ≤768 reveals are scroll-driven (updateScrollReveal) and
-   * tablet reveals are tap-driven, neither of which has hover state to
-   * re-sync.
+   * handlers would, for whichever mode is active. Desktop widths only —
+   * ≤768 reveals are scroll-driven (updateScrollReveal) and touch reveals
+   * are tap-driven, neither of which has hover state to re-sync.
    */
   function syncHoverFromPointer(): void {
-    // Same two gates as the live hover handlers: hover-capable devices
-    // only, and never on the ≤768 tier where the scroll reveal owns the
-    // `.is-active` state (in()'s own updateScrollReveal(true) call is the
-    // mobile counterpart of this re-sync).
-    if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) return;
+    // Never on the ≤768 tier, where the scroll reveal owns the `.is-active`
+    // state (in()'s own updateScrollReveal(true) call is the mobile
+    // counterpart of this re-sync).
     if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
-    applyPointerHover();
+    // The IMMEDIATE re-sync has no pointer event to read a type from, so it
+    // falls back to the device query: reading `:hover` blind on a touch
+    // device risks picking up the sticky hover a tap leaves behind. A
+    // trackpad on an iPad fails this query and is recovered by the
+    // pointermove backstop below instead, on the cursor's first movement.
+    if (window.matchMedia(DESKTOP_HOVER_QUERY).matches) applyPointerHover();
 
     // Backstop: some engines (Safari notably) leave `:hover` stale when the
     // DOM changed under a motionless pointer, only recomputing it on the
@@ -827,17 +864,24 @@ export function createHomeController(): PageController {
     // recover either. Arm a one-shot re-sync on that first move; it
     // self-disarms after firing and onDestroy removes it if the user
     // navigates away before moving.
+    //
+    // pointermove, not mousemove, so the handler can tell a real cursor from
+    // a finger: touch moves are ignored and leave it armed (hence no
+    // `{ once: true }` — it removes itself on the first MOUSE move).
     if (!hoverSyncMoveHandler) {
-      hoverSyncMoveHandler = (): void => {
-        hoverSyncMoveHandler = null;
+      hoverSyncMoveHandler = (e: PointerEvent): void => {
+        if (!isHoverPointer(e)) return;
+        if (hoverSyncMoveHandler) {
+          window.removeEventListener("pointermove", hoverSyncMoveHandler);
+          hoverSyncMoveHandler = null;
+        }
         // Mirror the live handlers' freeze — by now a new navigation or a
         // mode/filter switch may have started, and the sync must not fight it.
         if (mutating?.value || modeSwitching) return;
-        if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) return;
         if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
         applyPointerHover();
       };
-      window.addEventListener("mousemove", hoverSyncMoveHandler, { once: true });
+      window.addEventListener("pointermove", hoverSyncMoveHandler, { passive: true });
     }
   }
 
@@ -991,17 +1035,23 @@ export function createHomeController(): PageController {
       // Wire text hover → DOM figure reveal. Hover toggles .is-active on the
       // matching .home__text-gpu-figure; CSS transitions opacity 0 → 1 so
       // the centered image appears behind the text labels (DOM-only).
-      // HOVER-CAPABLE DEVICES AT DESKTOP WIDTHS ONLY: ≤768 reveals are
-      // scroll-driven (updateScrollReveal), and on no-hover devices at
-      // desktop widths (tablets) the reveal is tap-driven instead — see the
-      // tapReveal handler wired alongside enter/leave below. Gating
-      // enter/leave on DESKTOP_HOVER_QUERY also keeps a touch browser's
-      // emulated mouseenter/mouseleave from toggling stray reveal state
-      // after a tap.
+      // MOUSE-TYPE POINTERS AT DESKTOP WIDTHS ONLY: ≤768 reveals are
+      // scroll-driven (updateScrollReveal), and touch input at desktop
+      // widths (tablets) reveals on tap instead — see the tapReveal handler
+      // wired alongside enter/leave below. These are POINTER events gated
+      // on the event's own pointerType (isHoverPointer), not mouse events
+      // gated on a hover media query: the query describes the device's
+      // primary input, so it switched the reveal off for a trackpad paired
+      // with an iPad. Reading the type off the event keeps a tap's
+      // pointerenter/leave (and the emulated mouse events a touch browser
+      // fires after one) from toggling stray reveal state just as well.
       for (let i = 0; i < textItems.length; i++) {
         const item = textItems[i]!;
 
-        const enter = (): void => {
+        const enter = (e: PointerEvent): void => {
+          // Recorded for EVERY pointer type, ahead of every gate below —
+          // tapReveal reads it to classify the click that follows.
+          lastTextPointerType = e.pointerType;
           // Freeze hover state during a navigation: while a transition is
           // in flight the home→detail bridge depends on the active figure
           // staying `.is-active` until it is cloned (see out() /
@@ -1009,31 +1059,32 @@ export function createHomeController(): PageController {
           // add/remove it. Same freeze during a mode/filter switch — hover
           // must not fight the pane fade.
           if (mutating?.value || modeSwitching) return;
-          // Two independent gates: capability (a touch browser's emulated
-          // mouseenter after a tap must not toggle reveal state) AND width
-          // (≤768 reveals are scroll-driven — see updateScrollReveal — and
-          // a real mouse in a narrow window must not fight that state).
-          if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) return;
+          // Two independent gates: input (a finger's pointerenter on
+          // touchdown must not toggle reveal state — that's tapReveal's
+          // job) AND width (≤768 reveals are scroll-driven — see
+          // updateScrollReveal — and a real mouse in a narrow window must
+          // not fight that state).
+          if (!isHoverPointer(e)) return;
           if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
           if (mode.value !== "text") return;
           if (isFilteredOut(i)) return;
           textGpuFigures[i]?.classList.add("is-active");
         };
-        const leave = (): void => {
+        const leave = (e: PointerEvent): void => {
           if (mutating?.value || modeSwitching) return;
-          if (!window.matchMedia(DESKTOP_HOVER_QUERY).matches) return;
+          if (!isHoverPointer(e)) return;
           if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
           if (mode.value !== "text") return;
           if (isFilteredOut(i)) return;
           textGpuFigures[i]?.classList.remove("is-active");
         };
 
-        item.addEventListener("mouseenter", enter);
-        item.addEventListener("mouseleave", leave);
+        item.addEventListener("pointerenter", enter);
+        item.addEventListener("pointerleave", leave);
         hoverHandlers.push({ item, enter, leave });
 
-        // Tablet tap-reveal — NO-HOVER devices at DESKTOP widths only (an
-        // iPad in landscape, a touchscreen laptop). With no hover there is
+        // Tablet tap-reveal — TOUCH input at DESKTOP widths only (an iPad
+        // in landscape, a touchscreen laptop). With no hover there is
         // no reveal before the tap, so navigating used to make the detail
         // page's cover cut in with nothing bridging it. The tap instead
         // adds `.is-active` and navigates IMMEDIATELY — the image fades in
@@ -1050,7 +1101,18 @@ export function createHomeController(): PageController {
         // Non-routable items render as <div>s (no anchor) — the instanceof
         // check leaves them inert, same as before.
         const tapReveal = (e: Event): void => {
-          if (window.matchMedia(DESKTOP_HOVER_QUERY).matches) return;
+          // A mouse/trackpad click already has its image revealed by the
+          // hover above, so it navigates through the delegation plugin
+          // like desktop. Classified by the pointer that last entered a
+          // label (see lastTextPointerType), so an iPad gets the hover
+          // path from its trackpad and this path from a finger; only when
+          // no pointer has been seen at all (keyboard activation) does the
+          // device query decide, as it did before.
+          const hoverClick =
+            lastTextPointerType === null
+              ? window.matchMedia(DESKTOP_HOVER_QUERY).matches
+              : lastTextPointerType === "mouse";
+          if (hoverClick) return;
           if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) return;
           if (mode.value !== "text") return;
           if (!(item instanceof HTMLAnchorElement)) return;
@@ -1338,8 +1400,8 @@ export function createHomeController(): PageController {
      *  navigation. */
     onDestroy(): void {
       for (const { item, enter, leave } of hoverHandlers) {
-        item.removeEventListener("mouseenter", enter);
-        item.removeEventListener("mouseleave", leave);
+        item.removeEventListener("pointerenter", enter);
+        item.removeEventListener("pointerleave", leave);
       }
       for (const { item, handler } of tapNavHandlers) {
         item.removeEventListener("click", handler);
@@ -1361,7 +1423,7 @@ export function createHomeController(): PageController {
       // Disarm the one-shot pointer re-sync if the user navigated away
       // before moving the mouse (harmless no-op when it already fired).
       if (hoverSyncMoveHandler) {
-        window.removeEventListener("mousemove", hoverSyncMoveHandler);
+        window.removeEventListener("pointermove", hoverSyncMoveHandler);
         hoverSyncMoveHandler = null;
       }
       navAnima?.kill();
