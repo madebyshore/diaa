@@ -285,7 +285,7 @@ export type RouteContent =
 function coverMedia(d: DetailRef, alt: string, index: number): MediaData {
   const pic = d.coverImage
     ? sanityPicture(d.coverImage, alt, index, 3000, d.coverLqip)
-    : { src: "", alt, width: 3000, height: 4000, isFirst: index === 0, lqip: "" };
+    : { src: "", srcset: "", alt, width: 3000, height: 4000, isFirst: index === 0, lqip: "" };
   return {
     ...pic,
     hasVideo: !!d.coverVideo,

@@ -22,11 +22,56 @@
  *   - `pictureFromUrl()` (old: `scripts/slices/helpers.ts`) — slice images.
  *     No quality param, and a fixed default height of 4000 regardless of
  *     the width argument (matches the old signature's literal default).
+ *
+ * Both builders also emit a `srcset` width ladder (see `buildSrcset()`), and
+ * `src` is now a mid-size FALLBACK rather than the full 3000px source. The
+ * old pipeline shipped every cover/slice image as a single 3000px URL, which
+ * on an iPad decoded to ~48 MB of bitmap per image (3000×4000×4 bytes) — and
+ * the home page alone keeps ~22 covers resident in the Text-mode reveal
+ * overlay plus another 22 in the Image-mode grid, well past iPadOS Safari's
+ * per-tab memory ceiling. The tab was being killed and reloaded ("the site
+ * crashes intermittently" client report). With a ladder + a per-call-site
+ * `sizes` (`lib/image-sizes.ts`, passed through FigureBase), each surface
+ * only fetches/decodes what it actually renders at the device's DPR.
  */
+
+/** srcset rungs, in px. Topped out at the caller's requested max width (3000
+ *  everywhere today — the old single-URL size, so the sharpest surface on
+ *  the biggest retina screen still gets exactly what it got before). Spaced
+ *  so the browser never over-fetches by more than ~1.5× the slot's real
+ *  device-pixel width. */
+const SRCSET_WIDTHS = [480, 800, 1200, 1600, 2000, 2400, 3000] as const;
+
+/** Width of the plain `src` fallback (and the `<video poster>`, which can't
+ *  take a srcset at all). 1600 covers the hero reveal on an iPad at 2× and a
+ *  1440 laptop's hero at 2× within a rung; browsers that understand srcset
+ *  (all of them) only ever use this for posters. */
+const FALLBACK_WIDTH = 1600;
+
+/**
+ * Build a `srcset` string for a Sanity CDN image: one `<url> <w>w` entry per
+ * `SRCSET_WIDTHS` rung up to `maxWidth`, always ending on `maxWidth` itself.
+ * `params` is the builder's fixed query string (format/quality/fit) — the
+ * `w` param is appended per rung. Both builders pass `fit=max`, which tells
+ * Sanity's image API never to upscale past the asset's intrinsic width, so
+ * a rung wider than a small upload resolves to the original size instead of
+ * an inflated bitmap that costs memory for no extra detail.
+ */
+function buildSrcset(baseUrl: string, params: string, maxWidth: number): string {
+  const widths: number[] = SRCSET_WIDTHS.filter((w) => w < maxWidth);
+  widths.push(maxWidth);
+  return widths.map((w) => `${baseUrl}?${params}&w=${w} ${w}w`).join(", ");
+}
 
 /** Responsive image data shared by covers, slices, and captioned images. */
 export interface PictureData {
+  /** Mid-size fallback URL (`FALLBACK_WIDTH`, capped at the max width) —
+   *  also the `<video poster>`. Real `<img>` rendering picks from `srcset`. */
   src: string;
+  /** Width-descriptor ladder (`buildSrcset()`). Paired with a per-surface
+   *  `sizes` from `lib/image-sizes.ts` at render time. Empty string when
+   *  there is no image (video-only cover). */
+  srcset: string;
   alt: string;
   width: number;
   height: number;
@@ -63,8 +108,10 @@ export function sanityPicture(
   lqip?: string | null,
 ): PictureData {
   const baseUrl = sanityUrl.split("?")[0];
+  const params = "auto=format&fm=webp&q=85&fit=max";
   return {
-    src: `${baseUrl}?auto=format&fm=webp&w=${w}&q=85`,
+    src: `${baseUrl}?${params}&w=${Math.min(w, FALLBACK_WIDTH)}`,
+    srcset: buildSrcset(baseUrl ?? sanityUrl, params, w),
     alt,
     width: w,
     height: Math.round((w * 4) / 3),
@@ -91,8 +138,10 @@ export function pictureFromUrl(
 ): PictureData | null {
   if (!url) return null;
   const baseUrl = url.split("?")[0] ?? url;
+  const params = "auto=format&fm=webp&fit=max";
   return {
-    src: `${baseUrl}?auto=format&fm=webp&w=${width}`,
+    src: `${baseUrl}?${params}&w=${Math.min(width, FALLBACK_WIDTH)}`,
+    srcset: buildSrcset(baseUrl, params, width),
     alt,
     width,
     height,

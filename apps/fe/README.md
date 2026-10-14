@@ -19,7 +19,7 @@ app/
   composables/      useSiteOptions, usePageData, usePageController, useNavLock, useLenisScroll, useBoot, useHomeAnim
   controllers/      imperative page choreography (page-controller.ts, home.ts, detail.ts, rich-text-page.ts)
   transitions/       default.ts (route transition), home-to-detail.ts (image bridge)
-  lib/               one-slot/per-route module handoffs (image-bridge, beat-skip, scroll-restore)
+  lib/               one-slot/per-route module handoffs (image-bridge, beat-skip, scroll-restore) + per-surface image `sizes` (image-sizes)
   gsap/eases.ts      CustomEase curve table
   plugins/           lenis.client.ts, ease.client.ts, nav-direction.client.ts, click-delegation.client.ts, content.server.ts
   plugins-preview/   visual-editing.client.ts — preview builds only

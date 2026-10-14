@@ -115,6 +115,12 @@ const BEAT_EASE = "slow";
 const NAV_FADE_DURATION = 0.3; // seconds (was 300ms)
 const NAV_FADE_EASE = "none"; // linear — GSAP built-in, matches [0,0,1,1]
 
+// Duration of the reveal figure's CSS opacity transition
+// (`.home__text-gpu-figure` in _home.module.scss — keep in sync). The
+// reveal-video observer waits this long after `.is-active` comes off before
+// pausing, so a video never freezes while it's still visibly fading out.
+const REVEAL_FADE_MS = 800;
+
 // Mobile tier — keep in sync with `breakpoint-mobile` in
 // styles/includes/_breakpoints.module.scss (everything at or below 768px).
 // Used to gate touch-specific nav behaviour like auto-collapse after a
@@ -294,6 +300,14 @@ export function createHomeController(): PageController {
    *  Vue component (which owns the keydown listener itself). Null in
    *  production or before the dynamic import resolves. */
   let animGuiTeardown: (() => void) | null = null;
+
+  /** Watches `.is-active` on the reveal figures and plays/pauses their cover
+   *  `<video>`s to match (see watchRevealVideos()). Null when no figure
+   *  carries a video or before onInit. */
+  let revealVideoObserver: MutationObserver | null = null;
+  /** Pending pause timers, one per video, so a quick leave → re-enter
+   *  cancels the pause instead of freezing the frame mid-reveal. */
+  const revealVideoPauseTimers = new Map<HTMLVideoElement, number>();
 
   /** True while a mode or filter switch fade is in flight. The text and
    *  image hover handlers bail on it — a hover toggling
@@ -885,6 +899,66 @@ export function createHomeController(): PageController {
     }
   }
 
+  /**
+   * Play a reveal figure's cover `<video>` only while that figure is shown.
+   *
+   * The reveal overlay keeps EVERY project's figure in the DOM at opacity 0
+   * (so a hover can fade one in instantly), and those videos used to carry
+   * `autoplay` — meaning all of them were downloading and decoding
+   * continuously, invisibly, for as long as the home page was open. On an
+   * iPad that was part of the memory pressure that got Safari tabs killed
+   * (see data/image-url.ts's header for the image half of the same report).
+   * The template now renders them `preload="none"` without `autoplay`; this
+   * observer starts one the moment its figure gains `.is-active` and pauses
+   * it once the 800ms fade-out has finished (pausing on removal would freeze
+   * the frame while it's still visibly fading).
+   *
+   * A MutationObserver on the class attribute — rather than play()/pause()
+   * calls at each `.is-active` toggle — because four separate paths flip
+   * that class (pointer hover, tablet tap-reveal, the ≤768 scroll reveal, the
+   * entrance re-sync); observing the outcome covers all of them, including
+   * any added later, without threading video logic through each one.
+   */
+  function watchRevealVideos(): void {
+    if (!textGpuInner) return;
+    if (!textGpuFigures.some((fig) => fig.querySelector("video"))) return;
+
+    revealVideoObserver = new MutationObserver((records) => {
+      for (const record of records) {
+        const fig = record.target as HTMLElement;
+        const video = fig.querySelector("video");
+        if (!video) continue;
+
+        const pending = revealVideoPauseTimers.get(video);
+        if (pending !== undefined) {
+          window.clearTimeout(pending);
+          revealVideoPauseTimers.delete(video);
+        }
+
+        if (fig.classList.contains("is-active")) {
+          // Muted + playsinline, so no user-gesture requirement on iOS.
+          // A rejected play() (e.g. the element was detached mid-call by a
+          // navigation) is harmless — swallow it rather than log noise.
+          video.play().catch(() => {});
+        } else if (!video.paused) {
+          revealVideoPauseTimers.set(
+            video,
+            window.setTimeout(() => {
+              revealVideoPauseTimers.delete(video);
+              if (!fig.classList.contains("is-active")) video.pause();
+            }, REVEAL_FADE_MS),
+          );
+        }
+      }
+    });
+    revealVideoObserver.observe(textGpuInner, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    console.debug("[page:home] reveal videos: play-on-reveal armed");
+  }
+
   return {
     /**
      * Page mount. Queries every DOM ref, applies the persisted mode/filter
@@ -925,6 +999,10 @@ export function createHomeController(): PageController {
       textGpuFigures = Array.from(root.querySelectorAll<HTMLElement>(".home__text-gpu-figure"));
       modeButtons = Array.from(root.querySelectorAll<HTMLButtonElement>(".home__mode"));
       filterButtons = Array.from(root.querySelectorAll<HTMLButtonElement>(".home__filter"));
+
+      // Armed before anything below can add `.is-active` (the mobile scroll
+      // reveal's initial sync), so the first revealed video plays too.
+      watchRevealVideos();
 
       // Initial mode + filter come from useHomeMode()/useHomeFilter()
       // (persistent across SPA navs, fresh "text"/"all" on a hard reload).
@@ -1428,6 +1506,13 @@ export function createHomeController(): PageController {
       }
       navAnima?.kill();
       navAnima = null;
+      // Stop watching the reveal figures and drop any pending pauses — the
+      // figures (and their videos) go with the page; a late timer would only
+      // pause a detached element, but there's no reason to leave it queued.
+      revealVideoObserver?.disconnect();
+      revealVideoObserver = null;
+      for (const timer of revealVideoPauseTimers.values()) window.clearTimeout(timer);
+      revealVideoPauseTimers.clear();
 
       textItems = [];
       imageItems = [];

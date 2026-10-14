@@ -11,6 +11,7 @@
  * resolver called `renderPortableText(x, { wrap: "p" })` for it.
  */
 import type { ResolvedSliceImageWithText } from "~/data/slices/sliceImageWithText";
+import { THIRD_SIZES } from "~/lib/image-sizes";
 
 defineProps<{ data: ResolvedSliceImageWithText }>();
 </script>
@@ -24,7 +25,7 @@ defineProps<{ data: ResolvedSliceImageWithText }>();
       v-if="data.image"
       :class="['slice-image-with-text__media', `slice-image-with-text__media--ar-${data.aspect}`]"
     >
-      <FigureBase v-bind="data.image" />
+      <FigureBase v-bind="data.image" :sizes="THIRD_SIZES" />
     </div>
     <div v-if="data.hasText" class="slice-image-with-text__text">
       <RichText :blocks="data.text" />

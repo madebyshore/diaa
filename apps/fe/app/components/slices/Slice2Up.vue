@@ -15,6 +15,7 @@
  * `resolveCaptionedImages()`).
  */
 import type { ResolvedSlice2Up } from "~/data/slices/slice2Up";
+import { HALF_SIZES } from "~/lib/image-sizes";
 
 defineProps<{ data: ResolvedSlice2Up }>();
 </script>
@@ -31,7 +32,7 @@ defineProps<{ data: ResolvedSlice2Up }>();
       :style="data.layout === 'open' ? { '--slice-ratio': item.ratio } : undefined"
     >
       <div class="slice-2up__media">
-        <FigureBase v-if="item.image" v-bind="item.image" />
+        <FigureBase v-if="item.image" v-bind="item.image" :sizes="HALF_SIZES" />
       </div>
       <figcaption v-if="item.hasCaption" class="slice-caption">
         <RichText inline :blocks="item.caption" />

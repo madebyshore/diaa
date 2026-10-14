@@ -44,6 +44,10 @@
 
 import { createDetailController } from "~/controllers/detail";
 import { createRichTextController } from "~/controllers/rich-text-page";
+// The cover MUST use the same sizes as the home Text-mode reveal figure so
+// the home→detail bridge's hand-off swaps between identical, already-cached
+// image rungs (see lib/image-sizes.ts).
+import { HERO_SIZES } from "~/lib/image-sizes";
 
 const pageData = usePageData();
 const siteOptions = useSiteOptions();
@@ -158,6 +162,8 @@ usePageController(controller);
           <div :class="`detail__cover-inner detail__cover-inner--${content.cover.coverSize}`">
             <FigureBase
               :src="content.cover.src"
+              :srcset="content.cover.srcset"
+              :sizes="HERO_SIZES"
               :alt="content.cover.alt"
               :width="content.cover.width"
               :height="content.cover.height"

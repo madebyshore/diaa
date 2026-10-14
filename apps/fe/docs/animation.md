@@ -113,6 +113,14 @@ That `visibility` choice is the fix for a real visual bug found during the port:
 
 The `visibility === "hidden"` flag doubles as the signal `home.ts`'s own `out()` reads (`bridging = activeFigure.style.visibility === "hidden"`) to know to fade only chrome (text labels, nav, footer) and leave `.home__text-gpu`'s container opaque so the clone underneath stays visible through the transition.
 
+**Image sizing must match on both ends.** Reveal-figure `<img>`s and the detail cover both carry the image's `srcset` with the same `HERO_SIZES` string (`app/lib/image-sizes.ts`), so at any viewport they resolve to the same rung: the cover's image is already in the memory cache when the hard swap happens, and the swap shows no reload or sharpness change. Change one `sizes` without the other and the hand-off can visibly re-sharpen.
+
+**Reveal videos are played on demand.** Reveal-figure `<video>`s render `preload="none"` with no `autoplay` — every figure stays mounted at opacity 0, and autoplaying all of them kept every cover video decoding invisibly (part of the iPad memory crash, see below). `home.ts`'s `watchRevealVideos()` observes `.is-active` on the figures and plays the matching video on reveal, pausing it `REVEAL_FADE_MS` (800ms, the figure's CSS fade) after the class comes off. Because `cloneNode()` copies attributes, not playback state, `bridgeOut()` explicitly starts a cloned video (`preload = "auto"`, `currentTime` synced from the original, `play()`).
+
+### Image memory budget
+
+Every image used to ship as one 3000px URL — ~48 MB of decoded bitmap apiece at 3:4. The home page alone keeps ~22 covers resident in the Text-mode reveal overlay, which pushed iPadOS Safari past its per-tab memory limit and got the tab killed ("the site crashes intermittently"). `data/image-url.ts` now emits a `srcset` ladder (480 → 3000, `fit=max` so nothing upscales) with a 1600px `src` fallback that doubles as the `<video poster>`, and every call site passes a layout-matched `sizes` from `lib/image-sizes.ts` through `FigureBase`'s `sizes` prop. On an iPad in landscape the Text-mode reveal set dropped from ~890 MB to ~170 MB decoded. When a surface's column span changes in SCSS, update its `sizes` string — nothing enforces the pairing.
+
 Handoff to `detail.ts` runs through `app/lib/image-bridge.ts` — a one-slot module (`setImageBridge`/`takeImageBridge`, clear-on-read) — "so neither the transition nor the page needs to know about the other." `detail.ts`'s `in()` takes the bridge element and hard-swaps it for the real cover in a single frame once its own entrance is ready.
 
 ---

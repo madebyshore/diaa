@@ -24,6 +24,7 @@
  * wiring the handlers.
  */
 import type { ResolvedSliceSlideshow } from "~/data/slices/sliceImageSlideshow";
+import { HERO_SIZES } from "~/lib/image-sizes";
 
 const props = defineProps<{ data: ResolvedSliceSlideshow }>();
 
@@ -74,7 +75,7 @@ function onKeydown(e: KeyboardEvent): void {
         :key="i"
         :class="['slice-slideshow__slide', { 'is-active': i === activeIndex }]"
       >
-        <FigureBase v-bind="image" />
+        <FigureBase v-bind="image" :sizes="HERO_SIZES" />
       </div>
     </div>
     <p class="slice-slideshow__caption">

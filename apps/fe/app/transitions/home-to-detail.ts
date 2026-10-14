@@ -171,11 +171,23 @@ export function bridgeOut(fromEl: HTMLElement, toPath: string): void {
 
   // The reveal figure holds either an <img> or (for MP4 covers) a <video>.
   // Removing the figure's class above stripped the `._g`/figure sizing, so
-  // re-apply the cover fit to whichever media the clone carries. A cloned
-  // autoplay+muted <video> resumes playing on its own, so the bridge stays
-  // live during the crossfade.
+  // re-apply the cover fit to whichever media the clone carries.
   const media = clone.querySelector<HTMLElement>("img, video");
   if (media) media.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
+
+  // The reveal videos no longer carry `autoplay` (they're `preload="none"`
+  // and played on reveal by controllers/home.ts's watchRevealVideos(), so
+  // the hidden ones stop eating memory on iPad). cloneNode() copies
+  // attributes, not playback state, so the clone would otherwise sit frozen
+  // on its poster through the crossfade. Start it explicitly, from the
+  // original's current frame so the hand-off doesn't jump back to frame 0.
+  // The file is already in the HTTP cache from the original's playback.
+  if (media instanceof HTMLVideoElement) {
+    const source = figure.querySelector("video");
+    media.preload = "auto";
+    if (source) media.currentTime = source.currentTime;
+    media.play().catch(() => {});
+  }
 
   // Appended to `main#app` (NuxtPage's own parent), NOT `document.body` —
   // found necessary while fixing the "image renders over the outgoing text"

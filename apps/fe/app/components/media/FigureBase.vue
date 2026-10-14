@@ -14,6 +14,14 @@
  *   - otherwise → a plain `<img>` (no class, matching the old partial exactly),
  *     `fetchpriority="high"` when `isFirst`, `loading="lazy"` unless `eager`
  *     or `isFirst` (old: `{{^eager}}{{^isFirst}}loading="lazy"{{/isFirst}}{{/eager}}`).
+ *   - `srcset` + caller-supplied `sizes` (new — not in the old partial): the
+ *     single 3000px URL it shipped decoded to ~48 MB per image and got iPad
+ *     Safari tabs killed for memory; see `data/image-url.ts`. `decoding=
+ *     "async"` keeps those decodes off the main thread's critical path.
+ *     `sizes`/`srcset` are bound BEFORE `src` on purpose: on a client-side
+ *     render (SPA navigation) Vue sets attributes in template order, and an
+ *     `<img>` that receives `src` first can start fetching that URL before
+ *     the srcset arrives — a wasted request per image.
  *   - `width`/`height` always set on both branches (old partial always emitted
  *     them — layout-stability, not just an old habit).
  *
@@ -41,6 +49,14 @@ interface Props {
    *  instant the box lays out, and the opaque full-res pixels simply cover
    *  it once loaded. Zero extra requests, no load-event JS needed. */
   lqip?: string;
+  /** Width-descriptor ladder from `data/image-url.ts`. Spread in with the
+   *  rest of `PictureData`; empty for video-only media. */
+  srcset?: string;
+  /** How wide this surface renders — one of the `lib/image-sizes.ts`
+   *  constants, chosen by the CALLER because only the call site knows its
+   *  layout. Defaults to 100vw, the safe (largest) ceiling. Only emitted
+   *  alongside a non-empty `srcset`. */
+  sizes?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -49,6 +65,8 @@ const props = withDefaults(defineProps<Props>(), {
   hasVideo: false,
   video: "",
   lqip: "",
+  srcset: "",
+  sizes: "100vw",
 });
 
 /**
@@ -113,7 +131,10 @@ const lqipStyle = computed(() =>
     <img
       v-else
       ref="mediaEl"
+      :sizes="props.srcset ? props.sizes : undefined"
+      :srcset="props.srcset || undefined"
       :src="props.src"
+      decoding="async"
       :alt="props.alt"
       :fetchpriority="props.isFirst ? 'high' : undefined"
       :loading="!props.eager && !props.isFirst ? 'lazy' : undefined"

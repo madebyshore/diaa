@@ -16,6 +16,7 @@
  */
 
 import { createHomeController } from "~/controllers/home";
+import { GRID_SIZES, HERO_SIZES } from "~/lib/image-sizes";
 
 const pageData = usePageData();
 const siteOptions = useSiteOptions();
@@ -135,14 +136,14 @@ console.debug(
           :href="`/${item.slug}`"
           :data-index="item.flatIndex"
         >
-          <FigureBase v-bind="item.cover" />
+          <FigureBase v-bind="item.cover" :sizes="GRID_SIZES" />
         </a>
         <div
           v-else
           :class="`home__image-slot home__image-slot--${item.coverSize}`"
           :data-index="item.flatIndex"
         >
-          <FigureBase v-bind="item.cover" />
+          <FigureBase v-bind="item.cover" :sizes="GRID_SIZES" />
         </div>
         <span class="home__image-title" aria-hidden="true">
           <RichText inline :blocks="item.stylizedTitle" :fallback="item.title" />
@@ -168,7 +169,16 @@ console.debug(
          (Phase 5) toggles `.is-active` on the figure matching the hovered
          text label. Distinct markup from FigureBase/picture.html — the old
          template inlines its own video/img here (`.home__text-gpu-img`),
-         never the shared `_g`/`_g-video` classes. -->
+         never the shared `_g`/`_g-video` classes.
+
+         Every figure stays mounted at opacity 0, so these are deliberately
+         cheap until shown: images carry a srcset with HERO_SIZES (the same
+         string the detail cover uses — the home→detail bridge relies on
+         both picking the same rung), and videos are `preload="none"` with
+         no `autoplay` — home.ts's watchRevealVideos() plays one only while
+         its figure is revealed. Shipping every cover at 3000px plus five
+         always-playing hidden videos is what got iPad Safari tabs killed
+         for memory. -->
     <div class="home__text-gpu" aria-hidden="true">
       <div class="home__text-gpu-inner">
         <figure
@@ -182,13 +192,21 @@ console.debug(
             v-if="item.cover.hasVideo"
             class="home__text-gpu-img"
             :src="item.cover.video"
-            autoplay
+            preload="none"
             loop
             muted
             playsinline
             :poster="item.cover.src || undefined"
           />
-          <img v-else class="home__text-gpu-img" :src="item.cover.src" :alt="item.cover.alt" />
+          <img
+            v-else
+            class="home__text-gpu-img"
+            :sizes="item.cover.srcset ? HERO_SIZES : undefined"
+            :srcset="item.cover.srcset || undefined"
+            :src="item.cover.src"
+            decoding="async"
+            :alt="item.cover.alt"
+          />
         </figure>
       </div>
     </div>

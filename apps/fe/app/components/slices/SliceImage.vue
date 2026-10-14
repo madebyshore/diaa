@@ -18,8 +18,22 @@
  *     (the inner `._g` figure still clips the image itself).
  */
 import type { ResolvedSliceImage } from "~/data/slices/sliceImage";
+import { FULL_SIZES, HERO_SIZES, WIDE_SIZES } from "~/lib/image-sizes";
 
-defineProps<{ data: ResolvedSliceImage }>();
+const props = defineProps<{ data: ResolvedSliceImage }>();
+
+/** `sizes` for this image (lib/image-sizes.ts), mirroring the column span
+ *  `_image.module.scss` gives each variant: full-bleed / c12 run the whole
+ *  viewport, c10 the inner ten columns, and c6/c4 sit inside the hero span
+ *  (c4 is height-driven off the same span, so it's never wider). */
+const sizes = computed(() =>
+  props.data.full || props.data.cols === 12
+    ? FULL_SIZES
+    : props.data.cols === 10
+      ? WIDE_SIZES
+      : HERO_SIZES,
+);
+
 </script>
 
 <template>
@@ -34,7 +48,7 @@ defineProps<{ data: ResolvedSliceImage }>();
       ]"
       :style="data.open ? { '--slice-ratio': data.ratio } : undefined"
     >
-      <FigureBase v-bind="data.image" />
+      <FigureBase v-bind="data.image" :sizes="sizes" />
       <div v-if="data.hasCaption" class="slice-caption">
         <RichText inline :blocks="data.caption" />
       </div>
