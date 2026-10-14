@@ -208,21 +208,23 @@
   align-content: center;
   align-items: baseline;
   gap: var(--S);
-  /* In the floor case (viewport ≤ 1020px tall) the pane is pinned to
-     `1020 − chrome`, so we add var(--S) top/bottom padding to keep the labels
-     off the nav/footer. Above the floor (> 1020px tall) the pane has room of its
-     own, so we drop the vertical padding and let `align-content` center the
-     labels. Horizontal padding is unconditional. */
-  padding: 0 var(--M);
-
-  @media (max-height: 1020px) {
-    padding-block: var(--S);
-  }
+  /* var(--S) top/bottom padding at every height so the space between the nav
+     text and the first label row (nav --XS padding + item --XS padding + this
+     --S) equals the word-row rhythm between label rows (2 × --XS item padding
+     + --S flex gap) = 12rem; the same holds for the last row and the footer.
+     This used to apply only on short viewports (max-height: 1020px), on the
+     assumption that taller panes always have room to centre the grid. That
+     breaks whenever the grid OVERFLOWS a tall pane: on an 11" iPad in portrait
+     (834 × ~1110) three labels per row make nine rows, and the nav-to-grid gap
+     collapsed to half the row spacing (client report, 2026-10-14). When the
+     grid does fit, symmetric padding doesn't shift it: `align-content: center`
+     still centres it at the same point, and the leftover space is ≥ the
+     padding anyway. Horizontal padding steps per breakpoint below. */
+  padding: var(--S) var(--M);
 
   /* Large tablet (md–lg, 820–1279): the horizontal padding steps down to
      the Tablet M token (6rem); lg+ restores the desktop --M. padding-inline
-     (not the shorthand) so the max-height padding-block rule above keeps
-     its vertical padding on short viewports. */
+     (not the shorthand) so the --S block padding above survives. */
   @include breakpoint(md) {
     padding-inline: var(--TABLET-M);
   }
@@ -247,8 +249,8 @@
      floating tab bar covers never silently eats into the 50-per-cent
      spacing. The edge padding (50svh − half an item) keeps the
      begin/end-on-the-midline contract: the first label centres on load, the
-     last at full scroll. (Declared after the max-height rule above so this
-     shorthand wins its padding-block.) */
+     last at full scroll. (Declared after the base padding above so this
+     shorthand replaces its --S padding-block.) */
   @include breakpoint-mobile {
     --home-item-h: 8rem;
     flex-flow: column nowrap;
