@@ -261,6 +261,20 @@
     align-items: center;
     gap: calc(50svh - (var(--home-item-h) - 1cap));
     padding: calc(50svh - var(--home-item-h) / 2) var(--container-padding);
+    /* Bottom edge: 100dvh − 50svh − half an item, not the symmetric
+       50svh − half an item. The reveal image centres on 50svh (the
+       overlay is a fixed 100svh box), and at full scroll the last label
+       centres on (visible height − bottom padding). Scrolling down
+       collapses iOS Safari's toolbar, so the visible height at the end of
+       the list is the LARGE viewport. The symmetric padding left the last
+       title (lvh − svh) below the image until an extra overscroll
+       re-expanded the toolbar ("it sticks, scroll a bit more, then it
+       centres"). Tracking dvh lands the last label on 50svh in both toolbar
+       states and reduces to the old value when the toolbar is expanded (and
+       on browsers without dynamic chrome). Changing the padding doesn't
+       shift content: the document and the viewport shrink by the same
+       amount, so the max scroll offset stays put. */
+    padding-bottom: calc(100dvh - 50svh - var(--home-item-h) / 2);
     /* The pane sits above the image overlay (z-index 1 vs 0), so by
        default it swallows every tap. Letting taps fall through the pane —
        while the labels themselves stay tappable (see .home__text-item) —
