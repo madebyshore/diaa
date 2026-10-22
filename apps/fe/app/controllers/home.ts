@@ -632,6 +632,14 @@ export function createHomeController(): PageController {
     // keeps restoring `savedScrollY` via Lenis, same as before.
     if (window.matchMedia(MOBILE_MEDIA_QUERY).matches) {
       window.scrollTo(0, 0);
+      // Re-sync the scroll reveal against the NEW (top) position.
+      // applyFilterVisibility's forced call above ran against the old
+      // scroll offset, and the scroll event this reset fires is swallowed
+      // by onScroll's `modeSwitching` freeze — so without this the figure
+      // for wherever the user had scrolled stayed active (label at the top
+      // of the filtered list, thumbnail from further down) until the next
+      // real scroll.
+      updateScrollReveal(true);
     } else {
       // Restore scroll across the layout change.
       const { $lenis } = useNuxtApp();
