@@ -181,6 +181,19 @@
   }
 }
 
+/* Expanded (open) nav — the parens drop to the inactive grey so only the
+   options carry black: `(` / `)` read as framing, and the active filter +
+   mode stand out on their own (client request, 2026-11-09, for the filter
+   close-up capture). Collapsed keeps the base theme-black parens from
+   _globals. No transition needed: home.ts toggles `.is-expanded` at the
+   midpoint of the nav's opacity V, while the nav is fully transparent. */
+.home .global-nav.is-expanded {
+  &::before,
+  &::after {
+    color: var(--color-inactive);
+  }
+}
+
 /* Filtered-out items hide entirely (no visual gap). JS toggles the
    `data-filter-hidden` attribute on each item when the active taxonomy filter
    doesn't match `data-taxonomy`; the remaining items re-center via the wrap. */

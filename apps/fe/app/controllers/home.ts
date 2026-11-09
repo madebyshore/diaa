@@ -238,6 +238,13 @@ export function createHomeController(): PageController {
    *  (swap when the next label hits the container's BOTTOM edge) or back up
    *  (swap when the previous label hits the TOP edge). */
   let lastRevealScrollY = 0;
+  /** Index the mobile scroll reveal is WAITING to show while its image
+   *  decodes (see swapScrollReveal), -1 when no swap is pending. The live
+   *  `.is-active` stays on scrollRevealIndex until the decode resolves. */
+  let pendingRevealIndex = -1;
+  /** Bumped on every scheduled swap and on teardown — a decode that resolves
+   *  after a newer swap (or after onDestroy) sees a stale token and bails. */
+  let revealSwapGen = 0;
 
   // Handler references, stored so cleanup can removeEventListener the exact
   // same closure it added (source stored these as parallel arrays/pairs —
@@ -474,11 +481,113 @@ export function createHomeController(): PageController {
       if (active < 0) active = lastVisible;
     }
 
-    if (active === scrollRevealIndex) return;
+    if (active === scrollRevealIndex) {
+      // Scrolled back to the entry already showing before a pending swap's
+      // decode landed — cancel that swap so it can't fire late.
+      if (pendingRevealIndex >= 0) {
+        pendingRevealIndex = -1;
+        revealSwapGen++;
+      }
+      return;
+    }
+    if (active === pendingRevealIndex) return;
+
+    // Forced re-syncs (init, filter swap, in()'s entrance) stay synchronous:
+    // they run while the pane/container is hidden, and in()'s container fade
+    // must carry the correct figure from its first frame.
+    if (force) {
+      pendingRevealIndex = -1;
+      revealSwapGen++;
+      applyScrollReveal(active);
+      prewarmRevealNeighbours(active);
+      return;
+    }
+    scheduleScrollReveal(active);
+  }
+
+  /**
+   * Move `.is-active` from the current scroll-reveal figure to `next` —
+   * the CSS 800ms opacity transition on `.home__text-gpu-figure` does the
+   * actual cross-fade.
+   */
+  function applyScrollReveal(next: number): void {
     if (scrollRevealIndex >= 0) textGpuFigures[scrollRevealIndex]?.classList.remove("is-active");
-    if (active >= 0) textGpuFigures[active]?.classList.add("is-active");
-    scrollRevealIndex = active;
-    console.debug(`[page:home] scroll-reveal index=${active}`);
+    if (next >= 0) textGpuFigures[next]?.classList.add("is-active");
+    scrollRevealIndex = next;
+    console.debug(`[page:home] scroll-reveal index=${next}`);
+  }
+
+  /**
+   * Decode-gated scroll-reveal swap — the fix for "on mobile the thumbnail
+   * often pops in instead of fading" (client report, 2026-11-09).
+   *
+   * Every reveal figure sits at opacity 0 until it is shown, and iOS Safari
+   * neither paints nor keeps a decoded bitmap for invisible content: the
+   * image only gets decoded once its figure starts fading in, and under the
+   * memory pressure of a full list of hero-sized covers Safari also evicts
+   * bitmaps it decoded earlier. With `decoding="async"` the fade then runs
+   * over an empty box and the image appears whenever the decode finishes —
+   * mid-fade or after it — which reads as a hard pop. It is intermittent
+   * because it depends on whether that bitmap happens to still be cached.
+   *
+   * So the swap waits for `img.decode()` before moving `.is-active`. The old
+   * figure stays fully visible in the meantime (never a blank gap), and the
+   * new one fades in with its pixels ready from the first frame. A newer
+   * swap, a scroll back to the current entry, a navigation (the bridge
+   * clones the `.is-active` figure — it must not change under it) or
+   * teardown all invalidate a pending decode through revealSwapGen.
+   * Video covers have no <img>; their poster is handled by the <video> and
+   * they swap immediately, as before.
+   */
+  function scheduleScrollReveal(next: number): void {
+    const gen = ++revealSwapGen;
+    const img = next >= 0 ? textGpuFigures[next]?.querySelector("img") : null;
+    if (!img) {
+      pendingRevealIndex = -1;
+      applyScrollReveal(next);
+      prewarmRevealNeighbours(next);
+      return;
+    }
+    pendingRevealIndex = next;
+    void img
+      .decode()
+      .catch(() => {
+        // A failed decode (broken URL, detached element) must not wedge the
+        // reveal — fall through and swap anyway.
+      })
+      .then(() => {
+        if (gen !== revealSwapGen) return;
+        pendingRevealIndex = -1;
+        if (mutating?.value || modeSwitching) return;
+        applyScrollReveal(next);
+        prewarmRevealNeighbours(next);
+      });
+  }
+
+  /**
+   * Decode the reveal images either side of `index` ahead of time, so the
+   * next swap in either scroll direction usually finds its bitmap ready and
+   * the decode gate above resolves within a frame. Fire-and-forget; only the
+   * two neighbours, to keep decoded-bitmap memory bounded on phones.
+   */
+  function prewarmRevealNeighbours(index: number): void {
+    if (index < 0) return;
+    const warm = (i: number): void => {
+      textGpuFigures[i]
+        ?.querySelector("img")
+        ?.decode()
+        .catch(() => {});
+    };
+    for (let i = index - 1; i >= 0; i--) {
+      if (isFilteredOut(i)) continue;
+      warm(i);
+      break;
+    }
+    for (let i = index + 1; i < textGpuFigures.length; i++) {
+      if (isFilteredOut(i)) continue;
+      warm(i);
+      break;
+    }
   }
 
   /**
@@ -1538,6 +1647,8 @@ export function createHomeController(): PageController {
       footer = null;
       container = null;
       scrollRevealIndex = -1;
+      pendingRevealIndex = -1;
+      revealSwapGen++;
       lastRevealScrollY = 0;
       router = null;
       modeButtons = [];
