@@ -31,10 +31,13 @@
      side; max() picks whichever is larger on short/wide viewports). NO
      bottom padding on any tier: the outro (a full-viewport panel, present
      everywhere) is the last module, so the page ends flush on it. */
-  gap: 27rem;
+  /* Held in --detail-gap so the no-cover modifier below can reuse the
+     exact per-tier value as its top spacing. */
+  --detail-gap: 27rem;
+  gap: var(--detail-gap);
 
   @include breakpoint(md) {
-    gap: 32.5rem;
+    --detail-gap: 32.5rem;
   }
 
   @include breakpoint(lg) {
@@ -42,8 +45,17 @@
       (100vw - 2 * var(--container-padding) - (var(--columns) - 1) * var(--column-gap)) /
         var(--columns)
     );
-    gap: max(calc(var(--col-w) + 2 * var(--column-gap)), 20vh);
+    --detail-gap: max(calc(var(--col-w) + 2 * var(--column-gap)), 20vh);
   }
+}
+
+/* Cover-less Detail (an off-grid page authored without a cover — e.g. a
+   text-only © notice, see DetailRouteContent.cover). With no cover the
+   first slice would start under the fixed title nav at the very top, so the
+   container takes one module-gap of top padding instead: the page reads as
+   the normal slice rhythm with the cover slot simply absent. */
+.detail__container--no-cover {
+  padding-top: var(--detail-gap);
 }
 
 /* Title nav — doubles as the "back to home" control, fixed to the top of the

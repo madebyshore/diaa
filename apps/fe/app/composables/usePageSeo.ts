@@ -44,6 +44,10 @@ export function usePageSeo(
   title: MaybeRefOrGetter<string>,
   siteTitle: MaybeRefOrGetter<string>,
   pageSeo?: MaybeRefOrGetter<SeoData | null | undefined>,
+  /** True for pages reachable only by URL (off-grid Details — a © notice,
+   *  a WIP project): emits `noindex,follow` instead of `index,follow`, so
+   *  they're kept out of search results as well as the sitemap. */
+  noindex?: MaybeRefOrGetter<boolean>,
 ): void {
   const siteOptions = useSiteOptions();
   const route = useRoute();
@@ -76,7 +80,7 @@ export function usePageSeo(
   useSeoMeta({
     title: () => toValue(title),
     description: () => description() || undefined,
-    robots: "index,follow",
+    robots: () => (toValue(noindex) ? "noindex,follow" : "index,follow"),
     ogTitle: () => toValue(title),
     ogDescription: () => description() || undefined,
     ogType: "website",

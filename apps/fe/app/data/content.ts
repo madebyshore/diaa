@@ -40,6 +40,7 @@ import { sanityPicture, type MediaData } from "./image-url";
 import {
   allTaxonomiesQuery,
   detailBySlugQuery,
+  explicitlyRoutableDetailSlugsQuery,
   pageContactQuery,
   pageHomeQuery,
   pageImprintQuery,
@@ -79,6 +80,9 @@ interface DetailRef {
    *  explicit false suppresses the page + link. */
   allowRouting?: boolean | null;
   slug?: string | null;
+  /** Whether the Detail is placed on the home grid — only projected by
+   *  `detailBySlugQuery` (see its routing-gate comment). */
+  onGrid?: boolean | null;
   coverImage?: string | null;
   /** Base64 blur placeholder (`coverImage.asset->metadata.lqip`) — rendered
    *  behind the cover while the full image loads (see FigureBase). */
@@ -247,7 +251,15 @@ export interface DetailRouteContent {
    *  SEO-meta layer, Phase 2) and the cover's alt-text source. */
   title: string;
   stylizedTitle: PortableTextBlock[] | null;
-  cover: MediaData & { coverSize: string };
+  /** Null for an off-grid Detail authored without a cover image or video
+   *  (e.g. a text-only © notice page) — the template drops the cover block
+   *  and the container takes its own top spacing. Grid Details always have
+   *  one (a cover is what makes them a grid slot). */
+  cover: (MediaData & { coverSize: string }) | null;
+  /** True when the page is reachable only by URL (not placed on the home
+   *  grid). Off-grid pages are prerendered but left out of the sitemap and
+   *  marked noindex, so a WIP page isn't advertised to search engines. */
+  offGrid: boolean;
   /** This Detail's own SEO overrides (Global fills the gaps). */
   seo: SeoData;
   /** Resolved slices, in authored order — see `resolveSlices()` in
@@ -434,6 +446,23 @@ async function loadHomeContent(
  *  here and pass `resolveLocations(globals)` through instead. */
 const DETAIL_SLICE_CONTEXT: SliceContext = { globals: null, clients: null, locations: [] };
 
+/**
+ * Whether a Detail gets a page. Two branches:
+ *   - on the home grid with a cover (i.e. an actual grid slot) and Allow
+ *     Routing not switched off — unchanged from the original grid-only rule;
+ *   - anywhere else, only when Allow Routing is EXPLICITLY on. New documents
+ *     initialise the toggle to `true`, so an editor's freshly created
+ *     off-grid page (a © notice, a WIP project) routes; the legacy off-grid
+ *     Details predate the field (`null`) and keep 404ing until someone turns
+ *     it on deliberately.
+ * `loadAllRoutePaths()` mirrors both branches exactly so every page this
+ * resolves is also prerendered.
+ */
+function isDetailRoutable(d: DetailRef): boolean {
+  if (d.allowRouting === true) return true;
+  return !!d.onGrid && hasCover(d) && isRoutable(d.allowRouting);
+}
+
 /** Try to resolve `path` as a `/:slug` Detail route. Returns null if no
  *  routable Detail matches. `stega` — see `loadSiteOptions()`'s doc comment. */
 async function loadDetailContent(
@@ -444,10 +473,11 @@ async function loadDetailContent(
 ): Promise<DetailRouteContent | null> {
   const client = getSanityClient(perspective, config, stega);
   const detail = await client.fetch<DetailRef | null>(detailBySlugQuery, { slug });
-  if (!detail || !hasCover(detail) || !isRoutable(detail.allowRouting)) return null;
+  if (!detail || !isDetailRoutable(detail)) return null;
 
+  const offGrid = !detail.onGrid;
   console.debug(
-    `[content] detail resolved — slug="${slug}", slices=${detail.slices?.length ?? 0}`,
+    `[content] detail resolved — slug="${slug}", slices=${detail.slices?.length ?? 0}, offGrid=${offGrid}`,
   );
 
   return {
@@ -457,7 +487,10 @@ async function loadDetailContent(
     // Detail cover is sized to match the home text-mode reveal image (same
     // 3000w source, same coverSize-driven aspect) — index 0 so it gets
     // fetchpriority="high" as the page's LCP.
-    cover: { ...coverMedia(detail, detail.title ?? "", 0), coverSize: normalizeCoverSize(detail.coverSize) },
+    cover: hasCover(detail)
+      ? { ...coverMedia(detail, detail.title ?? "", 0), coverSize: normalizeCoverSize(detail.coverSize) }
+      : null,
+    offGrid,
     seo: resolveSeo(detail.seo),
     slices: resolveSlices(detail.slices, DETAIL_SLICE_CONTEXT),
   };
@@ -548,14 +581,19 @@ export async function loadRouteContent(
  * Enumerate every prerenderable path: home + every routable Detail slug +
  * the Contact/Imprint slugs. Consumed by Phase 2's `prerender:routes` Nitro
  * hook so `nuxt generate` emits one HTML file per CMS-authored route,
- * without needing a sitemap crawl to discover them.
+ * without needing a sitemap crawl to discover them, and by the sitemap.
  *
- * Detail paths are derived from `loadHomeContent()`'s already-deduped
- * `gridItems` — deliberately NOT a separate `*[_type == "detail"]` listing
- * query. Routing surface = grid placement, not "any Detail document with a
- * slug" (see the `detailBySlugQuery` comment in `queries.ts`); reusing
- * `loadHomeContent()`'s output is what guarantees this function can never
- * drift out of sync with what `loadRouteContent()` actually resolves.
+ * Grid Detail paths are derived from `loadHomeContent()`'s already-deduped
+ * `gridItems` rather than a separate listing query, so they can never drift
+ * from what the grid links to. Off-grid Details (Allow Routing explicitly on
+ * — see `isDetailRoutable()`) come from `explicitlyRoutableDetailSlugsQuery`
+ * and are unioned in, deduped against the grid. Together the two sets match
+ * exactly what `loadRouteContent()` resolves, so the static build never
+ * 404s a page the preview build would render.
+ *
+ * `includeOffGrid: false` drops the off-grid set — the sitemap passes it so
+ * URL-only pages (a © notice, a WIP project) aren't advertised; prerender
+ * keeps the default `true` so they still get built.
  *
  * Called from `nuxt.config.ts`'s `prerender:routes` build hook, which has no
  * live Nuxt app instance — `config` is built there from `process.env`
@@ -564,26 +602,36 @@ export async function loadRouteContent(
 export async function loadAllRoutePaths(
   perspective: SanityPerspective,
   config: SanityClientConfig,
+  options: { includeOffGrid?: boolean } = {},
 ): Promise<string[]> {
+  const includeOffGrid = options.includeOffGrid ?? true;
   const client = getSanityClient(perspective, config);
-  const [home, pageContact, pageImprint] = await Promise.all([
+  const [home, pageContact, pageImprint, routableSlugs] = await Promise.all([
     loadHomeContent(perspective, config),
     client.fetch<RichTextPageDoc | null>(pageContactQuery),
     client.fetch<RichTextPageDoc | null>(pageImprintQuery),
+    includeOffGrid
+      ? client.fetch<string[] | null>(explicitlyRoutableDetailSlugsQuery)
+      : Promise.resolve<string[] | null>([]),
   ]);
 
-  const detailPaths = home.gridItems
-    .filter((g) => g.routable && g.slug)
-    .map((g) => `/${g.slug}`);
+  const gridPaths = home.gridItems.filter((g) => g.routable && g.slug).map((g) => `/${g.slug}`);
+  const gridSet = new Set(gridPaths);
+  const offGridPaths = [...new Set((routableSlugs ?? []).map((slug) => `/${slug}`))].filter(
+    (p) => !gridSet.has(p),
+  );
 
   const paths = [
     "/",
-    ...detailPaths,
+    ...gridPaths,
+    ...offGridPaths,
     `/${pageContact?.slug ?? "contact"}`,
     `/${pageImprint?.slug ?? "imprint"}`,
   ];
 
-  console.debug(`[content] loadAllRoutePaths — ${paths.length} paths`);
+  console.debug(
+    `[content] loadAllRoutePaths — ${paths.length} paths (offGrid=${offGridPaths.length}, includeOffGrid=${includeOffGrid})`,
+  );
   return paths;
 }
 

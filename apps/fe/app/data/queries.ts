@@ -142,27 +142,26 @@ export const allDetailsQuery = `
  * Single Detail by slug, full body — filtered server-side to one document
  * instead of fetching every Detail and finding it in memory.
  *
- * IMPORTANT divergence guard: the old pipeline never gave a Detail a route
- * just because the document exists with a slug — `sanity-content.ts` only
- * ever pushed a `detailPages` entry for a Detail it encountered while
- * walking `pageHome.grid` (the id→slices lookup via `allDetailsQuery` was
- * just an optimization to avoid re-querying slices per grid item; grid
- * placement was always the actual routing gate). A Detail document that
- * exists but was never added to the home grid got NO page in the old site.
- * The `_id in *[_type == "pageHome"][0].grid[]._ref` clause below
- * reproduces that gate at the query level — verified against production
- * data during this port: 28 `detail` documents exist, but only 27 are
- * reachable through `pageHome.grid`, and the 28th must 404, not resolve.
+ * Routing gate (decided in `content.ts`'s `loadDetailContent()`, not here):
+ * a Detail placed on the home grid routes as it always has; a Detail that is
+ * NOT on the grid ("off-grid" — e.g. a long © notice page linked from rich
+ * text, or a WIP project page not yet added to the grid) routes only when
+ * its Allow Routing toggle is explicitly on. The old pipeline (and this
+ * query, until 2026-11-09) only ever routed grid placements; the query now
+ * matches any Detail by slug and projects `onGrid` so the loader can apply
+ * the two-branch rule. `allowRouting` initialises to `true` on new
+ * documents, while the legacy off-grid Details predate the field and hold
+ * `null` — so they keep 404ing until someone deliberately turns it on.
  */
 export const detailBySlugQuery = `
   *[
     _type == "detail" &&
-    slug.current == $slug &&
-    _id in *[_type == "pageHome"][0].grid[]._ref
+    slug.current == $slug
   ][0] {
     _id,
     title,
     "slug": slug.current,
+    "onGrid": _id in *[_type == "pageHome"][0].grid[]._ref,
     "coverImage": coverImage.asset->url,
     "coverLqip": coverImage.asset->metadata.lqip,
     "coverVideo": coverVideo.asset->url,
@@ -173,6 +172,15 @@ export const detailBySlugQuery = `
     "taxonomy": taxonomy->{_id, title},
     ${slicesProjection}
   }`;
+
+/**
+ * Slugs of every Detail with Allow Routing explicitly on — the off-grid
+ * branch of the routing gate (see `detailBySlugQuery`). `loadAllRoutePaths()`
+ * unions these with the grid's routable slugs so `nuxt generate` prerenders
+ * off-grid pages too; without that the static prod build would 404 them.
+ */
+export const explicitlyRoutableDetailSlugsQuery = `
+  *[_type == "detail" && allowRouting == true && defined(slug.current)].slug.current`;
 
 /** All Taxonomies (title only — Taxonomies no longer store a Details array). */
 export const allTaxonomiesQuery = `

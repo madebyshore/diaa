@@ -39,7 +39,10 @@ export default defineEventHandler(async (event) => {
   // Prod/`nuxt generate` always crawls the "published" perspective — same
   // reasoning as the `prerender:routes` hook: preview's SSR build never
   // runs `generate`, so there is no drafts branch to thread through here.
-  const paths = await loadAllRoutePaths("published", config);
+  // Off-grid Details (reachable only by URL — a © notice, a WIP project) are
+  // prerendered but deliberately left out of the sitemap; they also carry
+  // noindex (pages/[slug].vue).
+  const paths = await loadAllRoutePaths("published", config, { includeOffGrid: false });
 
   const baseUrl = resolveSiteUrl();
 

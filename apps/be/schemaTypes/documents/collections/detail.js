@@ -54,7 +54,7 @@ export default defineType({
       name: 'allowRouting',
       type: 'boolean',
       description:
-        'When enabled (default), the detail page is built and the home grid routes to it. Disable to show the entry without a page.',
+        'When enabled (default), the detail page is built and the home grid routes to it. Disable to show the entry without a page. Pages not placed on the home grid are built only while this is enabled; they are reachable by URL only (e.g. a © notice or a WIP project), need no cover, and are kept out of the sitemap and search results.',
       initialValue: true,
       group: 'general',
     }),

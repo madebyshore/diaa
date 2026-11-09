@@ -47,6 +47,13 @@ plugins/content.server.ts (runs server-side only, never client-bundled)
 
 `loadRouteContent(path, ...)` (`app/data/content.ts`) resolves one route's content by trying, in order: home (`"/"` only) → Detail by slug → Contact → Imprint. Returns `null` if nothing matches (the page 404s). Each branch does its own Sanity fetch; there's no shared "fetch everything, filter client-side" step.
 
+**Which Details get a page** (`isDetailRoutable()` in `content.ts`):
+
+- **On the home grid** with a cover image/video, and Allow Routing not switched off. This is the original rule.
+- **Off the grid** (not placed on `pageHome.grid`) only when Allow Routing is **explicitly on**. New Details initialise it to `true`, so an editor can publish a URL-only page (a © notice, a WIP project) without adding it to the grid. Legacy off-grid Details predate the field (`null`) and keep 404ing until the toggle is turned on.
+
+Off-grid pages may have no cover: `DetailRouteContent.cover` is then `null`, the template drops `.detail__cover`, and `.detail__container--no-cover` takes one module gap of top padding. They are prerendered (`loadAllRoutePaths()` unions `explicitlyRoutableDetailSlugsQuery` with the grid slugs) but excluded from `sitemap.xml` (`includeOffGrid: false`) and emitted with `robots: noindex,follow` (`DetailRouteContent.offGrid` → `usePageSeo`).
+
 `useSiteOptions()`/`usePageData()` are plain `useState()` calls — Nuxt's SSR-safe shared-per-request state. Every component downstream (nav, footer, the page template, `<title>` composition) reads from these instead of fetching independently. Both composables import `app/data/content.ts` **type-only** (`import type { SiteOptionsContent } from "~/data/content"`) so `@sanity/client` never reaches the client bundle even though the *shape* is shared.
 
 ```

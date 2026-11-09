@@ -95,7 +95,14 @@ const siteTitle = computed(() => siteOptions.value?.siteTitle ?? "");
 // the Phase-1 CHANGELOG entry's "browser/tab title format" note). The
 // third arg is this route's own SEO overrides (detail/contact/imprint all
 // carry a resolved `seo`; usePageSeo layers them over the Global defaults).
-usePageSeo(() => `${siteTitle.value} - ${content.value.title}`, siteTitle, () => content.value.seo);
+usePageSeo(
+  () => `${siteTitle.value} - ${content.value.title}`,
+  siteTitle,
+  () => content.value.seo,
+  // Off-grid Details (URL-only — a © notice, a WIP project) stay out of
+  // search results; see DetailRouteContent.offGrid.
+  () => content.value.template === "detail" && content.value.offGrid,
+);
 
 console.debug(
   `[page:slug] rendering — template="${content.value.template}", title="${content.value.title}"`,
@@ -157,8 +164,13 @@ usePageController(controller);
           <RichText inline :blocks="content.stylizedTitle" :fallback="content.title" />
         </span>
       </div>
-      <div class="detail__container">
-        <div class="detail__cover">
+      <!-- A cover-less off-grid Detail (e.g. a text-only © notice page) has
+           no cover block at all; the --no-cover modifier gives the container
+           its own top spacing. detail.ts already treats a missing
+           .detail__cover as "no mobile cover slide", and no home→detail
+           bridge can target a page the grid doesn't link to. -->
+      <div :class="['detail__container', { 'detail__container--no-cover': !content.cover }]">
+        <div v-if="content.cover" class="detail__cover">
           <div :class="`detail__cover-inner detail__cover-inner--${content.cover.coverSize}`">
             <FigureBase
               :src="content.cover.src"
