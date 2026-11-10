@@ -8,17 +8,35 @@ import type Lenis from "lenis";
  * Lenis has one scroll value (no separate damped-current vs. user-target
  * concept the way kido's scroller does), so one number per route suffices.
  *
- * Keyed by `route.fullPath` (matches the page-controller registry's key) so
- * distinct dynamic routes never collide.
+ * Callers pass `route.fullPath` (the page-controller registry's key), but
+ * snapshots are stored under the PATH alone — see snapshotKey().
  */
 const snapshots = new Map<string, number>();
+
+/**
+ * Reduce a route fullPath to the key its scroll snapshot is stored under:
+ * the pathname, with any query string and hash dropped.
+ *
+ * Links opened from Instagram (and most other apps) arrive with tracking
+ * parameters appended — `/?utm_source=ig&fbclid=...`. Home's scroll was then
+ * saved under that full string, while the "( Close )" footer on a detail
+ * page navigates to a bare `/` and looked the snapshot up under `/`: no
+ * match, so home reset to the top instead of returning the visitor to the
+ * project they had opened. It only happened to visitors arriving through
+ * such a link, which is why it never reproduced from a typed URL. No view in
+ * this app varies by query string, so the path alone identifies the page.
+ */
+function snapshotKey(fullPath: string): string {
+  const end = fullPath.search(/[?#]/);
+  return end === -1 ? fullPath : fullPath.slice(0, end);
+}
 
 /** Save the current Lenis scroll position for `path`. Mobile runs Lenis too
  *  (a passive mirror of native touch scroll — plugins/lenis.client.ts), so
  *  mobile scroll IS snapshotted + restored on back-nav exactly like desktop;
  *  the null guard is a dormant fallback for a Lenis-less configuration. */
 export function saveScroll(path: string, lenis: Lenis | null): void {
-  if (lenis) snapshots.set(path, lenis.scroll);
+  if (lenis) snapshots.set(snapshotKey(path), lenis.scroll);
 }
 
 /**
@@ -53,7 +71,7 @@ export function restoreOrResetScroll(
     return;
   }
   if (direction === "back") {
-    const y = snapshots.get(path);
+    const y = snapshots.get(snapshotKey(path));
     if (y != null) {
       lenis.scrollTo(y, { immediate: true, force: true });
       console.debug("[scroll-restore] restored", path, y);
