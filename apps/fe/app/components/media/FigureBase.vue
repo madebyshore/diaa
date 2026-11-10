@@ -44,6 +44,14 @@ interface Props {
   eager?: boolean;
   hasVideo?: boolean;
   video?: string;
+  /** Video branch only: render `preload="none"` with no `autoplay`, so the
+   *  file costs zero bytes and no decoder until something calls `play()`.
+   *  For surfaces that can sit `display: none` for a whole visit — the home
+   *  image-mode grid is hidden on every phone and in text mode everywhere,
+   *  yet its `autoplay` videos were still downloading in full (~60 MB on the
+   *  home page) behind it. The CALLER owns playback when this is set; see
+   *  controllers/home.ts's watchGridVideos(). */
+  deferVideo?: boolean;
   /** Sanity LQIP (base64 data URI, ~20px wide) — painted as a cover-fit
    *  background on the media element so a blurred placeholder shows the
    *  instant the box lays out, and the opaque full-res pixels simply cover
@@ -64,6 +72,7 @@ const props = withDefaults(defineProps<Props>(), {
   eager: false,
   hasVideo: false,
   video: "",
+  deferVideo: false,
   lqip: "",
   srcset: "",
   sizes: "100vw",
@@ -118,7 +127,8 @@ const lqipStyle = computed(() =>
       ref="mediaEl"
       class="_g-video"
       :src="props.video"
-      autoplay
+      :autoplay="!props.deferVideo"
+      :preload="props.deferVideo ? 'none' : undefined"
       loop
       muted
       playsinline

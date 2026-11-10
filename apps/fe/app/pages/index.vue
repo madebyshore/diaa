@@ -121,7 +121,12 @@ console.debug(
     </div>
 
     <!-- Image mode — 4-per-row grid of 1:1 cells. Hidden via the native
-         attribute (matches the old static markup), not v-if. -->
+         attribute (matches the old static markup), not v-if.
+
+         `defer-video`: this pane is `display: none` on every phone and in
+         text mode on every tier, so its MP4 covers must not `autoplay` —
+         they downloaded in full behind the hidden pane. home.ts's
+         watchGridVideos() plays each one only while it is on screen. -->
     <div class="home__image" data-mode-pane="image" hidden>
       <div
         v-for="item in gridItems"
@@ -136,14 +141,14 @@ console.debug(
           :href="`/${item.slug}`"
           :data-index="item.flatIndex"
         >
-          <FigureBase v-bind="item.cover" :sizes="GRID_SIZES" />
+          <FigureBase v-bind="item.cover" :sizes="GRID_SIZES" defer-video />
         </a>
         <div
           v-else
           :class="`home__image-slot home__image-slot--${item.coverSize}`"
           :data-index="item.flatIndex"
         >
-          <FigureBase v-bind="item.cover" :sizes="GRID_SIZES" />
+          <FigureBase v-bind="item.cover" :sizes="GRID_SIZES" defer-video />
         </div>
         <span class="home__image-title" aria-hidden="true">
           <RichText inline :blocks="item.stylizedTitle" :fallback="item.title" />

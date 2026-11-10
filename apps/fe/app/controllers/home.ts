@@ -316,6 +316,11 @@ export function createHomeController(): PageController {
    *  cancels the pause instead of freezing the frame mid-reveal. */
   const revealVideoPauseTimers = new Map<HTMLVideoElement, number>();
 
+  /** Plays the image-mode grid's cover `<video>`s only while they are on
+   *  screen (see watchGridVideos()). Null when the grid has no video or
+   *  before onInit. */
+  let gridVideoObserver: IntersectionObserver | null = null;
+
   /** True while a mode or filter switch fade is in flight. The text and
    *  image hover handlers bail on it — a hover toggling
    *  `.is-hovered`/`.is-active` mid-fade would fight the pane opacity tween
@@ -1076,6 +1081,59 @@ export function createHomeController(): PageController {
     console.debug("[page:home] reveal videos: play-on-reveal armed");
   }
 
+  /**
+   * Play the image-mode grid's MP4 covers only while they are actually on
+   * screen — the grid-pane half of the fix watchRevealVideos() made for the
+   * reveal overlay.
+   *
+   * The grid figures used to render `<video autoplay>`. The pane they live in
+   * is `display: none` on every phone (mobile is text-only — see
+   * styles/pages/_home.module.scss) and in text mode on every other tier,
+   * but `autoplay` makes a browser fetch the file regardless of whether the
+   * element has a box: measured on the phone tier, all five covers
+   * downloaded end to end (~60 MB, one of them a 2160x3840 source) behind a
+   * pane the visitor can never open. On a phone inside an in-app browser
+   * that is bandwidth taken from the page they are looking at and memory the
+   * web view does not have to spare (client report, 2026-11-10: the site
+   * reloading itself and scrolling oddly when opened from Instagram).
+   *
+   * The template now renders them `preload="none"` without `autoplay`
+   * (FigureBase's `deferVideo`), and this IntersectionObserver is the only
+   * thing that starts one. A `display: none` element never intersects, so
+   * the hidden pane costs nothing; once image mode is showing, each video
+   * starts as it nears the viewport and pauses when it scrolls away, so a
+   * long grid never has every cover decoding at once either. Observing the
+   * outcome (is it on screen?) rather than calling play() from the mode
+   * switch covers every path that reveals the pane — the entrance, a mode
+   * toggle, a filter change, a resize across the mobile breakpoint.
+   */
+  function watchGridVideos(): void {
+    if (!imagePane) return;
+    const videos = Array.from(imagePane.querySelectorAll<HTMLVideoElement>("video"));
+    if (videos.length === 0) return;
+
+    gridVideoObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const video = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting) {
+            // Muted + playsinline, so no user-gesture requirement. A rejected
+            // play() (Low Power Mode, element detached by a navigation) just
+            // leaves the poster showing — swallow it.
+            video.play().catch(() => {});
+          } else if (!video.paused) {
+            video.pause();
+          }
+        }
+      },
+      // Start a little before the cell scrolls in so the first frame is
+      // usually ready by the time it is visible.
+      { rootMargin: "25% 0px" },
+    );
+    for (const video of videos) gridVideoObserver.observe(video);
+    console.debug(`[page:home] grid videos: play-while-visible armed (${videos.length})`);
+  }
+
   return {
     /**
      * Page mount. Queries every DOM ref, applies the persisted mode/filter
@@ -1120,6 +1178,7 @@ export function createHomeController(): PageController {
       // Armed before anything below can add `.is-active` (the mobile scroll
       // reveal's initial sync), so the first revealed video plays too.
       watchRevealVideos();
+      watchGridVideos();
 
       // Initial mode + filter come from useHomeMode()/useHomeFilter()
       // (persistent across SPA navs, fresh "text"/"all" on a hard reload).
@@ -1630,6 +1689,8 @@ export function createHomeController(): PageController {
       revealVideoObserver = null;
       for (const timer of revealVideoPauseTimers.values()) window.clearTimeout(timer);
       revealVideoPauseTimers.clear();
+      gridVideoObserver?.disconnect();
+      gridVideoObserver = null;
 
       textItems = [];
       imageItems = [];
