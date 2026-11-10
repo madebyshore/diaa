@@ -146,7 +146,10 @@ export async function runBoot(): Promise<void> {
   console.debug("[boot] phase 5 — page entrance animation");
   const route = useRoute();
   const page = document.getElementById("page") as HTMLElement | null;
-  const controller = getPageController(route.fullPath);
+  // Looked up by PATH — the registry key (see usePageController). By now
+  // route.fullPath may carry a query string the page was never registered
+  // under: Nuxt restores a prerendered page's "?fbclid=…" after hydration.
+  const controller = getPageController(route.path);
   const { $lenis } = useNuxtApp();
 
   if (page && controller) {
@@ -167,7 +170,7 @@ export async function runBoot(): Promise<void> {
       subscribeOnScroll((e) => controller.onScroll?.(e));
     }
   } else {
-    console.warn("[boot] no controller/page element found for", route.fullPath);
+    console.warn("[boot] no controller/page element found for", route.path);
   }
 
   console.debug("[boot] application ready");

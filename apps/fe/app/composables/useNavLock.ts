@@ -77,6 +77,19 @@ export function useNavLock() {
         console.warn("[nav-lock] navigation blocked — already mutating", to.fullPath);
         return false;
       }
+      // A query-/hash-only change on the same path swaps no page, so no
+      // transition runs — and transitions/default.ts's onAfterEnter is the
+      // ONLY thing that releases this lock. Locking here would strand it
+      // (and Lenis, stopped) until the 8s safety valve. This is not
+      // hypothetical: Nuxt restores a prerendered page's query string with
+      // a router.replace() right after hydration, so every arrival from an
+      // Instagram link ("/?fbclid=…") hit exactly that, and the boot
+      // entrance then ran with `mutating` still true and replayed the
+      // return-to-home brand beat on top of the intro.
+      if (to.path === from.path) {
+        console.debug("[nav-lock] same-path nav — not locking", to.fullPath);
+        return true;
+      }
       console.debug("[nav-lock] locking for nav", from.fullPath, "→", to.fullPath);
       lockNav();
       return true;

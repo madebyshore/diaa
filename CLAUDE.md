@@ -96,7 +96,7 @@ apps/fe/
 │   │   └── dev/HomeAnimGui.client.vue                # Ctrl+F tuning panel, .client.vue + import.meta.dev gated
 │   ├── composables/
 │   │   ├── useSiteOptions.ts / usePageData.ts / usePageSeo.ts   # useState hydrated by content.server.ts
-│   │   ├── usePageController.ts                       # route-fullPath → controller registry
+│   │   ├── usePageController.ts                       # route-path → controller registry
 │   │   ├── useNavLock.ts                               # nav mutex: beforeEach guard + 8s safety valve
 │   │   ├── useLenisScroll.ts                            # $lenis bridge, native-scroll fallback on mobile
 │   │   ├── useBoot.ts                                   # playIntro() + runBoot(), first-load entrance
@@ -163,7 +163,7 @@ Helpers available in `apps/fe/app/data/slices/helpers.ts`: `richTextQuery(field)
 
 ## Page-controller + transition contract
 
-Every route's imperative animation (as opposed to declarative CSS) goes through a **`PageController`** (`app/controllers/page-controller.ts`): `onInit(root)` (synchronous — must complete before any paint), `onDestroy()`, `in(root): Promise<void>`, `out(root): Promise<void>` (both mandatory, GSAP-driven), optional `onScroll?(e)`. `BaseController` supplies the default 1.2s-in/0.8s-out `"slow"`-eased content fade; `home.ts`/`detail.ts`/`rich-text-page.ts` extend it with page-specific choreography. Controllers are **factories** (`createHomeController()`, not a singleton), registered per-mount via `usePageController()` into a `route.fullPath`-keyed map.
+Every route's imperative animation (as opposed to declarative CSS) goes through a **`PageController`** (`app/controllers/page-controller.ts`): `onInit(root)` (synchronous — must complete before any paint), `onDestroy()`, `in(root): Promise<void>`, `out(root): Promise<void>` (both mandatory, GSAP-driven), optional `onScroll?(e)`. `BaseController` supplies the default 1.2s-in/0.8s-out `"slow"`-eased content fade; `home.ts`/`detail.ts`/`rich-text-page.ts` extend it with page-specific choreography. Controllers are **factories** (`createHomeController()`, not a singleton), registered per-mount via `usePageController()` into a `route.path`-keyed map.
 
 Route transitions run through `<NuxtPage :transition="defaultTransition">` (`app/transitions/default.ts`) — `css: false`, **no `mode`**, so outgoing and incoming pages coexist in the DOM (required for the home→detail image bridge). The file re-imposes diaa's real *sequential* wall-clock timing (out fully resolves, then in starts) inside Vue transition hooks that would otherwise run `onLeave`/`onEnter` concurrently, using a module-scope promise (`leaveFinished`) that `onEnter` awaits before starting the incoming controller's `in()`. Full mechanics, the FOUC-critical `.is-controlled` synchronization, and the home→detail bridge's "hide beneath a solid clone" fix (not fade — avoids a double-shadow composite) are documented in `apps/fe/docs/animation.md`.
 
@@ -258,7 +258,7 @@ cd apps/be && npx sanity deploy       # deploy hosted Studio
 | `apps/fe/app/data/slices/registry.ts` | Slice registry — `sliceRegistry`, `resolveSlices()` |
 | `apps/fe/app/data/queries.ts` | GROQ query constants, `buildSlicesProjection()` |
 | `apps/fe/app/composables/usePageData.ts` / `useSiteOptions.ts` | `useState` reads of server-fetched content |
-| `apps/fe/app/composables/usePageController.ts` | Route-fullPath → `PageController` registry |
+| `apps/fe/app/composables/usePageController.ts` | Route-path → `PageController` registry |
 | `apps/fe/app/composables/useNavLock.ts` | Navigation mutex + 8s safety valve |
 | `apps/fe/app/composables/useBoot.ts` | Intro playback + first-load entrance |
 | `apps/fe/app/controllers/page-controller.ts` | `PageController` contract + `BaseController` default |

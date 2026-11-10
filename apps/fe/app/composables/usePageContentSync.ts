@@ -82,6 +82,16 @@ export function usePageContentSync(): void {
     // the FROM route has no matched records yet.
     if (from.matched.length === 0) return true;
 
+    // Same path, different query string or hash: the content is keyed by
+    // path alone (see toContentSlug), so what is already loaded IS this
+    // route's content. Skipping matters beyond the saved request — Nuxt
+    // restores a prerendered page's query string with a router.replace()
+    // right after hydration, so every Instagram arrival ("/?fbclid=…") ran
+    // this fetch during boot: it replaced usePageData() under the page
+    // mid-intro, and on a weak connection a failure would have fallen into
+    // the full-page-navigation fallback below and reloaded the site.
+    if (to.path === from.path) return true;
+
     try {
       const slug = toContentSlug(to.path);
       const { data } = await $fetch<{ data: RouteContent | null }>(`/_content/${slug}/index.json`);

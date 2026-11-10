@@ -57,7 +57,17 @@ onMounted(() => {
     <IntroBeat />
     <DevGrid v-if="isDev" />
     <main id="app">
-      <NuxtPage :transition="defaultTransition" :page-key="(r) => r.fullPath" />
+      <!-- page-key is the PATH, never fullPath. Nuxt hydrates a prerendered
+           page at its bare path and only AFTER hydration restores the real
+           URL's query string (its "deferred route" — pages/runtime/plugins/
+           router.js), so a fullPath key changes from "/" to "/?fbclid=…"
+           the moment a visitor arrives from Instagram (which always appends
+           fbclid/utm params). That re-keyed and REMOUNTED the page mid-intro,
+           ran a full page transition under the overlay, and left the nav
+           lock engaged — the entrance then played three times. A query
+           string or hash never selects a different page in this app, so the
+           path alone is the page's identity. -->
+      <NuxtPage :transition="defaultTransition" :page-key="(r) => r.path" />
     </main>
   </div>
 </template>

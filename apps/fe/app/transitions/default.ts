@@ -20,7 +20,7 @@ import { bridgeOut } from "~/transitions/home-to-detail";
  * concurrently.
  */
 
-/** Route fullPath of the page currently leaving — set by onBeforeLeave/
+/** Route path of the page currently leaving — set by onBeforeLeave/
  *  onLeave, read by onLeave to resolve the correct controller. Vue transition
  *  hooks receive only the DOM element, not the route, so this closure state
  *  (populated by router.beforeEach below) bridges the gap — mirrors diaa's
@@ -43,8 +43,15 @@ function installRouteTracking(): void {
   trackingInstalled = true;
   const router = useRouter();
   router.beforeEach((to, from) => {
-    outgoingPath = from.fullPath;
-    incomingPath = to.fullPath;
+    // A query-/hash-only change on the same path swaps no page (app.vue keys
+    // <NuxtPage> on the path), so no transition hook will ever read these —
+    // and overwriting them could corrupt a transition already in flight.
+    if (to.path === from.path) return true;
+    // PATHS, not fullPaths: these are controller-registry keys
+    // (usePageController registers by path) and the href the home→detail
+    // bridge matches against, neither of which carries a query string.
+    outgoingPath = from.path;
+    incomingPath = to.path;
     outgoingName = from.name;
     incomingName = to.name;
     return true;

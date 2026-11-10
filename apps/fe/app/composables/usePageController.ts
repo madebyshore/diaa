@@ -7,7 +7,7 @@ import type { PageController } from "~/controllers/page-controller";
  */
 const registry = new Map<string, PageController>();
 
-/** The route fullPath that `transitions/default.ts`'s onBeforeEnter already
+/** The route path that `transitions/default.ts`'s onBeforeEnter already
  *  called onInit for, synchronously, in the same tick it pinned the entering
  *  page hidden — BEFORE this composable's onMounted ever runs. Consumed
  *  exactly once by usePageController()'s onMounted guard below so onInit is
@@ -44,7 +44,7 @@ export function unregisterPageController(path: string): void {
  * mobile-cover pre-measurement) — so for a transitioned SPA navigation,
  * `transitions/default.ts`'s onBeforeEnter calls `controller.onInit(root)`
  * directly, synchronously, in the same tick it pins the page hidden, and
- * sets `transitionInitPath.value` to the route's fullPath as a receipt. This
+ * sets `transitionInitPath.value` to the route's path as a receipt. This
  * composable's onMounted becomes a call-once GUARD: if the receipt matches
  * the current route, onInit already ran — skip and clear it. If it doesn't
  * match (first page load: Vue transitions never fire enter on initial
@@ -53,17 +53,26 @@ export function unregisterPageController(path: string): void {
  */
 export function usePageController(controller: PageController): void {
   const route = useRoute();
-  registerPageController(route.fullPath, controller);
+  // Registry key = the route PATH, captured once. Never fullPath: the query
+  // string is not part of a page's identity here (app.vue keys <NuxtPage> on
+  // the path too), and it CHANGES under a mounted page — Nuxt restores a
+  // prerendered page's query string only after hydration, so an Instagram
+  // arrival goes "/" → "/?fbclid=…" with the same component still mounted.
+  // A fullPath key would then miss this controller in useBoot's lookup (no
+  // entrance at all) and leak the entry on unmount. Captured rather than
+  // read live so register/unregister can never disagree.
+  const key = route.path;
+  registerPageController(key, controller);
 
   onMounted(() => {
-    if (transitionInitPath.value === route.fullPath) {
-      console.debug("[page-controller] onInit already ran via transition for", route.fullPath);
+    if (transitionInitPath.value === key) {
+      console.debug("[page-controller] onInit already ran via transition for", key);
       transitionInitPath.value = null;
       return;
     }
     const el = getCurrentInstance()?.proxy?.$el as HTMLElement | undefined;
     if (el instanceof HTMLElement) {
-      console.debug("[page-controller] first-load onInit for", route.fullPath);
+      console.debug("[page-controller] first-load onInit for", key);
       controller.onInit(el);
       // Mirrors transitions/default.ts's onBeforeEnter, which adds this class
       // in the same synchronous tick it calls onInit for a transitioned nav
@@ -73,12 +82,12 @@ export function usePageController(controller: PageController): void {
       // page render.
       el.classList.add("is-controlled");
     } else {
-      console.warn("[page-controller] could not resolve root element for", route.fullPath);
+      console.warn("[page-controller] could not resolve root element for", key);
     }
   });
 
   onUnmounted(() => {
     controller.onDestroy();
-    unregisterPageController(route.fullPath);
+    unregisterPageController(key);
   });
 }
