@@ -137,27 +137,22 @@ export function createDefaultTransition(): TransitionProps {
 
       let direction = takeNavDirection();
 
-      // Close-button scroll parity on touch tiers (client request): leaving a
-      // [slug] page for home via the "( Close )" footer is a FORWARD nav (an
-      // anchor click, no popstate), so it would reset home to the top — but
-      // on mobile/tablet the user expects Close to behave like the browser
-      // back button and return them to wherever they left the home scroll.
-      // Upgrading the direction here (rather than inside scroll-restore.ts)
-      // keeps the tier gate next to the only call site that knows the
-      // route names. ≤819px matches the SCSS mobile+tablet tiers exactly
-      // (the 12-col desktop grid starts at the 820 `md` edge — see
-      // includes/_breakpoints.module.scss and core/root.module.scss);
-      // desktop keeps the original Close-resets-to-top behaviour. A direct
-      // detail load with no home snapshot is safe: restoreOrResetScroll's
-      // "back" branch falls through to top when no snapshot exists.
-      if (
-        direction === "forward" &&
-        outgoingName === "slug" &&
-        incomingName === "index" &&
-        window.matchMedia("(max-width: 819px)").matches
-      ) {
-        direction = "back";
-        console.debug("[scroll-restore] slug→home on touch tier — treating Close as back");
+      // Mobile/tablet home always starts at the top (client request,
+      // reversing 9efff98's Close-as-back restore): on touch tiers, every
+      // navigation INTO home — browser back / swipe-back (popstate → "back")
+      // and the "( Close )" footer alike — resets the scroll to the top
+      // instead of restoring the saved home snapshot. Forcing "forward" here
+      // (rather than inside scroll-restore.ts) keeps the tier gate next to
+      // the only call site that knows the route names. ≤819px matches the
+      // SCSS mobile+tablet tiers exactly (the 12-col desktop grid starts at
+      // the 820 `md` edge — see includes/_breakpoints.module.scss and
+      // core/root.module.scss); desktop keeps the original behaviour (back
+      // restores, Close resets to top).
+      if (incomingName === "index" && window.matchMedia("(max-width: 819px)").matches) {
+        if (direction === "back") {
+          console.debug("[scroll-restore] back→home on touch tier — resetting to top");
+        }
+        direction = "forward";
       }
 
       // Sequential timing: wait for the OLD page's out() to fully resolve
