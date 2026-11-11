@@ -273,6 +273,23 @@
     justify-content: flex-start;
     align-items: center;
     gap: calc(50svh - (var(--home-item-h) - 1cap));
+    /* Worst-case spacing for dynamic browser chrome: 100lvh − 50svh of
+       text-to-text space instead of 50svh. The 50svh rhythm put each
+       neighbour exactly on the visible edge with the toolbar EXPANDED; once
+       scrolling down collapses it (iOS Safari), the visible height grows
+       to the large viewport while the centred entry stays at 50svh, so at
+       rest the next label sat in the strip above the fixed footer
+       ("Contact, Imprint, Follow" overlapping it) and the previous one
+       under the nav (client report, 2026-11-11). With the centred label at
+       50svh, the next label's text top lands at ≥ 100lvh (below the
+       visible bottom in both toolbar states) and the previous label's text
+       bottom at ≤ 0 (above the top), so a resting screen only ever shows
+       one entry. Where lvh = svh (desktop, Android without dynamic chrome,
+       devtools emulation) this equals the 50svh line above exactly. Second
+       declaration so browsers without lvh keep the 50svh fallback. The
+       updateScrollReveal() swap thresholds in home.ts measure label rects
+       against the image box, so they follow the new spacing as is. */
+    gap: calc(100lvh - 50svh - (var(--home-item-h) - 1cap));
     padding: calc(50svh - var(--home-item-h) / 2) var(--container-padding);
     /* Bottom edge: 100dvh − 50svh − half an item, not the symmetric
        50svh − half an item. The reveal image centres on 50svh (the
