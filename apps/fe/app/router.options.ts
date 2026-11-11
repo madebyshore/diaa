@@ -5,8 +5,8 @@ import type { RouterConfig } from "@nuxt/schema";
  * entirely. `lib/scroll-restore.ts` (driven from transitions/default.ts's
  * onEnter) is the app's single owner of scroll on navigation: it resets to
  * top on forward navs and restores the per-route Lenis snapshot on back-navs
- * (desktop only for home — on mobile/tablet every nav into home resets to
- * top; see transitions/default.ts's onEnter).
+ * (desktop only for home — on mobile/tablet a nav into home centres the
+ * entry just left, or resets to top; see transitions/default.ts's onEnter).
  *
  * Without this file, Nuxt's DEFAULT scrollBehavior ran on top of that: it
  * waits for `page:transition:finish`, then scrolls to top on forward navs

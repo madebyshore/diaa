@@ -13,7 +13,7 @@
  * consumers depend on it existing:
  *   - lib/scroll-restore.ts snapshots `lenis.scroll` and restores via
  *     `lenis.scrollTo(..., {immediate: true})` on every tier (mobile/tablet
- *     home itself always resets to top — transitions/default.ts's onEnter —
+ *     home instead centres the entry just left — transitions/default.ts —
  *     but back-nav into other pages still restores).
  *   - composables/useLenisScroll.ts subscribes controllers' onScroll through
  *     `$lenis.on("scroll")` — native scrolls are re-emitted by Lenis, so the

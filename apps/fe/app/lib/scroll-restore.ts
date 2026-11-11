@@ -34,7 +34,7 @@ function snapshotKey(fullPath: string): string {
 /** Save the current Lenis scroll position for `path`. Mobile runs Lenis too
  *  (a passive mirror of native touch scroll — plugins/lenis.client.ts), so
  *  mobile scroll IS snapshotted + restored on back-nav like desktop (except
- *  home, which transitions/default.ts always resets to top on touch tiers);
+ *  home, which transitions/default.ts centres on the entry just left);
  *  the null guard is a dormant fallback for a Lenis-less configuration. */
 export function saveScroll(path: string, lenis: Lenis | null): void {
   if (lenis) snapshots.set(snapshotKey(path), lenis.scroll);
@@ -81,6 +81,37 @@ export function restoreOrResetScroll(
   }
   lenis.scrollTo(0, { immediate: true, force: true });
   console.debug("[scroll-restore] reset to top", path);
+}
+
+/**
+ * Mobile home only: scroll the text list so the entry linking to `path`
+ * (the detail page just left) rests on the centre line — where a label sits
+ * after every completed scroll step, and where the reveal image centres.
+ * Called from transitions/default.ts's onEnter right after the reset to top.
+ *
+ * The centre line is measured, not recomputed: it is the vertical centre of
+ * `.home__text-gpu-inner`, the fixed 1:1 box every reveal figure centres in
+ * (50svh on mobile — _home.module.scss). Measuring keeps this in step with
+ * the CSS rhythm (which uses svh/lvh units JS can't read directly); the
+ * label's box centre is the same point the list's padding/gap centre on.
+ * No-ops (stays at the top) when the entry isn't in the list — Contact and
+ * Imprint — or is `display: none` under the active taxonomy filter.
+ */
+export function centreHomeEntry(page: HTMLElement, lenis: Lenis | null, path: string): void {
+  const item = page.querySelector<HTMLElement>(`.home__text-item[href="${CSS.escape(path)}"]`);
+  const band = page.querySelector<HTMLElement>(".home__text-gpu-inner")?.getBoundingClientRect();
+  const rect = item?.getBoundingClientRect();
+  if (!rect || rect.height === 0 || !band || band.height === 0) {
+    console.debug("[scroll-restore] no visible home entry for", path, "— staying at top");
+    return;
+  }
+  const y = Math.max(
+    0,
+    window.scrollY + rect.top + rect.height / 2 - (band.top + band.height / 2),
+  );
+  if (lenis) lenis.scrollTo(y, { immediate: true, force: true });
+  else window.scrollTo(0, y);
+  console.debug("[scroll-restore] centred home entry", path, y);
 }
 
 /** "back" for the navigation currently in flight (set by a popstate listener

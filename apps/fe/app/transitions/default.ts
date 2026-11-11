@@ -3,7 +3,12 @@ import type { TransitionProps } from "vue";
 import { unlockNav } from "~/composables/useNavLock";
 import { subscribeOnScroll, unsubscribeOnScroll } from "~/composables/useLenisScroll";
 import { getPageController, transitionInitPath } from "~/composables/usePageController";
-import { saveScroll, restoreOrResetScroll, takeNavDirection } from "~/lib/scroll-restore";
+import {
+  centreHomeEntry,
+  restoreOrResetScroll,
+  saveScroll,
+  takeNavDirection,
+} from "~/lib/scroll-restore";
 import { bridgeOut } from "~/transitions/home-to-detail";
 
 /**
@@ -137,22 +142,29 @@ export function createDefaultTransition(): TransitionProps {
 
       let direction = takeNavDirection();
 
-      // Mobile/tablet home always starts at the top (client request,
-      // reversing 9efff98's Close-as-back restore): on touch tiers, every
-      // navigation INTO home — browser back / swipe-back (popstate → "back")
-      // and the "( Close )" footer alike — resets the scroll to the top
-      // instead of restoring the saved home snapshot. Forcing "forward" here
-      // (rather than inside scroll-restore.ts) keeps the tier gate next to
-      // the only call site that knows the route names. ≤819px matches the
-      // SCSS mobile+tablet tiers exactly (the 12-col desktop grid starts at
-      // the 820 `md` edge — see includes/_breakpoints.module.scss and
-      // core/root.module.scss); desktop keeps the original behaviour (back
-      // restores, Close resets to top).
+      // Mobile/tablet home never restores its saved scroll (client request,
+      // reversing 9efff98's Close-as-back restore): the raw snapshot could
+      // leave the list resting between entries, with a neighbouring title
+      // under the nav or footer. Instead, every navigation INTO home —
+      // browser back / swipe-back (popstate → "back") and the "( Close )"
+      // footer alike — resets to the top, and when it comes from a [slug]
+      // page the list is then scrolled so THAT entry's title sits on the
+      // centre line (centreHomeEntry below, after the unpin). Contact/
+      // Imprint are [slug] pages too, but have no list entry, so they — and
+      // an entry hidden by the active filter — land at the top. Forcing
+      // "forward" here (rather than inside scroll-restore.ts) keeps the tier
+      // gate next to the only call site that knows the route names. ≤819px
+      // matches the SCSS mobile+tablet tiers exactly (the 12-col desktop
+      // grid starts at the 820 `md` edge — see includes/
+      // _breakpoints.module.scss and core/root.module.scss); desktop keeps
+      // the original behaviour (back restores, Close resets to top).
+      let centreFrom: string | null = null;
       if (incomingName === "index" && window.matchMedia("(max-width: 819px)").matches) {
         if (direction === "back") {
-          console.debug("[scroll-restore] back→home on touch tier — resetting to top");
+          console.debug("[scroll-restore] back→home on touch tier — not restoring snapshot");
         }
         direction = "forward";
+        if (outgoingName === "slug") centreFrom = outgoingPath;
       }
 
       // Sequential timing: wait for the OLD page's out() to fully resolve
@@ -205,6 +217,10 @@ export function createDefaultTransition(): TransitionProps {
       // version where it ran while still pinned fixed.
       $lenis?.resize();
       restoreOrResetScroll($lenis, incomingPath, direction);
+      // Same synchronous task as the reset above (page in flow, Lenis limit
+      // fresh), and before in() — whose forced updateScrollReveal() then
+      // picks the centred entry's image for the entrance.
+      if (centreFrom) centreHomeEntry(page, $lenis, centreFrom);
 
       $lenis?.stop();
       await controller?.in(page);
