@@ -3,7 +3,7 @@ import { gsap } from "gsap";
 import { skipNextHomeBeat } from "~/lib/beat-skip";
 import { takeImageBridge } from "~/lib/image-bridge";
 import { navDirection } from "~/lib/scroll-restore";
-import { raiseImageBridge } from "~/transitions/home-to-detail";
+import { handOffImageBridge, muteCoverForBridge, raiseImageBridge } from "~/transitions/home-to-detail";
 
 import type { PageController, ScrollEvent } from "~/controllers/page-controller";
 
@@ -214,8 +214,10 @@ export function createDetailController(): PageController {
     gsap.set([...chromeTargets, ...sliceTargets], { clearProps: "opacity" });
     // Hard swap (bridge path): reveal the identical cover and drop the clone
     // in the same frame — no doubled shadow.
-    if (bridge) gsap.set(cover, { clearProps: "opacity" });
-    bridge?.remove();
+    if (bridge) {
+      gsap.set(cover, { clearProps: "opacity" });
+      handOffImageBridge(bridge, cover);
+    }
     finishCoverSettle();
   }
 
@@ -395,7 +397,12 @@ export function createDetailController(): PageController {
       // gone) and a DIFFERENT one starts: the clone needs to sit above THIS
       // page's own content for the crossfade/hard-swap below. See that
       // function's doc comment for the full two-phase z-index rationale.
-      if (bridge) raiseImageBridge(bridge);
+      if (bridge) {
+        raiseImageBridge(bridge);
+        // Video cover: stop the page's own autoplay copy from loading a
+        // second stream behind the bridge's live one (see the helper).
+        muteCoverForBridge(bridge, root.querySelector<HTMLElement>(".detail__cover"));
+      }
 
       // Mobile forward entry (coverSettleDelta pending from onInit) runs
       // the two-phase choreography: chrome + centred cover for a beat, then
@@ -437,7 +444,7 @@ export function createDetailController(): PageController {
         // Hard swap: reveal the identical cover and drop the clone in the
         // same frame — no gap, no crossfade, no doubled shadow.
         if (cover) gsap.set(cover, { clearProps: "opacity" });
-        bridge.remove();
+        handOffImageBridge(bridge, cover);
         return;
       }
 

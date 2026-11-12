@@ -88,6 +88,62 @@ export function raiseImageBridge(bridge: HTMLElement): void {
 }
 
 /**
+ * Silence the detail cover's own `<video>` while a video bridge stands in
+ * for it. FigureBase renders the cover with `autoplay`, so the moment the
+ * detail page mounts it starts downloading and decoding a SECOND copy of
+ * the very clip the bridge is already playing — on a phone that competes
+ * with the bridge for bandwidth and decoder, and it was the copy revealed
+ * at the hard swap (from a different playhead, often still without a first
+ * frame: the second half of the "blinks and reloads" report). The bridge's
+ * live element replaces it at hand-off (handOffImageBridge()), so it is
+ * emptied now — pause, drop the src, load() to release the media resource.
+ * No-op for image covers or when the bridge carries no video.
+ */
+export function muteCoverForBridge(bridge: HTMLElement, cover: HTMLElement | null): void {
+  const coverVideo = cover?.querySelector("video");
+  if (!coverVideo || !bridge.querySelector("video")) return;
+  coverVideo.pause();
+  coverVideo.removeAttribute("src");
+  coverVideo.load();
+  console.debug("[transition:bridge] detail cover video muted (bridge carries the live video)");
+}
+
+/**
+ * Hard-swap the bridge clone for the real `.detail__cover` in one frame —
+ * the end of controllers/detail.ts's entrance (both its desktop and mobile
+ * paths), called in the same synchronous step as that file's cover reveal
+ * (`clearProps: "opacity"`). For an image cover that is just "drop the
+ * clone": the same decoded image at the same spot, so the swap is invisible.
+ *
+ * For a video cover, the bridge's `<video>` is the LIVE element that has
+ * been playing since home (bridgeOut() moved it rather than copying it), so
+ * it is moved once more, into the cover figure in place of FigureBase's own
+ * (emptied — see muteCoverForBridge()) element. One element plays from the
+ * home reveal through to the settled detail page: no reload, no poster
+ * flash, no jump in the playhead. The live video takes the replaced
+ * element's class and width/height attributes so `._g video` lays it out
+ * exactly as FigureBase's would. Vue only ever removes the component's root
+ * figure on unmount, so the swapped-in child leaves with it; the detached
+ * original is simply garbage.
+ */
+export function handOffImageBridge(bridge: HTMLElement, cover: HTMLElement | null): void {
+  const liveVideo = bridge.querySelector("video");
+  const coverVideo = cover?.querySelector("video");
+  if (liveVideo && coverVideo) {
+    liveVideo.removeAttribute("style");
+    liveVideo.className = coverVideo.className;
+    for (const attr of ["width", "height"] as const) {
+      const value = coverVideo.getAttribute(attr);
+      if (value !== null) liveVideo.setAttribute(attr, value);
+    }
+    coverVideo.replaceWith(liveVideo);
+    liveVideo.play().catch(() => {});
+    console.debug("[transition:bridge] live video handed to detail cover");
+  }
+  bridge.remove();
+}
+
+/**
  * bridgeOut — dispatched from transitions/default.ts's onBeforeLeave when
  * the route pair is home→[slug] (a cheap, coarse first-pass gate on route
  * `.name`). `toPath` narrows that further: Nuxt's `[slug].vue` serves
@@ -171,23 +227,11 @@ export function bridgeOut(fromEl: HTMLElement, toPath: string): void {
 
   // The reveal figure holds either an <img> or (for MP4 covers) a <video>.
   // Removing the figure's class above stripped the `._g`/figure sizing, so
-  // re-apply the cover fit to whichever media the clone carries.
+  // re-apply the cover fit to whichever media the clone carries. (A video
+  // clone is only a placeholder — it is swapped for the LIVE original just
+  // below, once the clone is in the document.)
   const media = clone.querySelector<HTMLElement>("img, video");
   if (media) media.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
-
-  // The reveal videos no longer carry `autoplay` (they're `preload="none"`
-  // and played on reveal by controllers/home.ts's watchRevealVideos(), so
-  // the hidden ones stop eating memory on iPad). cloneNode() copies
-  // attributes, not playback state, so the clone would otherwise sit frozen
-  // on its poster through the crossfade. Start it explicitly, from the
-  // original's current frame so the hand-off doesn't jump back to frame 0.
-  // The file is already in the HTTP cache from the original's playback.
-  if (media instanceof HTMLVideoElement) {
-    const source = figure.querySelector("video");
-    media.preload = "auto";
-    if (source) media.currentTime = source.currentTime;
-    media.play().catch(() => {});
-  }
 
   // Appended to `main#app` (NuxtPage's own parent), NOT `document.body` —
   // found necessary while fixing the "image renders over the outgoing text"
@@ -208,6 +252,28 @@ export function bridgeOut(fromEl: HTMLElement, toPath: string): void {
   // the viewport, not `#app`'s box; it does still outlive `.home`'s removal
   // (a sibling of `.home` under `#app`, not a descendant of it).
   document.getElementById("app")?.appendChild(clone);
+
+  // Video covers: carry the ORIGINAL, already-playing <video> across instead
+  // of a copy — the fix for "on mobile, tapping an entry with video blinks
+  // and reloads, and doesn't feel like it stays in place" (client report,
+  // 2026-11-12). cloneNode() copies attributes, not media state: the copy is
+  // a brand-new element with no buffered data, so iOS Safari painted its
+  // poster (or nothing) until it re-loaded the file, and the `currentTime`
+  // seek set before its metadata arrived was silently dropped — it restarted
+  // from frame 0. Moving the live element keeps its decoder, buffer and
+  // playhead: the HTML spec only pauses a media element that is STILL out
+  // of a document once the removing task ends, and the move is synchronous
+  // (both the clone and its new child are in the document by then). The
+  // play() is a belt-and-braces resume, not a reload. The original figure is
+  // hidden below and destroyed with the home section, so it never needs its
+  // video back. controllers/detail.ts carries this same element on into the
+  // detail cover at hand-off (see handOffImageBridge()).
+  const liveVideo = figure.querySelector("video");
+  if (media instanceof HTMLVideoElement && liveVideo) {
+    liveVideo.style.cssText = media.style.cssText;
+    media.replaceWith(liveVideo);
+    liveVideo.play().catch(() => {});
+  }
 
   // Mid-fade clone (tablet tap-reveal): finish the reveal on the clone
   // itself, over the same curve/duration the figure's own CSS transition
