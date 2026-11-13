@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Google Analytics 4 tag (gtag.js, `G-6E8SPQXXS1`)** (`apps/fe/nuxt.config.ts`). Client request (2026-11-13). Loaded through `app.head.script` in the `<head>` of every page in the static production build; the SSR preview deployment leaves it out (gated on the build-time `previewEnabled`), so editors' visits to drafts are not counted. Only the first page view fires from the tag itself; later in-site navigation is counted by GA4's enhanced measurement, which records `history.pushState` route changes as page views and is on by default. Verified: `nuxt generate` puts the tag in all 100 prerendered pages, and a `NUXT_PUBLIC_PREVIEW_ENABLED=true` SSR build contains no reference to the ID. Not yet confirmed in the GA Realtime report.
+
 ### Changed
 
 - **Mobile home: a resting screen shows only the centred entry, with the toolbar collapsed or expanded** (`apps/fe/app/styles/pages/_home.module.scss`). Client report (2026-11-11): after scrolling down on an iPhone, the next title sat on top of the "Contact, Imprint, Follow" footer and the previous one under the "( All )" nav. The list put 50svh between titles, which is exactly a half-screen with Safari's toolbar expanded; scrolling down collapses the toolbar and the visible area grows by the toolbar height, which pulled both neighbours on screen into the nav and footer strips. The spacing is now `100lvh − 50svh` (the collapsed-toolbar worst case), so both neighbours stay off screen in either toolbar state. Unchanged where the viewport has no dynamic toolbar (desktop, Android Chrome without it, devtools emulation): there lvh = svh and the value equals the old 50svh. Each entry takes about one toolbar height more scrolling on iPhone. Not yet confirmed on a physical iPhone.

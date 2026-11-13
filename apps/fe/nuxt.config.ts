@@ -98,6 +98,25 @@ export default defineNuxtConfig({
           crossorigin: "anonymous",
         },
       ],
+      // Google Analytics 4 (gtag.js), measurement ID G-6E8SPQXXS1. Shipped
+      // in the static production build only: the preview deployment is
+      // editors working on drafts, and counting their visits would pollute
+      // the real traffic numbers. Gated on the same build-time
+      // `previewEnabled` const as the preview plugins, so the tag is absent
+      // from preview HTML entirely rather than switched off at runtime.
+      // Only the initial page_view fires from `gtag('config')`; client-side
+      // route changes go through `history.pushState`, which GA4's enhanced
+      // measurement ("page changes based on browser history events", on by
+      // default) records as further page_views without any code here.
+      script: previewEnabled
+        ? []
+        : [
+            { src: "https://www.googletagmanager.com/gtag/js?id=G-6E8SPQXXS1", async: true },
+            {
+              innerHTML:
+                "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-6E8SPQXXS1');",
+            },
+          ],
     },
   },
 
